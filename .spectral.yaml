@@ -1,0 +1,23 @@
+extends:
+  - spectral:oas
+
+# Spectral config is part of the API contract: it defines what we enforce in CI.
+#
+# Note: rule coverage will evolve as the codebase is scaffolded.
+rules:
+  # Require operationId for stable client generation and diff-friendly specs.
+  operation-operationId: error
+
+  # Require tags to keep the spec navigable in Swagger UI and tooling.
+  operation-tags: error
+
+  # Require per-operation error codes as part of the contract discipline.
+  x-error-codes-required:
+    description: Every operation must declare x-error-codes.
+    message: "Missing x-error-codes on operation."
+    severity: error
+    given: "$.paths[*]['get','put','post','delete','options','head','patch','trace']"
+    then:
+      field: "x-error-codes"
+      function: truthy
+
