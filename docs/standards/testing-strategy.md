@@ -45,7 +45,7 @@ Two non-negotiable CI gates:
 
 1) **OpenAPI snapshot**
 - Generate OpenAPI from code.
-- Compare to committed artifact (`docs/openapi/openapi.json`).
+- Compare to committed artifact (`docs/openapi/openapi.yaml`).
 - Fail CI if uncommitted changes exist.
 
 2) **Spectral lint**

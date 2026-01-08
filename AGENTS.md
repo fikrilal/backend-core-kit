@@ -101,7 +101,7 @@ See: `docs/standards/observability.md`, `docs/standards/security.md`, ADR `docs/
 
 ## OpenAPI Contract Gates
 
-- Generated OpenAPI snapshot is committed at `docs/openapi/openapi.json`.
+- Generated OpenAPI snapshot is committed at `docs/openapi/openapi.yaml`.
 - Spectral ruleset lives in `.spectral.yaml` (enforces `operationId`, tags, and `x-error-codes` at minimum).
 - Any API change must update the snapshot and keep Spectral passing.
 

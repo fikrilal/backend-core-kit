@@ -18,7 +18,7 @@ On every PR:
 - e2e tests for critical flows (as the project grows)
 
 3) Contract gates (non-negotiable)
-- generate OpenAPI from code and compare with committed snapshot (`docs/openapi/openapi.json`)
+- generate OpenAPI from code and compare with committed snapshot (`docs/openapi/openapi.yaml`)
 - run Spectral lint on the OpenAPI artifact using `.spectral.yaml`
 
 4) Security gates (baseline)

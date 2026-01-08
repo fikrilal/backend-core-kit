@@ -1,6 +1,6 @@
 # ADR: Commit Generated OpenAPI Artifact and Enforce with Spectral
 
-- Status: Accepted
+- Status: Superseded by `docs/adr/0015-openapi-yaml-and-swagger-ui.md`
 - Date: 2026-01-08
 - Decision makers: Core kit maintainers
 
@@ -43,4 +43,3 @@ Without this, API drift and accidental breaking changes are inevitable across pr
 - `docs/openapi/README.md`
 - `docs/adr/0003-openapi-code-first-contract-gates.md`
 - `docs/standards/error-codes.md`
-

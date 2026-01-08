@@ -1,0 +1,60 @@
+openapi: 3.0.0
+paths:
+  /health:
+    get:
+      description: Indicates whether the process is alive.
+      operationId: health.get
+      parameters: []
+      responses:
+        "200":
+          description: Liveness check.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                required:
+                  - status
+      summary: Liveness check
+      tags:
+        - Health
+      x-error-codes:
+        - INTERNAL
+  /ready:
+    get:
+      description: Indicates whether the service is ready to receive traffic.
+      operationId: ready.get
+      parameters: []
+      responses:
+        "200":
+          description: Readiness check.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                required:
+                  - status
+      summary: Readiness check
+      tags:
+        - Health
+      x-error-codes:
+        - INTERNAL
+info:
+  title: Backend Core Kit API
+  description: Generated API contract (code-first).
+  version: 0.1.0
+  contact: {}
+tags:
+  - name: Health
+    description: Service health and readiness endpoints.
+servers:
+  - url: /
+components:
+  schemas: {}

@@ -36,6 +36,7 @@ This is the typical minimal set (exact keys may evolve):
   - `NODE_ENV`
   - `HOST`
   - `PORT`
+  - `SWAGGER_UI_ENABLED` (optional; defaults on for non-prod, off for prod/test)
 - Database
   - `DATABASE_URL`
 - Redis / BullMQ
