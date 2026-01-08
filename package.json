@@ -1,0 +1,50 @@
+{
+  "name": "backend-core-kit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Production-ready NestJS backend boilerplate (Fastify, Postgres/Prisma, Redis/BullMQ, OpenTelemetry, OpenAPI contract gates).",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/apps/api/src/main.js",
+    "start:dev": "nest start --watch",
+    "lint": "eslint \"{apps,libs,test}/**/*.ts\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "deps:check": "depcruise --config .dependency-cruiser.cjs --output-type err --validate .dependency-cruiser.cjs apps libs",
+    "test": "jest --config jest.config.cjs",
+    "test:e2e": "jest --config test/jest-e2e.json --runInBand"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.8",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.1.8",
+    "@nestjs/platform-fastify": "^11.1.8",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "fastify": "^5.6.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@nestjs/cli": "^11.0.10",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.8.6",
+    "@types/supertest": "^6.0.2",
+    "dependency-cruiser": "^17.3.6",
+    "eslint": "^9.13.0",
+    "eslint-config-prettier": "^9.1.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.3.3",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.12.2"
+  }
+}
