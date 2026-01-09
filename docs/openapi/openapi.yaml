@@ -6,7 +6,7 @@ paths:
       operationId: health.get
       parameters: []
       responses:
-        "200":
+        '200':
           description: Liveness check.
           content:
             application/json:
@@ -29,7 +29,7 @@ paths:
       operationId: ready.get
       parameters: []
       responses:
-        "200":
+        '200':
           description: Readiness check.
           content:
             application/json:

@@ -5,6 +5,7 @@ This standard defines how list endpoints behave so clients can implement generic
 ## Pagination (Cursor-Based)
 
 Request:
+
 - `limit` (optional): integer, default 25, max 250
 - `cursor` (optional): opaque string
 
@@ -16,12 +17,13 @@ Response:
 
 ```json
 {
-  "data": [ { } ],
+  "data": [{}],
   "meta": { "nextCursor": "…", "limit": 25 }
 }
 ```
 
 Rules:
+
 - `nextCursor` is omitted when there are no more results.
 - Cursor format is opaque to clients. It is typically base64url-encoded JSON.
 - Endpoints must define a deterministic default sort so pagination is stable.
@@ -29,13 +31,16 @@ Rules:
 ## Sorting
 
 Use `sort`:
+
 - comma-separated fields
 - prefix `-` for descending
 
 Example:
+
 - `sort=-createdAt,email`
 
 Rules:
+
 - Only allow an explicit allowlist of sortable fields (avoid exposing arbitrary DB columns).
 - Default sorting must be documented in OpenAPI.
 
@@ -50,14 +55,16 @@ Use `filter[...]` query parameters:
   - `filter[createdAt][lte]=2026-01-31T23:59:59.999Z`
 
 Rules:
+
 - Only allow an explicit allowlist of filterable fields/operators per endpoint.
 - Do not implement “generic filtering over all fields” (security + performance footguns).
 
 ## Search
 
 Use `q` for free-text search when supported:
+
 - `GET /v1/books?q=atomic+habits`
 
 Rules:
-- `q` semantics must be documented per endpoint.
 
+- `q` semantics must be documented per endpoint.

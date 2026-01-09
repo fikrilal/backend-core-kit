@@ -7,6 +7,7 @@
 ## Context
 
 Enterprise-grade systems require:
+
 - traceability across requests and jobs
 - metrics for latency and reliability
 - standardized instrumentation that works across projects
@@ -38,4 +39,3 @@ The organization uses Grafana Cloud Free.
 
 - `docs/standards/observability.md`
 - `docs/standards/api-response-standard.md`
-

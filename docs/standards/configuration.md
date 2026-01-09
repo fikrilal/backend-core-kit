@@ -5,6 +5,7 @@ This document defines how configuration and secrets must be handled across envir
 ## Environments
 
 Supported environments:
+
 - `development`
 - `test`
 - `staging`
@@ -15,6 +16,7 @@ The core kit must behave correctly with environment-provided configuration in ea
 ## Fail Fast Validation
 
 Configuration must be validated at startup:
+
 - strict schema validation (types + ranges + formats)
 - startup fails if required config is missing or invalid
 
@@ -23,6 +25,7 @@ Rationale: misconfiguration is a top source of production incidents; fail fast i
 ## Secrets Handling
 
 Rules:
+
 - Never commit secrets to git.
 - Do not bake secrets into container images.
 - Secrets must be injected at runtime (env vars, mounted files, or secret manager integration).
@@ -57,12 +60,14 @@ This is the typical minimal set (exact keys may evolve):
 ## Local Development
 
 Local dev may use `.env`, but:
+
 - `.env` is never committed.
 - `env.example` is committed and kept up-to-date.
 
 ## Rotation-Friendly Key Management
 
 Signing keys must be stored as secrets:
+
 - The service loads a set of private signing keys (current + previous) at startup.
 - JWKS publishes public keys derived from the configured set.
 - Rotation is managed by updating the configured key set and deploying.

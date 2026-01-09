@@ -7,6 +7,7 @@
 ## Context
 
 We need a long-lived Node.js backend foundation that:
+
 - supports modular architecture and DI
 - is testable and maintainable across many projects
 - has strong ecosystem support
@@ -14,6 +15,7 @@ We need a long-lived Node.js backend foundation that:
 ## Decision
 
 The core kit standardizes on:
+
 - NestJS as the application framework
 - Fastify as the HTTP server adapter
 
@@ -35,4 +37,3 @@ The core kit standardizes on:
 ## Links / References
 
 - `docs/core/project-stack.md`
-

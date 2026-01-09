@@ -18,4 +18,3 @@ This guide standardizes the shape of endpoints so clients can be consistent acro
 - Throwing framework exceptions without mapping to problem-details
 - Adding new error codes without documenting them in OpenAPI
 - Implementing ad-hoc pagination/filter formats
-

@@ -7,6 +7,7 @@
 ## Context
 
 Future projects need enterprise-grade authentication:
+
 - many will use an external IdP (OIDC)
 - some need first-party password auth
 
@@ -41,4 +42,3 @@ We want a consistent authorization/session model across projects regardless of l
 ## Links / References
 
 - `docs/standards/authentication.md`
-

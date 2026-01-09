@@ -7,6 +7,7 @@
 ## Context
 
 We need secure and operable token verification:
+
 - token verification by other services and tooling should not require shared secrets
 - keys must rotate safely
 - compromised keys must be revocable
@@ -41,4 +42,3 @@ We need secure and operable token verification:
 
 - `docs/standards/authentication.md`
 - `docs/standards/configuration.md`
-

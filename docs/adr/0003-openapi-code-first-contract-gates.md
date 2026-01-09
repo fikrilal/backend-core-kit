@@ -11,6 +11,7 @@ API drift is expensive. We need contract discipline so clients can depend on sta
 ## Decision
 
 We will use:
+
 - code-first OpenAPI generation (`@nestjs/swagger`)
 - CI contract gates:
   - OpenAPI snapshot verification (generated spec must match committed artifact)
@@ -37,4 +38,3 @@ We will use:
 
 - `docs/standards/api-response-standard.md`
 - `docs/standards/error-codes.md`
-

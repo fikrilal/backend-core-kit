@@ -7,6 +7,7 @@
 ## Context
 
 Background jobs are required in most real systems (emails, notifications, long-running processing). They need:
+
 - retries/backoff
 - concurrency control
 - observability
@@ -38,4 +39,3 @@ Background jobs are required in most real systems (emails, notifications, long-r
 ## Links / References
 
 - `docs/standards/queues-jobs.md`
-

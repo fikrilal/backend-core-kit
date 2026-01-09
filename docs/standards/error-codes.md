@@ -13,7 +13,8 @@ Error codes are stable identifiers for programmatic error handling. They are par
 
 Use one of these patterns:
 
-1) **Global** (cross-cutting) codes:
+1. **Global** (cross-cutting) codes:
+
 - `INTERNAL`
 - `VALIDATION_FAILED`
 - `UNAUTHORIZED`
@@ -23,11 +24,12 @@ Use one of these patterns:
 - `RATE_LIMITED`
 - `IDEMPOTENCY_IN_PROGRESS`
 
-2) **Feature-specific** codes:
+2. **Feature-specific** codes:
 
 `<FEATURE>_<REASON>`
 
 Examples:
+
 - `AUTH_INVALID_CREDENTIALS`
 - `AUTH_EMAIL_NOT_VERIFIED`
 - `AUTH_REFRESH_TOKEN_REVOKED`
@@ -38,12 +40,14 @@ Guideline: prefer explicit feature codes once a consumer needs to branch on the 
 ## Validation Errors
 
 Validation failures should use:
+
 - `code`: `VALIDATION_FAILED`
 - `errors[]`: list of `{ field, message }`
 
 ## Unknown / Unexpected Errors
 
 Unexpected errors must:
+
 - Use `code`: `INTERNAL`
 - Use a generic `title/detail`
 - Include `traceId` for correlation
@@ -61,4 +65,3 @@ x-error-codes:
 ```
 
 The set must match reality; CI will treat this as contract.
-

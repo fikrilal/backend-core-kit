@@ -25,7 +25,11 @@ export class ProblemException extends HttpException {
   }
 
   static unauthorized(detail?: string) {
-    return new ProblemException(401, { title: 'Unauthorized', detail, code: ErrorCode.UNAUTHORIZED });
+    return new ProblemException(401, {
+      title: 'Unauthorized',
+      detail,
+      code: ErrorCode.UNAUTHORIZED,
+    });
   }
 
   static forbidden(detail?: string) {
@@ -48,4 +52,3 @@ export class ProblemException extends HttpException {
     });
   }
 }
-

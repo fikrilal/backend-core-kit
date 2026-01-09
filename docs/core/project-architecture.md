@@ -60,6 +60,7 @@ platform -> (infra/app), but domain must not depend on platform
 ```
 
 Examples:
+
 - `domain` must not import `@nestjs/*`, `@prisma/client`, Redis, BullMQ, or HTTP types.
 - `app` defines interfaces (“ports”) that infra implements.
 - `infra` contains Prisma repositories, HTTP controllers, BullMQ processors, external API clients.
@@ -68,12 +69,14 @@ Examples:
 
 Two processes are the baseline:
 
-1) **API process**
+1. **API process**
+
 - Serves HTTP traffic.
 - Emits traces/metrics/logs with request correlation.
 - Enqueues background jobs to BullMQ.
 
-2) **Worker process**
+2. **Worker process**
+
 - Consumes BullMQ jobs.
 - Runs retries/backoff/dead-letter policies.
 - Emits traces/metrics/logs with job correlation.
@@ -81,6 +84,7 @@ Two processes are the baseline:
 ## Cross-Cutting Platform Concerns
 
 Platform-level behaviors are implemented once and reused everywhere:
+
 - request ID and correlation
 - response envelope
 - problem-details error mapping (RFC 7807 shape)

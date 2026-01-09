@@ -29,4 +29,3 @@ List alternatives and why we didn’t choose them.
 - Related ADRs:
 - Related docs:
 - Related issues:
-

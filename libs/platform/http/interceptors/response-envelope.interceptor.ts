@@ -42,7 +42,11 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor<unknown, unk
           if (nextCursor !== undefined) meta.nextCursor = nextCursor;
           if (limit !== undefined) meta.limit = limit;
 
-          const envelope: { data: unknown[]; meta?: Record<string, unknown>; extra?: Record<string, unknown> } = {
+          const envelope: {
+            data: unknown[];
+            meta?: Record<string, unknown>;
+            extra?: Record<string, unknown>;
+          } = {
             data: items,
           };
           if (Object.keys(meta).length) envelope.meta = meta;
@@ -54,7 +58,8 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor<unknown, unk
         if (
           typeof data === 'object' &&
           data !== null &&
-          ('data' in (data as Record<string, unknown>) || 'meta' in (data as Record<string, unknown>))
+          ('data' in (data as Record<string, unknown>) ||
+            'meta' in (data as Record<string, unknown>))
         ) {
           return data;
         }
@@ -64,4 +69,3 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor<unknown, unk
     );
   }
 }
-

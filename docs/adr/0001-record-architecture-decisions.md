@@ -11,6 +11,7 @@ This repository is intended to be reused across many future projects. Without a 
 ## Decision
 
 We will use Architecture Decision Records (ADRs) from day one:
+
 - ADRs live in `docs/adr/`.
 - ADRs use `docs/adr/template.md`.
 - ADRs are written for non-trivial architectural and contract decisions (stack, API shapes, auth model, observability, persistence patterns).
@@ -18,6 +19,7 @@ We will use Architecture Decision Records (ADRs) from day one:
 ## Rationale
 
 ADRs provide a lightweight and auditable record of:
+
 - what we decided
 - why we decided it
 - what alternatives were considered
@@ -38,4 +40,3 @@ This is essential for a long-lived boilerplate where consistency is a feature.
 ## Links / References
 
 - Template: `docs/adr/template.md`
-

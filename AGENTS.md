@@ -43,6 +43,7 @@ ADR: `docs/adr/0011-repository-layout-apps-and-libs.md`.
 ### Layering Rules (Strict)
 
 Within a feature:
+
 - `domain`: pure rules (no Nest/Prisma/Redis/BullMQ/HTTP imports)
 - `app`: use-cases + ports (interfaces). Must not import infra or framework details.
 - `infra`: adapters (Prisma repos, BullMQ processors, controllers). May import `app` + `domain` + `platform`.
@@ -54,6 +55,7 @@ infra  -> app  -> domain
 ```
 
 Platform rule:
+
 - `libs/platform/*` must not depend on `libs/features/*`.
 
 ## API Standards (Transport Layer)
@@ -79,6 +81,7 @@ Platform rule:
   - reuse detection revokes the whole session
 
 See:
+
 - `docs/standards/authentication.md`
 - ADRs: `docs/adr/0005-auth-oidc-primary-first-party-tokens.md`, `docs/adr/0006-jwt-asymmetric-jwks-rotation.md`, `docs/adr/0010-refresh-tokens-opaque-rotation.md`
 
@@ -110,6 +113,7 @@ See: `docs/openapi/README.md` and ADR `docs/adr/0012-openapi-artifact-and-spectr
 ## Tooling & Commands (Expected Scripts)
 
 Projects built from this kit should provide stable scripts (names may be finalized during scaffolding):
+
 - `npm run start:dev` (API)
 - `npm run start:worker` (worker)
 - `npm run lint` / `npm run format` / `npm run typecheck`
@@ -120,6 +124,7 @@ Projects built from this kit should provide stable scripts (names may be finaliz
 ## When to Add an ADR
 
 Add an ADR for:
+
 - changing any baseline decision (framework, auth/token strategy, envelope/error shape)
 - altering folder layout/boundary rules
 - changing contract gates (OpenAPI location, Spectral rules)
@@ -130,9 +135,10 @@ Use `docs/adr/template.md` and keep ADRs short and specific.
 ## Agent-Specific Implementation Workflow
 
 Before coding:
-1) Read `docs/README.md` and the relevant standards.
-2) Confirm the change fits the architecture; if not, propose/write an ADR.
-3) Implement minimally; update docs + OpenAPI snapshot if API changes.
-4) Ensure boundary rules aren’t violated (no “shortcut imports”).
+
+1. Read `docs/README.md` and the relevant standards.
+2. Confirm the change fits the architecture; if not, propose/write an ADR.
+3. Implement minimally; update docs + OpenAPI snapshot if API changes.
+4. Ensure boundary rules aren’t violated (no “shortcut imports”).
 
 If you must handle unknown input, use `unknown` + validation and keep domain pure.

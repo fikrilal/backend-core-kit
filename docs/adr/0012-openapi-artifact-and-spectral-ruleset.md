@@ -7,6 +7,7 @@
 ## Context
 
 We use code-first OpenAPI generation, but we still need:
+
 - a stable, reviewable contract artifact in git
 - consistent governance rules enforced in CI
 
@@ -19,8 +20,8 @@ Without this, API drift and accidental breaking changes are inevitable across pr
 - Spectral ruleset/config lives at:
   - `.spectral.yaml`
 - CI contract gates:
-  1) Generate spec from code and compare to `docs/openapi/openapi.json` (snapshot gate)
-  2) Run Spectral lint using `.spectral.yaml` (lint gate)
+  1. Generate spec from code and compare to `docs/openapi/openapi.json` (snapshot gate)
+  2. Run Spectral lint using `.spectral.yaml` (lint gate)
 
 ## Rationale
 

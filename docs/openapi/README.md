@@ -13,12 +13,14 @@ The committed file is the contract snapshot used by CI gates.
 
 CI enforces:
 
-1) **Snapshot gate**
+1. **Snapshot gate**
+
 - Generate OpenAPI from code.
 - Compare to `docs/openapi/openapi.yaml`.
 - Fail if there is a diff.
 
-2) **Lint gate**
+2. **Lint gate**
+
 - Run Spectral against `docs/openapi/openapi.yaml` using `.spectral.yaml`.
 
 ## Swagger UI

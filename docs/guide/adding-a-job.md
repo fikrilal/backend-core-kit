@@ -12,19 +12,22 @@ This guide standardizes background work so it remains observable and reliable.
 
 ## Steps
 
-1) Define the job payload
+1. Define the job payload
+
 - Keep it small.
 - Avoid PII; store references and fetch data in the worker if needed.
 
-2) Enqueue the job
+2. Enqueue the job
+
 - Use a stable queue name.
 - Use deterministic `jobId` when possible to dedupe.
 
-3) Process the job
+3. Process the job
+
 - Wrap execution in tracing spans.
 - Emit structured logs with `jobId`.
 
-4) Tests
+4. Tests
+
 - Unit test job logic (pure parts).
 - Integration test enqueue + process behavior when feasible.
-

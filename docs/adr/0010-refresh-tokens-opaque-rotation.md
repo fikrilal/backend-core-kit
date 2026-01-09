@@ -7,6 +7,7 @@
 ## Context
 
 The core kit issues first-party session tokens for both OIDC and password login. We need a refresh token design that is:
+
 - secure under token theft/replay scenarios
 - rotation-friendly
 - operationally simple
@@ -31,11 +32,13 @@ Access tokens remain JWTs signed asymmetrically with JWKS and key rotation (`kid
 ## Rationale
 
 Opaque refresh tokens are a better fit for our requirements because:
+
 - We need server-side state anyway (revocation, rotation, session management).
 - JWT refresh tokens add extra signing key lifecycle complexity without removing DB lookups.
 - Opaque tokens minimize claim leakage and keep refresh tokens as “pure secrets”.
 
 Reuse detection is a pragmatic defense:
+
 - refresh token theft is common; detecting replay enables rapid containment.
 
 ## Consequences
@@ -55,4 +58,3 @@ Reuse detection is a pragmatic defense:
 
 - `docs/standards/authentication.md`
 - `docs/adr/0006-jwt-asymmetric-jwks-rotation.md`
-

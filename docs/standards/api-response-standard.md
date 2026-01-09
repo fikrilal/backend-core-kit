@@ -7,7 +7,7 @@ This document defines **mandatory** response shapes, headers, and status code ru
 All successful JSON responses use this envelope:
 
 ```json
-{ "data": { } }
+{ "data": {} }
 ```
 
 ### Lists
@@ -16,12 +16,13 @@ List endpoints return:
 
 ```json
 {
-  "data": [ { } ],
+  "data": [{}],
   "meta": { "nextCursor": "…", "limit": 25 }
 }
 ```
 
 Rules:
+
 - `data` is always present (object or array) for successful JSON responses.
 - `meta` is optional.
 - Do **not** add `status`, `success`, or `message` fields to the success envelope by default.
@@ -34,6 +35,7 @@ Allowed exceptions must be explicit and documented (e.g., `/health`, `/ready`, f
 ## Errors (RFC 7807 / Problem Details)
 
 All errors must return:
+
 - Content-Type: `application/problem+json`
 - Body (RFC 7807 + extensions):
 
@@ -45,13 +47,12 @@ All errors must return:
   "detail": "Human-friendly message",
   "code": "VALIDATION_FAILED",
   "traceId": "4c2e6e3a-…",
-  "errors": [
-    { "field": "email", "message": "Must be a valid email" }
-  ]
+  "errors": [{ "field": "email", "message": "Must be a valid email" }]
 }
 ```
 
 Rules:
+
 - `code` is required and stable. See `docs/standards/error-codes.md`.
 - `traceId` is required and equals the `X-Request-Id` value.
 - `errors[]` is optional and used for validation-style details.
@@ -91,4 +92,3 @@ Rules:
 - Success schemas must model the `{ data, meta? }` envelope.
 - Errors must reference a shared `ProblemDetails` schema.
 - Each operation lists possible `code` values under `x-error-codes`.
-

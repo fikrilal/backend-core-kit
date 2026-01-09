@@ -26,6 +26,7 @@ When code is scaffolded, keep these commands stable; they form the projectâ€™s â
 ## Contract Discipline (Non-Negotiable)
 
 Every PR must keep these gates green:
+
 - OpenAPI snapshot is up-to-date and committed.
 - Spectral lint passes.
 - Error codes documented via `x-error-codes`.
@@ -33,6 +34,7 @@ Every PR must keep these gates green:
 ## Release Hygiene (Baseline)
 
 Even if automation is added later, design for:
+
 - immutable builds
 - environment-driven configuration
 - migration strategy (`prisma migrate deploy` gated)

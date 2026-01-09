@@ -9,6 +9,7 @@
 This core kit is reused across many projects. Type drift and “escape hatch” typing (`any`) create long-term maintenance costs and production defects, especially in fast-moving codebases with multiple teams.
 
 We want a baseline that:
+
 - catches whole classes of bugs early (compile time)
 - keeps refactors safe
 - prevents gradual degradation of types
@@ -40,4 +41,3 @@ We want a baseline that:
 ## Links / References
 
 - `docs/standards/code-quality.md`
-

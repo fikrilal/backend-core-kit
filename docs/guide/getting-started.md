@@ -26,6 +26,7 @@ Bring up local Postgres + Redis:
 ## Database Setup
 
 Typical workflow (exact commands depend on the project scaffold):
+
 - run migrations
 - generate Prisma client
 - optionally seed
@@ -33,6 +34,7 @@ Typical workflow (exact commands depend on the project scaffold):
 ## Run the API
 
 Typical workflow:
+
 - `npm run start:dev`
 
 ## Verify
@@ -42,4 +44,3 @@ Typical workflow:
 - OpenAPI/Swagger UI should be available (project-defined route)
 
 If anything is unclear or missing, add/adjust docs before adding code so the core kit remains “doc-driven”.
-

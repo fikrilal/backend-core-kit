@@ -13,6 +13,7 @@ This core kit standardizes authorization using **RBAC** (Role-Based Access Contr
 ### Roles
 
 Roles are coarse-grained groupings like:
+
 - `USER`
 - `ADMIN`
 - `SUPPORT`
@@ -26,33 +27,39 @@ Permissions are fine-grained capabilities expressed as strings:
 `<resource>:<action>`
 
 Examples:
+
 - `users:read`
 - `users:write`
 - `wallets:transfer`
 - `admin:*`
 
 Rules:
+
 - Avoid embedding business-specific context into permission strings; keep them durable.
 - Prefer additive permissions over “magic admin bypasses”.
 
 ## Enforcement Pattern
 
 Use declarative enforcement in the HTTP layer:
+
 - Decorator: `@RequirePermissions('users:read')`
 - Guard: checks the authenticated principal for required permissions
 
 Rules:
+
 - Services may perform secondary checks for ownership or contextual constraints (e.g., “user can update own profile”), but role/capability requirements should remain visible at the route boundary.
 
 ## Where to Store Roles
 
 Baseline approaches:
 
-1) **Static roles** (recommended default for consumer apps)
+1. **Static roles** (recommended default for consumer apps)
+
 - Roles are enums; role → permissions mapping is code-defined.
 - Simple, fast, consistent.
 
-2) **DB-driven roles** (optional extension)
+2. **DB-driven roles** (optional extension)
+
 - Roles/permissions stored in tables.
 - Useful for admin consoles and dynamic policy updates, but adds complexity.
 
@@ -61,7 +68,7 @@ The core kit should make approach (1) easy and leave room to adopt (2) when a pr
 ## Roadmap: Multi-Tenancy
 
 When introduced, tenant scoping should be:
+
 - a first-class claim in auth context (e.g., `tenantId`)
 - enforced by guards + repository scoping
 - audited in logs/traces
-

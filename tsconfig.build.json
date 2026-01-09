@@ -8,4 +8,3 @@
   "include": ["apps/**/*.ts", "libs/**/*.ts"],
   "exclude": ["test", "**/*.spec.ts", "**/*.test.ts", "node_modules", "dist"]
 }
-

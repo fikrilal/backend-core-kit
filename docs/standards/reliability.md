@@ -5,6 +5,7 @@ This document defines baseline reliability requirements that prevent common prod
 ## Timeouts (Everywhere)
 
 Rules:
+
 - Server has request timeouts (to avoid stuck connections).
 - DB has statement/query timeouts where supported.
 - Redis commands have timeouts and bounded retries.
@@ -13,6 +14,7 @@ Rules:
 ## Retries (Only Where Safe)
 
 Rules:
+
 - Only retry idempotent operations or operations protected by idempotency keys.
 - Use exponential backoff with jitter.
 - Bound retries (no infinite loops).
@@ -20,16 +22,19 @@ Rules:
 ## Idempotency Keys (Write Endpoints)
 
 Write endpoints that may be retried by clients must support:
+
 - `Idempotency-Key` request header
 - replay detection + cached response
 - concurrency lock to avoid duplicated work
 
 Replayed responses must include:
+
 - `Idempotency-Replayed: true`
 
 ## Graceful Shutdown
 
 On `SIGTERM`/`SIGINT`:
+
 - stop accepting new work
 - drain in-flight requests
 - close resources (DB, Redis, queue)
@@ -43,7 +48,7 @@ On `SIGTERM`/`SIGINT`:
 ## Backpressure
 
 Rules:
+
 - Use bounded concurrency in workers.
 - Use rate limiting on sensitive endpoints (auth, OTP, etc.).
 - Avoid unbounded memory growth (stream large responses, cap payload sizes).
-

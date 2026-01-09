@@ -25,6 +25,7 @@ Backend Core Kit is a **production-ready backend boilerplate** with opinionated 
 ## Intended Use
 
 Use this core kit as the starting point for:
+
 - consumer apps backends (mobile/web)
 - internal APIs
 - service backends with background jobs
@@ -33,22 +34,25 @@ Projects should extend the kit by adding **features** (vertical slices) rather t
 
 ## Golden Path (Baseline Capabilities)
 
-1) API server (NestJS + Fastify)
+1. API server (NestJS + Fastify)
+
 - Versioned routes (e.g., `/v1/*`) and consistent response envelope.
 - Generated OpenAPI from code, checked in CI.
 
-2) Auth + Authorization
+2. Auth + Authorization
+
 - OIDC is the primary login method; password auth is also first-class.
 - Both methods mint the same first-party access+refresh tokens.
 - RBAC enforcement via guards/decorators.
 
-3) Data + Background Work
+3. Data + Background Work
+
 - Postgres + Prisma with migrations.
 - Redis for cache/locks and BullMQ for background jobs.
 - Worker runs as a separate process by default.
 
-4) Observability + Reliability
+4. Observability + Reliability
+
 - Structured JSON logs with request correlation and PII-redaction guidance.
 - OpenTelemetry traces + metrics exported to Grafana Cloud (OTLP).
 - Timeouts, graceful shutdown, idempotency guidelines, and health/readiness endpoints.
-

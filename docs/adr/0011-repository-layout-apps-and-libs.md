@@ -7,6 +7,7 @@
 ## Context
 
 We need a default project skeleton that:
+
 - supports a separate worker process (BullMQ) without duplicating code
 - enforces boundaries between platform concerns and business features
 - scales to many feature modules without turning into a “src/” junk drawer
@@ -50,4 +51,3 @@ The repository remains a **single npm project** at the root (one `package.json`)
 
 - `docs/core/project-architecture.md`
 - `docs/adr/0007-bullmq-separate-worker.md`
-

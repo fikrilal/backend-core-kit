@@ -5,4 +5,3 @@ declare module 'fastify' {
     requestId?: string;
   }
 }
-

@@ -9,6 +9,7 @@
 Architectural boundaries (“domain/app/infra”, platform vs features) only work when they are enforced.
 
 Manual code review is not sufficient because:
+
 - reviewers miss violations under time pressure
 - boundaries erode gradually (“just this one import”)
 - violations increase coupling and make later multi-tenancy/extraction/refactors expensive
@@ -16,6 +17,7 @@ Manual code review is not sufficient because:
 ## Decision
 
 We will enforce boundaries automatically in CI using **dependency-cruiser**:
+
 - detect forbidden imports based on directory rules
 - detect circular dependencies
 - fail CI on violations
@@ -43,4 +45,3 @@ This enforcement is part of the core kit’s “production baseline” and not o
 
 - `docs/core/project-architecture.md`
 - `docs/standards/code-quality.md`
-

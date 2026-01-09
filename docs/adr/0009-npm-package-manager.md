@@ -29,4 +29,3 @@ We standardize on npm.
 ## Links / References
 
 - `docs/core/project-stack.md`
-

@@ -6,4 +6,3 @@ import { ReadyController } from './ready.controller';
   controllers: [HealthController, ReadyController],
 })
 export class HealthModule {}
-

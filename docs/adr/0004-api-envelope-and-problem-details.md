@@ -35,4 +35,3 @@ Multiple projects will share clients and internal tooling. Without a consistent 
 ## Links / References
 
 - `docs/standards/api-response-standard.md`
-

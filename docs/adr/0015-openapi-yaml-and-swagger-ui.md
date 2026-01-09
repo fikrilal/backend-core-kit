@@ -7,6 +7,7 @@
 ## Context
 
 We commit a generated OpenAPI artifact and enforce it with Spectral, but we also need:
+
 - a snapshot format that is readable in PR diffs
 - a standard way to browse the contract locally (without external tooling)
 - a safe default for production (docs endpoints can leak info)

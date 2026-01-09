@@ -32,11 +32,9 @@ function flattenValidationErrors(
 }
 
 export async function createApiApp(): Promise<NestFastifyApplication> {
-  const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
-    new FastifyAdapter(),
-    { bufferLogs: true },
-  );
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
+    bufferLogs: true,
+  });
 
   // Ensure request-id and not-found behavior applies to all requests (including unmatched routes).
   registerFastifyHttpPlatform(app);
@@ -68,4 +66,3 @@ export async function createApiApp(): Promise<NestFastifyApplication> {
   await app.init();
   return app;
 }
-

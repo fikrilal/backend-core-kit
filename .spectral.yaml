@@ -14,10 +14,9 @@ rules:
   # Require per-operation error codes as part of the contract discipline.
   x-error-codes-required:
     description: Every operation must declare x-error-codes.
-    message: "Missing x-error-codes on operation."
+    message: 'Missing x-error-codes on operation.'
     severity: error
     given: "$.paths[*]['get','put','post','delete','options','head','patch','trace']"
     then:
-      field: "x-error-codes"
+      field: 'x-error-codes'
       function: truthy
-
