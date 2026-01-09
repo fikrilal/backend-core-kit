@@ -17,15 +17,30 @@ This guide standardizes background work so it remains observable and reliable.
 - Keep it small.
 - Avoid PII; store references and fetch data in the worker if needed.
 
+Also define stable identifiers:
+
+- Queue name via `libs/platform/queue/queue-name.ts` (`queueName('emails')`)
+- Job name via `libs/platform/queue/job-name.ts` (`jobName('user.sendVerificationEmail')`)
+
 2. Enqueue the job
 
 - Use a stable queue name.
 - Use deterministic `jobId` when possible to dedupe.
 
+Implementation (current):
+
+- Inject `QueueProducer` from `libs/platform/queue/queue.producer.ts`.
+- Call `queueProducer.enqueue(queueName, jobName, payload, { jobId })`.
+
 3. Process the job
 
 - Wrap execution in tracing spans.
 - Emit structured logs with `jobId`.
+
+Implementation (current):
+
+- Worker lives in `apps/worker`.
+- Inject `QueueWorkerFactory` from `libs/platform/queue/queue.worker.ts` and register exactly one worker per queue in this process.
 
 4. Tests
 

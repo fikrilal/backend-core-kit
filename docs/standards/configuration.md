@@ -44,6 +44,8 @@ This is the typical minimal set (exact keys may evolve):
   - `NODE_ENV`
   - `HOST`
   - `PORT`
+  - `WORKER_HOST`
+  - `WORKER_PORT`
   - `SWAGGER_UI_ENABLED` (optional; defaults on for non-prod, off for prod/test)
 - Database
   - `DATABASE_URL`

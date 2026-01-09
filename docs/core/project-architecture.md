@@ -80,6 +80,7 @@ Two processes are the baseline:
 - Consumes BullMQ jobs.
 - Runs retries/backoff/dead-letter policies.
 - Emits traces/metrics/logs with job correlation.
+- Exposes `/health` and `/ready` (typically on `WORKER_PORT`) for orchestration.
 
 ## Cross-Cutting Platform Concerns
 

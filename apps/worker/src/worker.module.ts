@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
-import { HealthModule } from '../../../libs/platform/health/health.module';
-import { QueueModule } from '../../../libs/platform/queue/queue.module';
-import { ResponseEnvelopeInterceptor } from '../../../libs/platform/http/interceptors/response-envelope.interceptor';
-import { ProblemDetailsFilter } from '../../../libs/platform/http/filters/problem-details.filter';
 import { validateEnv } from '../../../libs/platform/config/env.validation';
+import { HealthModule } from '../../../libs/platform/health/health.module';
+import { ProblemDetailsFilter } from '../../../libs/platform/http/filters/problem-details.filter';
+import { ResponseEnvelopeInterceptor } from '../../../libs/platform/http/interceptors/response-envelope.interceptor';
+import { QueueModule } from '../../../libs/platform/queue/queue.module';
 
 @Module({
   imports: [
@@ -18,4 +18,4 @@ import { validateEnv } from '../../../libs/platform/config/env.validation';
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },
   ],
 })
-export class AppModule {}
+export class WorkerModule {}

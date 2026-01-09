@@ -6,6 +6,7 @@ This document defines the expected development workflow for projects using this 
 
 These are the typical commands a project should provide:
 
+- `npm run deps:up` (local Postgres + Redis via Docker Compose)
 - `npm run lint`
 - `npm run format`
 - `npm run typecheck`
@@ -14,6 +15,8 @@ These are the typical commands a project should provide:
 - `npm run test:e2e`
 - `npm run openapi:generate` (or similar)
 - `npm run openapi:lint` (Spectral)
+- `npm run start:dev` (API)
+- `npm run start:worker:dev` (worker)
 
 When code is scaffolded, keep these commands stable; they form the project’s “golden path”.
 

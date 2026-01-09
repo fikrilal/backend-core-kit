@@ -41,6 +41,15 @@ class EnvVars {
   @Min(0)
   PORT: number = 4000;
 
+  @IsOptional()
+  @IsString()
+  WORKER_HOST?: string;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 4001))
+  @IsInt()
+  @Min(0)
+  WORKER_PORT: number = 4001;
+
   @Transform(({ value }) => parseEnvBoolean(value))
   @IsOptional()
   @IsBoolean()

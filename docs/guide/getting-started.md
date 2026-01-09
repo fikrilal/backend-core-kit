@@ -43,6 +43,14 @@ Typical workflow:
 
 - `npm run start:dev`
 
+## Run the Worker
+
+The worker process exposes `/health` and `/ready` for orchestration (Kubernetes, ECS, etc.).
+
+Typical workflow:
+
+- `npm run start:worker:dev`
+
 ## Verify
 
 - `GET /health` should return OK (liveness)
