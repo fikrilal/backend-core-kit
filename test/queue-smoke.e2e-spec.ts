@@ -1,15 +1,11 @@
 import { randomUUID } from 'crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { Module, type INestApplicationContext } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { NestFactory } from '@nestjs/core';
 import { QueueEvents } from 'bullmq';
 import request from 'supertest';
+import { createApiApp } from '../apps/api/src/bootstrap';
 import { createWorkerApp } from '../apps/worker/src/bootstrap';
-import { validateEnv } from '../libs/platform/config/env.validation';
 import { jobName } from '../libs/platform/queue/job-name';
-import { QueueModule } from '../libs/platform/queue/queue.module';
 import { QueueProducer } from '../libs/platform/queue/queue.producer';
 import { queueName } from '../libs/platform/queue/queue-name';
 
@@ -62,11 +58,6 @@ const hasDeps =
   typeof redisUrl === 'string' &&
   redisUrl !== '';
 
-@Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }), QueueModule],
-})
-class ProducerTestModule {}
-
 async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   let lastStatus: number | undefined;
@@ -82,9 +73,9 @@ async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> 
 }
 
 (hasDeps ? describe : describe.skip)('Queue smoke (e2e)', () => {
+  let apiApp: Awaited<ReturnType<typeof createApiApp>>;
   let workerApp: Awaited<ReturnType<typeof createWorkerApp>>;
   let workerBaseUrl: string;
-  let producerCtx: INestApplicationContext;
   let producer: QueueProducer;
 
   beforeAll(async () => {
@@ -92,16 +83,14 @@ async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> 
     await workerApp.listen({ port: 0, host: '127.0.0.1' });
     workerBaseUrl = await workerApp.getUrl();
 
-    producerCtx = await NestFactory.createApplicationContext(ProducerTestModule, {
-      logger: false,
-    });
-    producer = producerCtx.get(QueueProducer);
+    apiApp = await createApiApp();
+    producer = apiApp.get(QueueProducer);
 
     await waitForReady(workerBaseUrl);
   });
 
   afterAll(async () => {
-    await producerCtx.close();
+    await apiApp.close();
     await workerApp.close();
   });
 
@@ -123,19 +112,51 @@ async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> 
     const systemQueue = queueName('system');
     const smokeJob = jobName('system.smoke');
 
-    const runId = randomUUID();
-    const job = await producer.enqueue(
-      systemQueue,
-      smokeJob,
-      { runId, requestedAt: new Date().toISOString() },
-      { jobId: `system.smoke:${runId}` },
-    );
+    const queueEvents = new QueueEvents(systemQueue, { connection: { url: redisUrl } });
+    try {
+      await queueEvents.waitUntilReady();
+      const runId = randomUUID();
+      const job = await producer.enqueue(
+        systemQueue,
+        smokeJob,
+        { runId, requestedAt: new Date().toISOString() },
+        { jobId: `system.smoke:${runId}` },
+      );
+      const result = await job.waitUntilFinished(queueEvents, 20_000);
+      expect(result).toEqual({ ok: true, runId, db: 'ok' });
+    } finally {
+      await queueEvents.close();
+    }
+  });
+
+  it('Retries system.smokeRetry with backoff, then succeeds', async () => {
+    if (!redisUrl) {
+      throw new Error('REDIS_URL is required for this test');
+    }
+
+    const systemQueue = queueName('system');
+    const smokeRetryJob = jobName('system.smokeRetry');
 
     const queueEvents = new QueueEvents(systemQueue, { connection: { url: redisUrl } });
     try {
       await queueEvents.waitUntilReady();
+      const runId = randomUUID();
+      const startedAt = Date.now();
+      const job = await producer.enqueue(
+        systemQueue,
+        smokeRetryJob,
+        { runId, requestedAt: new Date().toISOString() },
+        {
+          jobId: `system.smokeRetry:${runId}`,
+          attempts: 2,
+          backoff: { type: 'fixed', delay: 750 },
+        },
+      );
       const result = await job.waitUntilFinished(queueEvents, 20_000);
-      expect(result).toEqual({ ok: true, runId, db: 'ok' });
+      const elapsedMs = Date.now() - startedAt;
+
+      expect(result).toEqual({ ok: true, runId, db: 'ok', attemptsMade: 1 });
+      expect(elapsedMs).toBeGreaterThanOrEqual(600);
     } finally {
       await queueEvents.close();
     }

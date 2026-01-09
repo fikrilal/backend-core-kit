@@ -15,10 +15,12 @@ type SystemSmokeJobResult = {
   ok: true;
   runId: string;
   db: 'ok';
+  attemptsMade?: number;
 } & JsonObject;
 
 const SYSTEM_QUEUE = queueName('system');
 const SYSTEM_SMOKE_JOB = jobName('system.smoke');
+const SYSTEM_SMOKE_RETRY_JOB = jobName('system.smokeRetry');
 
 @Injectable()
 export class SystemSmokeWorker implements OnModuleInit {
@@ -41,11 +43,20 @@ export class SystemSmokeWorker implements OnModuleInit {
   private async process(
     job: Job<SystemSmokeJobData, SystemSmokeJobResult>,
   ): Promise<SystemSmokeJobResult> {
-    if (job.name !== SYSTEM_SMOKE_JOB) {
-      throw new Error(`Unknown job name "${job.name}" on queue "${SYSTEM_QUEUE}"`);
+    if (job.name === SYSTEM_SMOKE_JOB) {
+      await this.prisma.ping();
+      return { ok: true, runId: job.data.runId, db: 'ok' };
     }
 
-    await this.prisma.ping();
-    return { ok: true, runId: job.data.runId, db: 'ok' };
+    if (job.name === SYSTEM_SMOKE_RETRY_JOB) {
+      if (job.attemptsMade === 0) {
+        throw new Error('Intentional failure for retry/backoff smoke test');
+      }
+
+      await this.prisma.ping();
+      return { ok: true, runId: job.data.runId, db: 'ok', attemptsMade: job.attemptsMade };
+    }
+
+    throw new Error(`Unknown job name "${job.name}" on queue "${SYSTEM_QUEUE}"`);
   }
 }

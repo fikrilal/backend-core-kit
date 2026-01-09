@@ -33,7 +33,7 @@ Baseline dependency strategy:
 
 Core kit baseline:
 
-- A CI smoke test enqueues `system.smoke` and asserts the worker processes it and can reach Postgres.
+- CI smoke tests enqueue `system.smoke` (happy path; touches Postgres) and `system.smokeRetry` (intentional failure → retry with backoff → success). Enqueue happens via the real API app DI (`QueueProducer`) to keep the golden path honest without adding a public endpoint.
 
 Rules:
 
