@@ -49,5 +49,15 @@ jobs:
       - name: OpenAPI Spectral lint
         run: npm run openapi:lint
 
+      - name: Start local dependencies (Postgres + Redis)
+        run: npm run deps:up
+
       - name: E2E tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:54321/backend_core_kit?schema=public
+          REDIS_URL: redis://:redis@localhost:63790/0
         run: npm run test:e2e
+
+      - name: Stop local dependencies
+        if: always()
+        run: npm run deps:down
