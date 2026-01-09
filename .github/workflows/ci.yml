@@ -40,6 +40,9 @@ jobs:
       - name: Dependency boundaries
         run: npm run deps:check
 
+      - name: Unit tests
+        run: npm test
+
       - name: OpenAPI snapshot gate
         run: npm run openapi:check
 

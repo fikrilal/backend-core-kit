@@ -22,6 +22,11 @@ Configuration must be validated at startup:
 
 Rationale: misconfiguration is a top source of production incidents; fail fast is cheaper than partial boot.
 
+Implementation (current):
+
+- Validation is implemented in `libs/platform/config/env.validation.ts`.
+- `NODE_ENV=staging|production` currently requires: `DATABASE_URL`, `REDIS_URL`, `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`.
+
 ## Secrets Handling
 
 Rules:

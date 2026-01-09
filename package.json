@@ -20,7 +20,7 @@
     "test:e2e": "jest --config test/jest-e2e.json --runInBand",
     "openapi:generate": "ts-node --files scripts/openapi-generate.ts",
     "openapi:lint": "spectral lint --fail-severity warn docs/openapi/openapi.yaml",
-    "openapi:check": "npm run openapi:generate && git ls-files --error-unmatch docs/openapi/openapi.yaml >/dev/null && git diff --exit-code -- docs/openapi/openapi.yaml"
+    "openapi:check": "ts-node --files scripts/openapi-check.ts"
   },
   "dependencies": {
     "@fastify/swagger": "^9.6.1",

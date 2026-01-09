@@ -4,9 +4,10 @@ import { ConfigModule } from '@nestjs/config';
 import { HealthModule } from '../../../libs/platform/health/health.module';
 import { ResponseEnvelopeInterceptor } from '../../../libs/platform/http/interceptors/response-envelope.interceptor';
 import { ProblemDetailsFilter } from '../../../libs/platform/http/filters/problem-details.filter';
+import { validateEnv } from '../../../libs/platform/config/env.validation';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), HealthModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }), HealthModule],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },
