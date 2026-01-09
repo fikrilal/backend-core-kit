@@ -63,6 +63,7 @@ This is the typical minimal set (exact keys may evolve):
   - `OTEL_EXPORTER_OTLP_ENDPOINT`
   - `OTEL_EXPORTER_OTLP_HEADERS` (contains auth header for Grafana Cloud)
   - `LOG_LEVEL`
+  - `LOG_PRETTY` (optional; dev-only, defaults true)
 
 ## Local Development
 

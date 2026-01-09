@@ -120,7 +120,7 @@ async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> 
         systemQueue,
         smokeJob,
         { runId, requestedAt: new Date().toISOString() },
-        { jobId: `system.smoke:${runId}` },
+        { jobId: `system.smoke-${runId}` },
       );
       const result = await job.waitUntilFinished(queueEvents, 20_000);
       expect(result).toEqual({ ok: true, runId, db: 'ok' });
@@ -147,7 +147,7 @@ async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> 
         smokeRetryJob,
         { runId, requestedAt: new Date().toISOString() },
         {
-          jobId: `system.smokeRetry:${runId}`,
+          jobId: `system.smokeRetry-${runId}`,
           attempts: 2,
           backoff: { type: 'fixed', delay: 750 },
         },

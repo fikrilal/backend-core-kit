@@ -9,6 +9,7 @@ import {
   Min,
   validateSync,
 } from 'class-validator';
+import { LogLevel } from './log-level';
 
 export enum NodeEnv {
   Development = 'development',
@@ -107,9 +108,16 @@ class EnvVars {
   @IsString()
   OTEL_EXPORTER_OTLP_HEADERS?: string;
 
+  // Logging
+  @Transform(({ value }) => (value !== undefined ? String(value).trim().toLowerCase() : undefined))
   @IsOptional()
-  @IsString()
-  LOG_LEVEL?: string;
+  @IsEnum(LogLevel)
+  LOG_LEVEL?: LogLevel;
+
+  @Transform(({ value }) => parseEnvBoolean(value))
+  @IsOptional()
+  @IsBoolean()
+  LOG_PRETTY?: boolean;
 }
 
 function formatValidationErrors(errors: unknown[]): string {

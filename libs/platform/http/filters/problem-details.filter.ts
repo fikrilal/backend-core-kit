@@ -10,7 +10,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     const reply = ctx.getResponse<FastifyReply>();
 
     const traceId: string | undefined =
-      req.requestId || (req.headers['x-request-id'] as string | undefined);
+      req.requestId || req.id || (req.headers['x-request-id'] as string | undefined);
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let title = 'Internal Server Error';

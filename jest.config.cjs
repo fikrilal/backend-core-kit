@@ -2,7 +2,13 @@
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
-  testMatch: ['<rootDir>/{apps,libs}/**/*.spec.ts', '<rootDir>/{apps,libs}/**/*.test.ts'],
+  // Avoid brace patterns here; on Windows they can produce an escaped `{` and break test discovery.
+  testMatch: [
+    '<rootDir>/apps/**/*.spec.ts',
+    '<rootDir>/apps/**/*.test.ts',
+    '<rootDir>/libs/**/*.spec.ts',
+    '<rootDir>/libs/**/*.test.ts',
+  ],
   transform: {
     '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
   },

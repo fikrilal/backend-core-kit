@@ -57,6 +57,10 @@ Idempotency options:
 - Deterministic `jobId` for naturally idempotent jobs (dedupe at enqueue).
 - Application-level idempotency keys stored in Redis/DB for “do once” semantics.
 
+Notes:
+
+- BullMQ disallows `:` in `jobId`; prefer `jobName-runId` or similar.
+
 ## Scheduling / Cron
 
 Rules:
