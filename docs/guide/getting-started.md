@@ -17,7 +17,13 @@ This guide assumes you are building a service from this core kit and want a repr
 
 Bring up local Postgres + Redis:
 
+- `npm run deps:up` (recommended), or
 - `docker compose up -d`
+
+Defaults:
+
+- Postgres exposed on `localhost:54321` (container `5432`)
+- Redis exposed on `localhost:63790` (container `6379`)
 
 ## Install Dependencies
 

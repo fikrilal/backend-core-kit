@@ -17,6 +17,11 @@ Rules:
 - CI/CD should run `prisma migrate deploy` (or equivalent) as a gated step.
 - Migration scripts must be safe, reversible where practical, and reviewed.
 
+Current scaffolding:
+
+- Prisma schema: `prisma/schema.prisma`
+- Scripts: `npm run prisma:generate`, `npm run prisma:migrate`, `npm run prisma:migrate:deploy`
+
 ## Repository Pattern
 
 Baseline structure:
