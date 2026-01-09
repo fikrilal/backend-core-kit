@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# Agent-only preflight for Windows <-> WSL toolchain interop.
+#
+# This repo is developed on Windows but the agent runs in WSL. This script fails fast if the agent
+# cannot reliably invoke the Windows toolchain (Node/npm/Docker) or if minimal configuration is missing.
+#
+# Usage:
+# - `bash tools/agent/doctor`
+#
+# It checks:
+# - Running under WSL and repo path is `/mnt/<drive>/...`
+# - `powershell.exe` and `docker.exe` are reachable from WSL
+# - Windows Node is 22.x and Windows npm is available (via `tools/agent/win`)
+# - Docker Desktop engine is running (`docker info`)
+# - `.env` exists and defines `DATABASE_URL` + `REDIS_URL`
+set -euo pipefail
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  sed -n '1,40p' "$0"
+  exit 0
+fi
+
+die() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
+info() {
+  echo "OK: $*"
+}
+
+is_wsl() {
+  if [[ -n "${WSL_INTEROP:-}" || -n "${WSL_DISTRO_NAME:-}" ]]; then
+    return 0
+  fi
+  if [[ -r /proc/version ]] && grep -qi "microsoft" /proc/version 2>/dev/null; then
+    return 0
+  fi
+  return 1
+}
+
+parse_dotenv_value() {
+  local raw="$1"
+  local value="$raw"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+
+  if [[ "${#value}" -ge 2 ]]; then
+    local first="${value:0:1}"
+    local last="${value: -1}"
+    if [[ ( "$first" == "\"" && "$last" == "\"" ) || ( "$first" == "'" && "$last" == "'" ) ]]; then
+      value="${value:1:-1}"
+    fi
+  fi
+
+  printf '%s' "$value"
+}
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$repo_root" ]]; then
+  repo_root="$(cd "$script_dir/../.." && pwd)"
+fi
+
+if ! is_wsl; then
+  die "This doctor is intended to run in WSL (agent environment)."
+fi
+
+case "$repo_root" in
+  /mnt/[a-zA-Z]/*) ;;
+  *)
+    die "Repo must live under /mnt/<drive>/... for Windows tool interop. Detected: $repo_root"
+    ;;
+esac
+
+command -v wslpath >/dev/null 2>&1 || die "wslpath not found; required for Windows path conversion."
+command -v powershell.exe >/dev/null 2>&1 || die "powershell.exe not found in PATH (WSL Windows interop missing)."
+command -v docker.exe >/dev/null 2>&1 || die "docker.exe not found in PATH. Install Docker Desktop on Windows."
+
+win_sh="$repo_root/tools/agent/win"
+[[ -f "$win_sh" ]] || die "Missing $win_sh"
+
+node_ver="$("$win_sh" node --version 2>/dev/null | tr -d '\r' || true)"
+[[ -n "$node_ver" ]] || die "Windows node not found (expected node.exe on PATH)."
+if [[ "$node_ver" =~ ^v([0-9]+)\. ]]; then
+  node_major="${BASH_REMATCH[1]}"
+else
+  die "Unexpected Windows node version output: $node_ver"
+fi
+[[ "$node_major" == "22" ]] || die "Windows node major must be 22.x (detected $node_ver)."
+info "Windows Node: $node_ver"
+
+npm_ver="$("$win_sh" npm --version 2>/dev/null | tr -d '\r' || true)"
+[[ -n "$npm_ver" ]] || die "Windows npm not found (expected npm.cmd on PATH)."
+info "Windows npm: $npm_ver"
+
+if ! docker_info="$("$win_sh" docker info 2>&1)"; then
+  docker_info="$(printf '%s' "$docker_info" | tr -d '\r' | head -n 12)"
+  die "Docker engine not reachable. Start Docker Desktop on Windows.\n\n${docker_info}"
+fi
+info "Docker engine reachable"
+
+env_file="$repo_root/.env"
+[[ -f "$env_file" ]] || die ".env not found. Create one: cp env.example .env"
+
+declare -A env=()
+while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
+  line="$(printf '%s' "$raw_line" | tr -d '\r')"
+  [[ -z "${line//[[:space:]]/}" ]] && continue
+  [[ "$line" =~ ^[[:space:]]*# ]] && continue
+
+  if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+    key="${BASH_REMATCH[1]}"
+    value="$(parse_dotenv_value "${BASH_REMATCH[2]}")"
+    env["$key"]="$value"
+  fi
+done < "$env_file"
+
+[[ -n "${env[DATABASE_URL]:-}" ]] || die "DATABASE_URL missing/empty in .env"
+[[ -n "${env[REDIS_URL]:-}" ]] || die "REDIS_URL missing/empty in .env"
+info ".env has DATABASE_URL and REDIS_URL"
+
+echo
+echo "Agent toolchain is ready."
+echo "Suggested next command (agent): bash tools/agent/npmw run test:e2e"

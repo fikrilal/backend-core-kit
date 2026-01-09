@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Agent-only: run Windows tools from WSL.
+#
+# Why:
+# - This repo usually lives on a Windows mount (`/mnt/c/...`).
+# - Installing/running Node tooling in WSL can produce Linux-specific artifacts (notably `node_modules`
+#   and Prisma engines) that break when you later run commands on Windows.
+# - This wrapper makes **Windows** the toolchain source-of-truth while the agent runs in WSL.
+#
+# Usage:
+# - `bash tools/agent/win npm ci`
+# - `bash tools/agent/win npm run test:e2e`
+# - `bash tools/agent/win docker compose up -d`
+#
+# Notes:
+# - Commands execute from the repo root in a Windows PowerShell process.
+# - Prefer `bash tools/agent/doctor` to preflight required tooling (Docker Desktop, Node, npm, .env).
+set -euo pipefail
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  sed -n '1,40p' "$0"
+  exit 0
+fi
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ps1="$script_dir/win.ps1"
+ps1_win="$(wslpath -w "$ps1")"
+
+exec powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$ps1_win" "$@"
