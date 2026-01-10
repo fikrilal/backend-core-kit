@@ -138,7 +138,7 @@ Before coding:
 
 1. Read `docs/README.md` and the relevant standards.
 2. Confirm the change fits the architecture; if not, propose/write an ADR.
-3. Implement minimally; update docs + OpenAPI snapshot if API changes.
+3. Implement minimally; when adding/changing reusable platform/core infra, update the relevant docs/guides/standards; update OpenAPI snapshot if API changes.
 4. Ensure boundary rules aren’t violated (no “shortcut imports”).
 
 ### Windows Toolchain Interop (Agent-Only)

@@ -181,6 +181,12 @@ tags:
 servers:
   - url: /
 components:
+  securitySchemes:
+    access-token:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+      description: "First-party access token (Authorization: Bearer <token>)"
   schemas:
     PasswordRegisterRequestDto:
       type: object

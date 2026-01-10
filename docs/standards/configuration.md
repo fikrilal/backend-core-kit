@@ -26,6 +26,7 @@ Implementation (current):
 
 - Validation is implemented in `libs/platform/config/env.validation.ts`.
 - `NODE_ENV=staging|production` currently requires: `DATABASE_URL`, `REDIS_URL`, `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- Auth issuer/audience are required in staging/production: `AUTH_ISSUER`, `AUTH_AUDIENCE`.
 
 ## Secrets Handling
 

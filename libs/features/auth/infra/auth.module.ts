@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaModule } from '../../../platform/db/prisma.module';
 import { RedisModule } from '../../../platform/redis/redis.module';
+import { PlatformAuthModule } from '../../../platform/auth/auth.module';
 import { AuthService } from '../app/auth.service';
 import { SystemClock } from '../app/time';
 import { AuthController } from './http/auth.controller';
@@ -12,7 +13,7 @@ import { Argon2PasswordHasher } from './security/argon2.password-hasher';
 import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
 
 @Module({
-  imports: [PrismaModule, RedisModule],
+  imports: [PrismaModule, RedisModule, PlatformAuthModule],
   controllers: [AuthController, JwksController],
   providers: [
     PrismaAuthRepository,

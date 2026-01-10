@@ -177,6 +177,8 @@ function requireInProductionLike(env: EnvVars) {
   const missing: string[] = [];
   if (!env.DATABASE_URL) missing.push('DATABASE_URL');
   if (!env.REDIS_URL) missing.push('REDIS_URL');
+  if (!env.AUTH_ISSUER) missing.push('AUTH_ISSUER');
+  if (!env.AUTH_AUDIENCE) missing.push('AUTH_AUDIENCE');
   if (!env.OTEL_SERVICE_NAME) missing.push('OTEL_SERVICE_NAME');
   if (!env.OTEL_EXPORTER_OTLP_ENDPOINT) missing.push('OTEL_EXPORTER_OTLP_ENDPOINT');
 
