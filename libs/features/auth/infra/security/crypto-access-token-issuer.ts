@@ -63,6 +63,7 @@ export class CryptoAccessTokenIssuer implements AccessTokenIssuer, OnModuleInit 
       sub: input.userId,
       sid: input.sessionId,
       email_verified: input.emailVerified,
+      roles: input.roles,
       typ: 'access',
       iat: nowSeconds,
       exp: nowSeconds + input.ttlSeconds,

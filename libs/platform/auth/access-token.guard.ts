@@ -1,9 +1,11 @@
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
 import { ErrorCode } from '../http/errors/error-codes';
 import { ProblemException } from '../http/errors/problem.exception';
 import { AccessTokenInvalidError, AccessTokenVerifier } from './access-token-verifier.service';
+import { IS_PUBLIC_KEY } from './public.decorator';
 
 function getAuthorizationHeader(req: FastifyRequest): string | undefined {
   const raw = req.headers['authorization'];
@@ -25,9 +27,17 @@ function extractBearerToken(authorization: string | undefined): string | undefin
 
 @Injectable()
 export class AccessTokenGuard implements CanActivate {
-  constructor(private readonly verifier: AccessTokenVerifier) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly verifier: AccessTokenVerifier,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const handler = context.getHandler();
+    const cls = context.getClass();
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [handler, cls]);
+    if (isPublic) return true;
+
     const req = context.switchToHttp().getRequest<FastifyRequest>();
     const token = extractBearerToken(getAuthorizationHeader(req));
     if (!token) {

@@ -2,6 +2,7 @@ export type SignAccessTokenInput = Readonly<{
   userId: string;
   sessionId: string;
   emailVerified: boolean;
+  roles: ReadonlyArray<string>;
   ttlSeconds: number;
 }>;
 

@@ -23,7 +23,7 @@ Pattern:
 
 1. Add `@UseGuards(AccessTokenGuard)` (rejects missing/invalid tokens with RFC7807 `UNAUTHORIZED`).
 2. Add `@ApiBearerAuth('access-token')` so Swagger UI “Authorize” works.
-3. Use `@CurrentPrincipal()` to access the authenticated principal (`userId`, `sessionId`, `emailVerified`).
+3. Use `@CurrentPrincipal()` to access the authenticated principal (`userId`, `sessionId`, `emailVerified`, `roles`).
 4. Include `UNAUTHORIZED` in `@ApiErrorCodes([...])`.
 
 Example (controller method):
@@ -39,6 +39,34 @@ getMe(@CurrentPrincipal() principal: AuthPrincipal) {
 ```
 
 Note: import paths depend on where the controller lives; the symbols come from `libs/platform/auth/*` and `libs/platform/http/*`.
+
+Also ensure the controller’s Nest module imports `PlatformAuthModule` (and `PlatformRbacModule` if using RBAC) so guards/providers are available via DI.
+
+## Protecting Endpoints (RBAC Permissions)
+
+Endpoints that require specific permissions should apply RBAC after authentication:
+
+1. Add `@UseGuards(AccessTokenGuard, RbacGuard)`.
+2. Add `@RequirePermissions('<resource>:<action>')` on the controller and/or handler.
+3. Include `FORBIDDEN` in `@ApiErrorCodes([...])`.
+
+Example (controller method):
+
+```ts
+@UseGuards(AccessTokenGuard, RbacGuard)
+@ApiBearerAuth('access-token')
+@RequirePermissions('users:read')
+@ApiErrorCodes([ErrorCode.UNAUTHORIZED, ErrorCode.FORBIDDEN, ErrorCode.INTERNAL])
+@Get('users')
+listUsers() {
+  return { items: [], nextCursor: undefined };
+}
+```
+
+Escape hatches (when needed):
+
+- `@Public()` marks an endpoint as unauthenticated (skips access-token guard and RBAC when present).
+- `@SkipRbac()` skips RBAC checks (rare; use for migrations/internal endpoints).
 
 ## Common Pitfalls
 

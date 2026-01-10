@@ -115,6 +115,24 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
+function parseRoles(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const role = item.trim();
+    if (!role) continue;
+    if (seen.has(role)) continue;
+    seen.add(role);
+    out.push(role);
+  }
+
+  return out;
+}
+
 @Injectable()
 export class AccessTokenVerifier {
   constructor(
@@ -159,7 +177,8 @@ export class AccessTokenVerifier {
     if (!userId || !sessionId) throw new AccessTokenInvalidError();
 
     const emailVerified = payload.email_verified === true;
+    const roles = parseRoles(payload.roles);
 
-    return { userId, sessionId, emailVerified };
+    return { userId, sessionId, emailVerified, roles };
   }
 }

@@ -20,6 +20,17 @@ Roles are coarse-grained groupings like:
 
 Projects may extend roles, but should keep the set small.
 
+### Roles in Access Tokens (Baseline)
+
+In this core kit, roles are carried in the **first-party access token** as a claim:
+
+- `roles: string[]` (example: `["USER"]`)
+
+Baseline behavior:
+
+- Every authenticated principal is issued a default `["USER"]` role.
+- Unknown roles grant **no** permissions (deny by default).
+
 ### Permissions (Capabilities)
 
 Permissions are fine-grained capabilities expressed as strings:
@@ -48,6 +59,7 @@ Use declarative enforcement in the HTTP layer:
 Rules:
 
 - Services may perform secondary checks for ownership or contextual constraints (e.g., “user can update own profile”), but role/capability requirements should remain visible at the route boundary.
+- Apply the access-token guard before RBAC (authenticate first, then authorize).
 
 ## Where to Store Roles
 

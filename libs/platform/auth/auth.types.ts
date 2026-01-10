@@ -4,4 +4,5 @@ export type AuthPrincipal = Readonly<{
   userId: string;
   sessionId: string;
   emailVerified: boolean;
+  roles: ReadonlyArray<string>;
 }>;
