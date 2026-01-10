@@ -68,6 +68,7 @@ export class PrismaAuthRepository implements AuthRepository {
           data: {
             email,
             passwordCredential: { create: { passwordHash } },
+            profile: { create: {} },
           },
           select: { id: true, email: true, emailVerifiedAt: true, role: true },
         }),

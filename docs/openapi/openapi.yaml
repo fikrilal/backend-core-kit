@@ -412,6 +412,21 @@ components:
           example: <refresh-token>
       required:
         - refreshToken
+    MeProfileDto:
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: Dante
+          nullable: true
+        givenName:
+          type: string
+          example: Dante
+          nullable: true
+        familyName:
+          type: string
+          example: Alighieri
+          nullable: true
     MeDto:
       type: object
       properties:
@@ -430,11 +445,14 @@ components:
           type: array
           items:
             type: string
+        profile:
+          $ref: "#/components/schemas/MeProfileDto"
       required:
         - id
         - email
         - emailVerified
         - roles
+        - profile
     MeEnvelopeDto:
       type: object
       properties:

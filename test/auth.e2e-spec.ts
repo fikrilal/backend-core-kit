@@ -164,6 +164,7 @@ const hasDeps =
       email: email.toLowerCase(),
       emailVerified: false,
       roles: ['USER'],
+      profile: { displayName: null, givenName: null, familyName: null },
     });
   });
 
