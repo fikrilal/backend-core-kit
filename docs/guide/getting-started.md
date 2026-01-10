@@ -64,4 +64,9 @@ Typical workflow:
 - `GET /ready` should return OK when DB/Redis are ready (readiness)
 - OpenAPI/Swagger UI should be available (project-defined route)
 
+## Build Docker Images (Production Targets)
+
+- API image: `docker build --target api -t backend-core-kit-api:local .`
+- Worker image: `docker build --target worker -t backend-core-kit-worker:local .`
+
 If anything is unclear or missing, add/adjust docs before adding code so the core kit remains “doc-driven”.
