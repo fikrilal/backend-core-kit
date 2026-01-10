@@ -14,6 +14,14 @@
     "resolveJsonModule": true,
     "types": ["node", "jest"]
   },
-  "include": ["apps/**/*.ts", "libs/**/*.ts", "test/**/*.ts", "*.d.ts"],
+  "include": [
+    "apps/**/*.ts",
+    "apps/**/*.d.ts",
+    "libs/**/*.ts",
+    "libs/**/*.d.ts",
+    "test/**/*.ts",
+    "test/**/*.d.ts",
+    "*.d.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

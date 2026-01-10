@@ -14,6 +14,7 @@ Multiple projects will share clients and internal tooling. Without a consistent 
 - Errors follow RFC 7807 (`application/problem+json`) and include:
   - `code` (stable error code)
   - `traceId` (equals `X-Request-Id`)
+  - optional `otelTraceId` (OpenTelemetry trace id when tracing is enabled)
   - optional validation `errors[]`
 
 ## Rationale

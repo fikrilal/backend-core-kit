@@ -8,6 +8,8 @@ import { ResponseEnvelopeInterceptor } from '../../../libs/platform/http/interce
 import { ProblemDetailsFilter } from '../../../libs/platform/http/filters/problem-details.filter';
 import { validateEnv } from '../../../libs/platform/config/env.validation';
 import { AuthModule } from '../../../libs/features/auth/infra/auth.module';
+import { UsersModule } from '../../../libs/features/users/infra/users.module';
+import { AdminModule } from '../../../libs/features/admin/infra/admin.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { AuthModule } from '../../../libs/features/auth/infra/auth.module';
     HealthModule,
     QueueModule,
     AuthModule,
+    UsersModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },

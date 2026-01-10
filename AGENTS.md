@@ -138,8 +138,21 @@ Before coding:
 
 1. Read `docs/README.md` and the relevant standards.
 2. Confirm the change fits the architecture; if not, propose/write an ADR.
-3. Implement minimally; update docs + OpenAPI snapshot if API changes.
+3. Implement minimally; when adding/changing reusable platform/core infra, update the relevant docs/guides/standards; update OpenAPI snapshot if API changes.
 4. Ensure boundary rules aren’t violated (no “shortcut imports”).
+
+### Local Validation Checklist (Agent + Contributor)
+
+Before handing off changes, run the same gates CI enforces (`.github/workflows/ci.yml`):
+
+- `npm run verify`
+
+When applicable:
+
+- If you changed HTTP routes/controllers/DTOs/OpenAPI decorators: run `npm run openapi:generate`, then re-run `npm run openapi:check`.
+- If you changed Prisma schema/migrations or request flows touching Postgres/Redis: run `npm run verify:e2e` (always stops local deps).
+
+WSL note (agent-only): run these via `bash tools/agent/npmw ...` (and `bash tools/agent/dockw ...` for Docker) to avoid OS-specific artifacts.
 
 ### Windows Toolchain Interop (Agent-Only)
 

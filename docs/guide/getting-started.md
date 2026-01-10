@@ -22,8 +22,8 @@ Bring up local Postgres + Redis:
 
 Defaults:
 
-- Postgres exposed on `localhost:54321` (container `5432`, local-only, passwordless)
-- Redis exposed on `localhost:63790` (container `6379`, local-only, passwordless)
+- Postgres exposed on `127.0.0.1:54321` (container `5432`, local-only, passwordless)
+- Redis exposed on `127.0.0.1:63790` (container `6379`, local-only, passwordless)
 
 If you need passwords locally, create a `docker-compose.override.yml` (do not commit) and update your `.env`.
 
@@ -63,5 +63,10 @@ Typical workflow:
 - `GET /health` should return OK (liveness)
 - `GET /ready` should return OK when DB/Redis are ready (readiness)
 - OpenAPI/Swagger UI should be available (project-defined route)
+
+## Build Docker Images (Production Targets)
+
+- API image: `docker build --target api -t backend-core-kit-api:local .`
+- Worker image: `docker build --target worker -t backend-core-kit-worker:local .`
 
 If anything is unclear or missing, add/adjust docs before adding code so the core kit remains “doc-driven”.

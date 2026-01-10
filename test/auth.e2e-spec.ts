@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import request from 'supertest';
 import { createApiApp } from '../apps/api/src/bootstrap';
+import { PrismaClient, UserRole } from '@prisma/client';
 
 function parseDotEnv(content: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -54,14 +55,27 @@ const hasDeps =
 (hasDeps ? describe : describe.skip)('Auth (e2e)', () => {
   let app: Awaited<ReturnType<typeof createApiApp>>;
   let baseUrl: string;
+  let prisma: PrismaClient;
 
   beforeAll(async () => {
+    if (!databaseUrl) {
+      throw new Error('DATABASE_URL is required for Auth (e2e) tests');
+    }
+
+    prisma = new PrismaClient({
+      datasources: {
+        db: { url: databaseUrl },
+      },
+    });
+    await prisma.$connect();
+
     app = await createApiApp();
     await app.listen({ port: 0, host: '127.0.0.1' });
     baseUrl = await app.getUrl();
   });
 
   afterAll(async () => {
+    await prisma.$disconnect();
     await app.close();
   });
 
@@ -117,6 +131,88 @@ const hasDeps =
 
     expect(afterLogout.headers['content-type']).toContain('application/problem+json');
     expect(afterLogout.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });
+  });
+
+  it('GET /v1/me requires an access token', async () => {
+    const res = await request(baseUrl).get('/v1/me').expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
+  it('register -> GET /v1/me returns current user', async () => {
+    const email = `me+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const meRes = await request(baseUrl)
+      .get('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
+
+    expect(meRes.body.data).toMatchObject({
+      id: reg.user.id,
+      email: email.toLowerCase(),
+      emailVerified: false,
+      roles: ['USER'],
+    });
+  });
+
+  it('GET /v1/admin/whoami requires an admin access token', async () => {
+    const email = `admin+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const forbidden = await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(403);
+
+    expect(forbidden.headers['content-type']).toContain('application/problem+json');
+    expect(forbidden.body).toMatchObject({ code: 'FORBIDDEN', status: 403 });
+
+    await prisma.user.update({ where: { id: reg.user.id }, data: { role: UserRole.ADMIN } });
+
+    const refreshRes = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: reg.refreshToken })
+      .expect(200);
+
+    const refreshed = refreshRes.body.data as {
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const whoami = await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${refreshed.accessToken}`)
+      .expect(200);
+
+    expect(whoami.body.data).toMatchObject({
+      userId: reg.user.id,
+      emailVerified: false,
+      roles: ['ADMIN'],
+    });
+    expect(typeof whoami.body.data.sessionId).toBe('string');
   });
 
   it('duplicate register returns AUTH_EMAIL_ALREADY_EXISTS', async () => {

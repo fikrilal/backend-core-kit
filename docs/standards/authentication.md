@@ -108,7 +108,7 @@ Access token should include minimal, non-PII claims:
 - `exp`, `iat`
 - `jti` (token id)
 - `typ` (e.g., `access`)
-- authorization context (e.g., roles) if required by downstream services
+- authorization context (e.g., `roles: ["USER"]`) derived from DB-backed role assignment when RBAC is enforced
 
 Rules:
 

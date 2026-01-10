@@ -1,5 +1,4 @@
-import { createApiApp } from './bootstrap';
-import { buildOpenApiDocument, isSwaggerUiEnabled, setupSwaggerUi } from './openapi';
+import { initTelemetry } from '../../../libs/platform/otel/telemetry';
 
 function getEnvNumber(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -9,18 +8,35 @@ function getEnvNumber(name: string, fallback: number): number {
 }
 
 async function bootstrap() {
-  const app = await createApiApp();
+  const telemetry = await initTelemetry('api');
+  const shutdownTelemetry = () => void telemetry.shutdown().catch(() => undefined);
+  process.once('SIGTERM', shutdownTelemetry);
+  process.once('SIGINT', shutdownTelemetry);
 
-  if (isSwaggerUiEnabled()) {
-    const document = buildOpenApiDocument(app);
-    setupSwaggerUi(app, document);
+  try {
+    const { createApiApp } = await import('./bootstrap');
+    const { buildOpenApiDocument, isSwaggerUiEnabled, setupSwaggerUi } = await import('./openapi');
+
+    const app = await createApiApp();
+
+    if (isSwaggerUiEnabled()) {
+      const document = buildOpenApiDocument(app);
+      setupSwaggerUi(app, document);
+    }
+
+    const port = getEnvNumber('PORT', 4000);
+    const nodeEnv = process.env.NODE_ENV ?? 'development';
+    const host = process.env.HOST ?? (nodeEnv === 'production' ? '0.0.0.0' : '127.0.0.1');
+
+    await app.listen({ port, host });
+  } catch (err) {
+    await telemetry.shutdown().catch(() => undefined);
+    throw err;
   }
-
-  const port = getEnvNumber('PORT', 4000);
-  const nodeEnv = process.env.NODE_ENV ?? 'development';
-  const host = process.env.HOST ?? (nodeEnv === 'production' ? '0.0.0.0' : '127.0.0.1');
-
-  await app.listen({ port, host });
 }
 
-bootstrap();
+void bootstrap().catch((err) => {
+  const message = err instanceof Error ? (err.stack ?? err.message) : String(err);
+  process.stderr.write(`${message}\n`);
+  process.exit(1);
+});

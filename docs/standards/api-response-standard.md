@@ -47,6 +47,7 @@ All errors must return:
   "detail": "Human-friendly message",
   "code": "VALIDATION_FAILED",
   "traceId": "4c2e6e3a-…",
+  "otelTraceId": "4bf92f3577b34da6a3ce929d0e0e4736",
   "errors": [{ "field": "email", "message": "Must be a valid email" }]
 }
 ```
@@ -55,6 +56,7 @@ Rules:
 
 - `code` is required and stable. See `docs/standards/error-codes.md`.
 - `traceId` is required and equals the `X-Request-Id` value.
+- `otelTraceId` is optional and present when OpenTelemetry tracing is enabled.
 - `errors[]` is optional and used for validation-style details.
 - Do not include stack traces or internal error details.
 

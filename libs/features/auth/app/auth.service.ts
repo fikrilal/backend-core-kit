@@ -65,6 +65,7 @@ export class AuthService {
       userId: user.id,
       sessionId,
       emailVerified: user.emailVerifiedAt !== null,
+      roles: [user.role],
       ttlSeconds: this.config.accessTokenTtlSeconds,
     });
 
@@ -110,6 +111,7 @@ export class AuthService {
       userId: found.user.id,
       sessionId,
       emailVerified: found.user.emailVerifiedAt !== null,
+      roles: [found.user.role],
       ttlSeconds: this.config.accessTokenTtlSeconds,
     });
 
@@ -159,6 +161,7 @@ export class AuthService {
       userId: result.user.id,
       sessionId: result.sessionId,
       emailVerified: result.user.emailVerifiedAt !== null,
+      roles: [result.user.role],
       ttlSeconds: this.config.accessTokenTtlSeconds,
     });
 

@@ -16,9 +16,19 @@ Roles are coarse-grained groupings like:
 
 - `USER`
 - `ADMIN`
-- `SUPPORT`
 
 Projects may extend roles, but should keep the set small.
+
+### Roles in Access Tokens (Baseline)
+
+In this core kit, roles are carried in the **first-party access token** as a claim:
+
+- `roles: string[]` (example: `["USER"]`)
+
+Baseline behavior:
+
+- Every authenticated principal is issued a default `["USER"]` role.
+- Unknown roles grant **no** permissions (deny by default).
 
 ### Permissions (Capabilities)
 
@@ -48,14 +58,28 @@ Use declarative enforcement in the HTTP layer:
 Rules:
 
 - Services may perform secondary checks for ownership or contextual constraints (e.g., “user can update own profile”), but role/capability requirements should remain visible at the route boundary.
+- Apply the access-token guard before RBAC (authenticate first, then authorize).
 
-## Where to Store Roles
+## Permission Taxonomy (Route Boundary)
+
+Baseline recommendation:
+
+- Use **fine-grained** permissions on handlers (least privilege), e.g. `users:read`, `sessions:revoke`.
+- Optionally add a controller-level baseline gate like `admin:access` for `/v1/admin/*` controllers, and keep handler requirements additive.
+
+Avoid:
+
+- using `*:*` as a long-term “admin bypass” (too easy to over-grant)
+- inventing new permission strings ad-hoc without a clear resource/action convention
+
+## Where Roles Live
 
 Baseline approaches:
 
-1. **Static roles** (recommended default for consumer apps)
+1. **DB-backed role assignment + code-defined mapping** (recommended default)
 
-- Roles are enums; role → permissions mapping is code-defined.
+- Role assignment is stored on the user record (e.g. `User.role = USER | ADMIN`).
+- The role set is static/enumerated; role → permissions mapping is code-defined.
 - Simple, fast, consistent.
 
 2. **DB-driven roles** (optional extension)

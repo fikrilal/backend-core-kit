@@ -8,8 +8,19 @@ export function buildOpenApiDocument(app: NestFastifyApplication): OpenAPIObject
     .setDescription('Generated API contract (code-first).')
     .setVersion('0.1.0')
     .addServer('/')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'First-party access token (Authorization: Bearer <token>)',
+      },
+      'access-token',
+    )
     .addTag('Health', 'Service health and readiness endpoints.')
     .addTag('Auth', 'Authentication and session endpoints.')
+    .addTag('Users', 'User profile endpoints.')
+    .addTag('Admin', 'Administrative endpoints (RBAC-protected).')
     .build();
 
   return SwaggerModule.createDocument(app, config, {

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { LoggerModule, type Params } from 'nestjs-pino';
 import { randomUUID } from 'crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
 import { stdSerializers } from 'pino';
 import { NodeEnv } from '../config/env.validation';
 import { LogLevel } from '../config/log-level';
@@ -96,7 +97,14 @@ export class LoggingModule {
               genReqId: (req) => getOrCreateRequestId(req as RequestWithId),
               customProps: (req) => {
                 const requestId = getOrCreateRequestId(req as RequestWithId);
-                return { requestId, traceId: requestId };
+                const spanContext = otelTrace.getSpan(otelContext.active())?.spanContext();
+                return {
+                  requestId,
+                  traceId: requestId,
+                  ...(spanContext
+                    ? { otelTraceId: spanContext.traceId, otelSpanId: spanContext.spanId }
+                    : {}),
+                };
               },
               customLogLevel: (_req, res, err) => {
                 if (err) return LogLevel.Error;

@@ -1,20 +1,9 @@
 import { Injectable, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  createPrivateKey,
-  createPublicKey,
-  generateKeyPairSync,
-  randomUUID,
-  sign as cryptoSign,
-  type JsonWebKey,
-  type KeyObject,
-} from 'crypto';
+import { randomUUID, sign as cryptoSign, type KeyObject } from 'crypto';
 import type { AccessTokenIssuer, SignAccessTokenInput } from '../../app/ports/access-token-issuer';
-import { NodeEnv } from '../../../../platform/config/env.validation';
-
-type JwtAlg = 'EdDSA' | 'RS256';
-
-type JwksKey = JsonWebKey & { kid: string; use?: string; alg?: string };
+import { AuthKeyRing } from '../../../../platform/auth/auth-keyring.service';
+import type { JwtAlg } from '../../../../platform/auth/auth.types';
 
 type SigningKey = Readonly<{
   kid: string;
@@ -26,35 +15,6 @@ function asNonEmptyString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
   return trimmed !== '' ? trimmed : undefined;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function normalizeAlg(raw: unknown): JwtAlg | undefined {
-  const v = asNonEmptyString(raw);
-  if (!v) return undefined;
-
-  const normalized = v.trim().toUpperCase();
-  if (normalized === 'EDDSA') return 'EdDSA';
-  if (normalized === 'RS256') return 'RS256';
-  return undefined;
-}
-
-function inferAlgFromJwk(jwk: JsonWebKey): JwtAlg | undefined {
-  if (jwk.kty === 'OKP') return 'EdDSA';
-  if (jwk.kty === 'RSA') return 'RS256';
-  return undefined;
-}
-
-function parseSigningKeyJson(raw: string): unknown[] {
-  const parsed: unknown = JSON.parse(raw);
-  if (Array.isArray(parsed)) return parsed;
-  if (isObject(parsed) && Array.isArray(parsed.keys)) return parsed.keys;
-  throw new Error(
-    'AUTH_SIGNING_KEYS_JSON must be a JSON array or a JWK set object with { keys: [...] }',
-  );
 }
 
 function encodeSegment(value: Record<string, unknown>): string {
@@ -72,9 +32,11 @@ function signJwt(signingInput: string, key: KeyObject, alg: JwtAlg): string {
 export class CryptoAccessTokenIssuer implements AccessTokenIssuer, OnModuleInit {
   private initPromise?: Promise<void>;
   private signingKey?: SigningKey;
-  private jwks: JwksKey[] = [];
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly keys: AuthKeyRing,
+  ) {}
 
   async onModuleInit(): Promise<void> {
     await this.ensureInitialized();
@@ -101,6 +63,7 @@ export class CryptoAccessTokenIssuer implements AccessTokenIssuer, OnModuleInit 
       sub: input.userId,
       sid: input.sessionId,
       email_verified: input.emailVerified,
+      roles: input.roles,
       typ: 'access',
       iat: nowSeconds,
       exp: nowSeconds + input.ttlSeconds,
@@ -118,7 +81,7 @@ export class CryptoAccessTokenIssuer implements AccessTokenIssuer, OnModuleInit 
 
   async getPublicJwks(): Promise<unknown> {
     await this.ensureInitialized();
-    return { keys: this.jwks };
+    return this.keys.getPublicJwks();
   }
 
   private ensureInitialized(): Promise<void> {
@@ -127,91 +90,7 @@ export class CryptoAccessTokenIssuer implements AccessTokenIssuer, OnModuleInit 
   }
 
   private async init(): Promise<void> {
-    const nodeEnv =
-      (this.config.get<string>('NODE_ENV') as NodeEnv | undefined) ?? NodeEnv.Development;
-    const productionLike = nodeEnv === NodeEnv.Production || nodeEnv === NodeEnv.Staging;
-
-    const algConfig = normalizeAlg(this.config.get<string>('AUTH_JWT_ALG')) ?? 'EdDSA';
-    const keysJson = asNonEmptyString(this.config.get<string>('AUTH_SIGNING_KEYS_JSON'));
-
-    if (!keysJson) {
-      if (productionLike) {
-        throw new Error('AUTH_SIGNING_KEYS_JSON is required in staging/production');
-      }
-      this.generateEphemeralKey(algConfig);
-      return;
-    }
-
-    const items = parseSigningKeyJson(keysJson);
-    const jwks: JwksKey[] = [];
-    let signingKey: SigningKey | undefined;
-
-    for (const item of items) {
-      if (!isObject(item)) continue;
-
-      const kid = asNonEmptyString(item.kid);
-      if (!kid) continue;
-
-      const jwk = item as unknown as JsonWebKey;
-      const alg = normalizeAlg(item.alg) ?? inferAlgFromJwk(jwk) ?? algConfig;
-
-      let publicKey: KeyObject;
-      try {
-        publicKey = createPublicKey({ key: jwk, format: 'jwk' });
-      } catch {
-        continue;
-      }
-
-      const publicJwk = publicKey.export({ format: 'jwk' }) as JsonWebKey;
-      jwks.push({
-        ...publicJwk,
-        kid,
-        use: 'sig',
-        alg,
-      });
-
-      if (!signingKey) {
-        try {
-          const privateKey = createPrivateKey({ key: jwk, format: 'jwk' });
-          signingKey = { kid, alg, privateKey };
-        } catch {
-          // public-only keys are still published via JWKS, but cannot be used to sign.
-        }
-      }
-    }
-
-    if (!signingKey) {
-      if (productionLike) {
-        throw new Error('AUTH_SIGNING_KEYS_JSON did not contain any usable private JWKs');
-      }
-      this.generateEphemeralKey(algConfig);
-      return;
-    }
-
-    this.signingKey = signingKey;
-    this.jwks = jwks;
-  }
-
-  private generateEphemeralKey(alg: JwtAlg): void {
-    let resolvedAlg: JwtAlg = alg;
-    let privateKey: KeyObject;
-    let publicKey: KeyObject;
-
-    try {
-      if (alg === 'EdDSA') {
-        ({ privateKey, publicKey } = generateKeyPairSync('ed25519'));
-      } else {
-        ({ privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 }));
-      }
-    } catch {
-      resolvedAlg = 'RS256';
-      ({ privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 }));
-    }
-
-    const kid = randomUUID();
-    const publicJwk = publicKey.export({ format: 'jwk' }) as JsonWebKey;
-
-    this.signingKey = { kid, alg: resolvedAlg, privateKey };
-    this.jwks = [{ ...publicJwk, kid, use: 'sig', alg: resolvedAlg }];
+    const key = await this.keys.getSigningKey();
+    this.signingKey = { kid: key.kid, alg: key.alg, privateKey: key.privateKey };
   }
 }
