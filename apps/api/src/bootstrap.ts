@@ -1,11 +1,12 @@
 import 'reflect-metadata';
 import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { ErrorCode } from '../../../libs/platform/http/errors/error-codes';
 import { ProblemException } from '../../../libs/platform/http/errors/problem.exception';
+import { createFastifyAdapter } from '../../../libs/platform/http/fastify-adapter';
 import { registerFastifyHttpPlatform } from '../../../libs/platform/http/fastify-hooks';
 import type { ValidationError } from 'class-validator';
 
@@ -33,7 +34,7 @@ function flattenValidationErrors(
 }
 
 export async function createApiApp(): Promise<NestFastifyApplication> {
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, createFastifyAdapter(), {
     bufferLogs: true,
   });
   app.useLogger(app.get(Logger));

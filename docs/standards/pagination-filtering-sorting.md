@@ -18,13 +18,14 @@ Response:
 ```json
 {
   "data": [{}],
-  "meta": { "nextCursor": "…", "limit": 25 }
+  "meta": { "nextCursor": "…", "limit": 25, "hasMore": true }
 }
 ```
 
 Rules:
 
 - `nextCursor` is omitted when there are no more results.
+- `hasMore` is `true` when another page exists.
 - Cursor format is opaque to clients. It is typically base64url-encoded JSON.
 - Endpoints must define a deterministic default sort so pagination is stable.
 
@@ -42,6 +43,7 @@ Example:
 Rules:
 
 - Only allow an explicit allowlist of sortable fields (avoid exposing arbitrary DB columns).
+- Max 3 sort fields (reject more).
 - Default sorting must be documented in OpenAPI.
 
 ## Filtering
@@ -58,6 +60,7 @@ Rules:
 
 - Only allow an explicit allowlist of filterable fields/operators per endpoint.
 - Do not implement “generic filtering over all fields” (security + performance footguns).
+- For `filter[...][in]`, only comma-separated lists are supported (no repeated params).
 
 ## Search
 

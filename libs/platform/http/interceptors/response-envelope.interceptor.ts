@@ -31,14 +31,16 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor<unknown, unk
           'items' in (data as Record<string, unknown>) &&
           Array.isArray((data as { items: unknown[] }).items)
         ) {
-          const { items, nextCursor, limit, ...rest } = data as {
+          const { items, nextCursor, limit, hasMore, ...rest } = data as {
             items: unknown[];
             nextCursor?: string;
             limit?: number;
+            hasMore?: boolean;
             [k: string]: unknown;
           };
 
           const meta: Record<string, unknown> = {};
+          meta.hasMore = typeof hasMore === 'boolean' ? hasMore : nextCursor !== undefined;
           if (nextCursor !== undefined) meta.nextCursor = nextCursor;
           if (limit !== undefined) meta.limit = limit;
 
