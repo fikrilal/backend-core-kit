@@ -1,4 +1,4 @@
-import { createWorkerApp } from './bootstrap';
+import { initTelemetry } from '../../../libs/platform/otel/telemetry';
 
 function getEnvNumber(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -8,13 +8,28 @@ function getEnvNumber(name: string, fallback: number): number {
 }
 
 async function bootstrap() {
-  const app = await createWorkerApp();
+  const telemetry = await initTelemetry('worker');
+  const shutdownTelemetry = () => void telemetry.shutdown().catch(() => undefined);
+  process.once('SIGTERM', shutdownTelemetry);
+  process.once('SIGINT', shutdownTelemetry);
 
-  const port = getEnvNumber('WORKER_PORT', 4001);
-  const nodeEnv = process.env.NODE_ENV ?? 'development';
-  const host = process.env.WORKER_HOST ?? (nodeEnv === 'production' ? '0.0.0.0' : '127.0.0.1');
+  try {
+    const { createWorkerApp } = await import('./bootstrap');
+    const app = await createWorkerApp();
 
-  await app.listen({ port, host });
+    const port = getEnvNumber('WORKER_PORT', 4001);
+    const nodeEnv = process.env.NODE_ENV ?? 'development';
+    const host = process.env.WORKER_HOST ?? (nodeEnv === 'production' ? '0.0.0.0' : '127.0.0.1');
+
+    await app.listen({ port, host });
+  } catch (err) {
+    await telemetry.shutdown().catch(() => undefined);
+    throw err;
+  }
 }
 
-bootstrap();
+void bootstrap().catch((err) => {
+  const message = err instanceof Error ? (err.stack ?? err.message) : String(err);
+  process.stderr.write(`${message}\n`);
+  process.exit(1);
+});
