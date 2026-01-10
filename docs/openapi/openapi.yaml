@@ -188,6 +188,27 @@ paths:
       x-error-codes:
         - UNAUTHORIZED
         - INTERNAL
+  /v1/admin/whoami:
+    get:
+      description: Returns the authenticated principal as derived from the access token.
+      operationId: admin.whoami.get
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminWhoamiEnvelopeDto"
+      security:
+        - access-token: []
+      summary: Get current principal (admin)
+      tags:
+        - Admin
+      x-error-codes:
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - INTERNAL
 info:
   title: Backend Core Kit API
   description: Generated API contract (code-first).
@@ -200,6 +221,8 @@ tags:
     description: Authentication and session endpoints.
   - name: Users
     description: User profile endpoints.
+  - name: Admin
+    description: Administrative endpoints (RBAC-protected).
 servers:
   - url: /
 components:
@@ -328,5 +351,35 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/MeDto"
+      required:
+        - data
+    AdminWhoamiDto:
+      type: object
+      properties:
+        userId:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        sessionId:
+          type: string
+          example: c1b6c1f7-5b2f-4e53-b33b-5af7f63a8c40
+        emailVerified:
+          type: boolean
+          example: false
+        roles:
+          example:
+            - ADMIN
+          type: array
+          items:
+            type: string
+      required:
+        - userId
+        - sessionId
+        - emailVerified
+        - roles
+    AdminWhoamiEnvelopeDto:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminWhoamiDto"
       required:
         - data

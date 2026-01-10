@@ -9,6 +9,7 @@ import { ProblemDetailsFilter } from '../../../libs/platform/http/filters/proble
 import { validateEnv } from '../../../libs/platform/config/env.validation';
 import { AuthModule } from '../../../libs/features/auth/infra/auth.module';
 import { UsersModule } from '../../../libs/features/users/infra/users.module';
+import { AdminModule } from '../../../libs/features/admin/infra/admin.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { UsersModule } from '../../../libs/features/users/infra/users.module';
     QueueModule,
     AuthModule,
     UsersModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
