@@ -141,6 +141,19 @@ Before coding:
 3. Implement minimally; when adding/changing reusable platform/core infra, update the relevant docs/guides/standards; update OpenAPI snapshot if API changes.
 4. Ensure boundary rules aren’t violated (no “shortcut imports”).
 
+### Local Validation Checklist (Agent + Contributor)
+
+Before handing off changes, run the same gates CI enforces (`.github/workflows/ci.yml`):
+
+- `npm run verify`
+
+When applicable:
+
+- If you changed HTTP routes/controllers/DTOs/OpenAPI decorators: run `npm run openapi:generate`, then re-run `npm run openapi:check`.
+- If you changed Prisma schema/migrations or request flows touching Postgres/Redis: run `npm run verify:e2e` (always stops local deps).
+
+WSL note (agent-only): run these via `bash tools/agent/npmw ...` (and `bash tools/agent/dockw ...` for Docker) to avoid OS-specific artifacts.
+
 ### Windows Toolchain Interop (Agent-Only)
 
 This repo commonly lives on a Windows filesystem mount (`/mnt/c/...`). To avoid OS-specific artifacts (notably `node_modules` and Prisma engines), treat **Windows** as the source of truth for installs/builds/tests when running from WSL.

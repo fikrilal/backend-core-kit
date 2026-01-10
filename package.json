@@ -20,6 +20,8 @@
     "deps:check": "depcruise --config .dependency-cruiser.cjs --output-type err --validate .dependency-cruiser.cjs apps libs",
     "test": "jest --config jest.config.cjs",
     "test:e2e": "jest --config test/jest-e2e.json --runInBand",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run deps:check && npm test && npm run openapi:check && npm run openapi:lint",
+    "verify:e2e": "ts-node --files scripts/verify-e2e.ts",
     "openapi:generate": "ts-node --files scripts/openapi-generate.ts",
     "openapi:lint": "spectral lint --fail-severity warn docs/openapi/openapi.yaml",
     "openapi:check": "ts-node --files scripts/openapi-check.ts",
