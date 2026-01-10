@@ -49,5 +49,48 @@ jobs:
       - name: OpenAPI Spectral lint
         run: npm run openapi:lint
 
+      - name: Start local dependencies (Postgres + Redis)
+        run: npm run deps:up
+
+      - name: Wait for Postgres (docker compose)
+        run: |
+          for i in {1..30}; do
+            if docker compose exec -T postgres pg_isready -U postgres -d backend_core_kit > /dev/null 2>&1; then
+              echo "Postgres is ready"
+              exit 0
+            fi
+            echo "Waiting for Postgres... ($i/30)"
+            sleep 2
+          done
+          echo "Postgres did not become ready in time"
+          docker compose logs postgres
+          exit 1
+
+      - name: Wait for Redis (docker compose)
+        run: |
+          for i in {1..30}; do
+            if docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; then
+              echo "Redis is ready"
+              exit 0
+            fi
+            echo "Waiting for Redis... ($i/30)"
+            sleep 2
+          done
+          echo "Redis did not become ready in time"
+          docker compose logs redis
+          exit 1
+
+      - name: Apply Prisma migrations
+        env:
+          DATABASE_URL: postgresql://postgres@localhost:54321/backend_core_kit?schema=public
+        run: npm run prisma:migrate:deploy
+
       - name: E2E tests
+        env:
+          DATABASE_URL: postgresql://postgres@localhost:54321/backend_core_kit?schema=public
+          REDIS_URL: redis://localhost:63790/0
         run: npm run test:e2e
+
+      - name: Stop local dependencies
+        if: always()
+        run: npm run deps:down

@@ -14,6 +14,12 @@ Rules:
 - Do not log secrets.
 - PII must be minimized and redacted where possible.
 
+Implementation (current):
+
+- Logging is wired via `libs/platform/logging/logging.module.ts` (nestjs-pino + pino).
+- `NODE_ENV=development` uses pretty logs by default (pino-pretty); staging/production are JSON.
+- `/health` and `/ready` are excluded from automatic HTTP request logging to reduce noise.
+
 ### PII Redaction
 
 Baseline guidance:
@@ -30,6 +36,11 @@ Rules:
 - Generate if missing.
 - Echo on response header `X-Request-Id`.
 - Include in all logs and problem-details errors as `traceId`.
+
+Usage in code (preferred):
+
+- Inject `PinoLogger` (from `nestjs-pino`) and set context once per class.
+- Log structured objects (ids, counts, durations) instead of concatenated strings.
 
 ## Tracing (OpenTelemetry)
 

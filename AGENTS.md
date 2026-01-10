@@ -141,4 +141,21 @@ Before coding:
 3. Implement minimally; update docs + OpenAPI snapshot if API changes.
 4. Ensure boundary rules aren’t violated (no “shortcut imports”).
 
+### Windows Toolchain Interop (Agent-Only)
+
+This repo commonly lives on a Windows filesystem mount (`/mnt/c/...`). To avoid OS-specific artifacts (notably `node_modules` and Prisma engines), treat **Windows** as the source of truth for installs/builds/tests when running from WSL.
+
+- Preflight: run `bash tools/agent/doctor` (fails fast with actionable errors).
+- Run Windows commands from WSL via: `bash tools/agent/win <command> [...args]` (examples: `npm`, `docker`, `node`).
+- Convenience wrappers:
+  - `bash tools/agent/npmw ...`
+  - `bash tools/agent/dockw ...`
+- Do not run `npm install/ci` in WSL for this repo.
+- Prefer `.env` for configuration; WSL environment variables do not reliably propagate into Windows processes.
+
+Documentation hygiene:
+
+- When you need **up-to-date** third-party library documentation (NestJS, Prisma, BullMQ, etc.), **use Context7 first** (`resolve-library-id` → `query-docs`).
+- Do not rely on memory or ad-hoc web searching unless Context7 has no coverage for the library/topic; if you fall back, say so explicitly.
+
 If you must handle unknown input, use `unknown` + validation and keep domain pure.

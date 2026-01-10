@@ -10,6 +10,7 @@ This is not “style preference”. These rules exist to reduce production defec
 - `any` is **forbidden** (no `any`, no `as any`, no implicit `any`).
 - Architectural boundaries are **automatically enforced** in CI (no “trust review” for layering).
 - Formatting is automated (Prettier) and never debated in PRs.
+- Logging must be structured (no `console.*`); use the platform logger wiring (`libs/platform/logging/logging.module.ts`).
 
 See ADRs:
 

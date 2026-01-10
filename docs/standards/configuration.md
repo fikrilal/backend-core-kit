@@ -44,6 +44,8 @@ This is the typical minimal set (exact keys may evolve):
   - `NODE_ENV`
   - `HOST`
   - `PORT`
+  - `WORKER_HOST`
+  - `WORKER_PORT`
   - `SWAGGER_UI_ENABLED` (optional; defaults on for non-prod, off for prod/test)
 - Database
   - `DATABASE_URL`
@@ -54,6 +56,10 @@ This is the typical minimal set (exact keys may evolve):
   - `AUTH_AUDIENCE`
   - `AUTH_ACCESS_TOKEN_TTL_SECONDS`
   - `AUTH_REFRESH_TOKEN_TTL_SECONDS`
+  - `AUTH_PASSWORD_MIN_LENGTH`
+  - `AUTH_LOGIN_MAX_ATTEMPTS`
+  - `AUTH_LOGIN_WINDOW_SECONDS`
+  - `AUTH_LOGIN_BLOCK_SECONDS`
   - `AUTH_JWT_ALG` (e.g., `EdDSA` or `RS256`)
   - `AUTH_SIGNING_KEYS_JSON` (private JWK set, includes current + previous keys, each with `kid`)
 - Observability (Grafana Cloud / OTLP)
@@ -61,6 +67,7 @@ This is the typical minimal set (exact keys may evolve):
   - `OTEL_EXPORTER_OTLP_ENDPOINT`
   - `OTEL_EXPORTER_OTLP_HEADERS` (contains auth header for Grafana Cloud)
   - `LOG_LEVEL`
+  - `LOG_PRETTY` (optional; dev-only, defaults true)
 
 ## Local Development
 

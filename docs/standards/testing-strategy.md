@@ -31,6 +31,10 @@ Baseline dependency strategy:
 - Docker Compose (local + CI), or
 - Testcontainers (preferred when available)
 
+Core kit baseline:
+
+- CI smoke tests enqueue `system.smoke` (happy path; touches Postgres) and `system.smokeRetry` (intentional failure → retry with backoff → success). Enqueue happens via the real API app DI (`QueueProducer`) to keep the golden path honest without adding a public endpoint.
+
 Rules:
 
 - Tests must run from a clean DB state (migrate + reset + seed).

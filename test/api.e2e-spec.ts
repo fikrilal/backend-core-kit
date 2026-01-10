@@ -2,6 +2,20 @@ import { createApiApp } from '../apps/api/src/bootstrap';
 import { buildOpenApiDocument, setupSwaggerUi } from '../apps/api/src/openapi';
 import request from 'supertest';
 
+async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let lastStatus: number | undefined;
+
+  while (Date.now() < deadline) {
+    const res = await request(baseUrl).get('/ready');
+    lastStatus = res.status;
+    if (res.status === 200) return;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+
+  throw new Error(`Timed out waiting for /ready (last status: ${lastStatus ?? 'unknown'})`);
+}
+
 describe('API baseline (e2e)', () => {
   let app: Awaited<ReturnType<typeof createApiApp>>;
   let baseUrl: string;
@@ -23,6 +37,7 @@ describe('API baseline (e2e)', () => {
   });
 
   it('GET /ready returns raw status and X-Request-Id', async () => {
+    await waitForReady(baseUrl);
     const res = await request(baseUrl).get('/ready').expect(200);
     expect(res.headers['x-request-id']).toBeDefined();
     expect(res.body).toEqual({ status: 'ok' });

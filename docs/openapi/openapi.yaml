@@ -46,6 +46,128 @@ paths:
         - Health
       x-error-codes:
         - INTERNAL
+  /v1/auth/password/register:
+    post:
+      description: Creates a user and immediately issues first-party access + refresh
+        tokens.
+      operationId: auth.password.register
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordRegisterRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResultEnvelopeDto"
+      summary: Register (password)
+      tags: &a1
+        - Auth
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_EMAIL_ALREADY_EXISTS
+        - INTERNAL
+  /v1/auth/password/login:
+    post:
+      description: Authenticates a user and issues first-party access + refresh tokens.
+      operationId: auth.password.login
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordLoginRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResultEnvelopeDto"
+      summary: Login (password)
+      tags: *a1
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_INVALID_CREDENTIALS
+        - RATE_LIMITED
+        - INTERNAL
+  /v1/auth/refresh:
+    post:
+      description: Rotates the refresh token and returns a new access + refresh token.
+      operationId: auth.refresh
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResultEnvelopeDto"
+      summary: Refresh tokens
+      tags: *a1
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_REFRESH_TOKEN_INVALID
+        - AUTH_REFRESH_TOKEN_EXPIRED
+        - AUTH_REFRESH_TOKEN_REUSED
+        - AUTH_SESSION_REVOKED
+        - INTERNAL
+  /v1/auth/logout:
+    post:
+      description: Revokes the session associated with the provided refresh token.
+      operationId: auth.logout
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutRequestDto"
+      responses:
+        "204":
+          description: ""
+      summary: Logout
+      tags: *a1
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_REFRESH_TOKEN_INVALID
+        - INTERNAL
+  /.well-known/jwks.json:
+    get:
+      description: Publishes public keys used to verify access tokens.
+      operationId: auth.jwks.get
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                required:
+                  - keys
+      summary: JWKS
+      tags:
+        - Auth
+      x-error-codes:
+        - INTERNAL
 info:
   title: Backend Core Kit API
   description: Generated API contract (code-first).
@@ -54,7 +176,99 @@ info:
 tags:
   - name: Health
     description: Service health and readiness endpoints.
+  - name: Auth
+    description: Authentication and session endpoints.
 servers:
   - url: /
 components:
-  schemas: {}
+  schemas:
+    PasswordRegisterRequestDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: user@example.com
+        password:
+          type: string
+          minLength: 10
+        deviceId:
+          type: string
+          description: Stable per-device identifier (recommended).
+        deviceName:
+          type: string
+          description: Human-friendly device name (optional).
+      required:
+        - email
+        - password
+    AuthUserDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        email:
+          type: string
+          example: user@example.com
+        emailVerified:
+          type: boolean
+          example: false
+      required:
+        - id
+        - email
+        - emailVerified
+    AuthResultDto:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUserDto"
+        accessToken:
+          type: string
+          example: <access-token>
+        refreshToken:
+          type: string
+          example: <refresh-token>
+      required:
+        - user
+        - accessToken
+        - refreshToken
+    AuthResultEnvelopeDto:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/AuthResultDto"
+      required:
+        - data
+    PasswordLoginRequestDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: user@example.com
+        password:
+          type: string
+          minLength: 1
+        deviceId:
+          type: string
+          description: Stable per-device identifier (recommended).
+        deviceName:
+          type: string
+          description: Human-friendly device name (optional).
+      required:
+        - email
+        - password
+    RefreshRequestDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          example: <refresh-token>
+      required:
+        - refreshToken
+    LogoutRequestDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          example: <refresh-token>
+      required:
+        - refreshToken

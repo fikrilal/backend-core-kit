@@ -3,10 +3,13 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SkipEnvelope } from '../http/decorators/skip-envelope.decorator';
 import { ErrorCode } from '../http/errors/error-codes';
 import { ApiErrorCodes } from '../http/openapi/api-error-codes.decorator';
+import { ReadinessService } from './readiness.service';
 
 @ApiTags('Health')
 @Controller('ready')
 export class ReadyController {
+  constructor(private readonly readiness: ReadinessService) {}
+
   @Get()
   @SkipEnvelope()
   @ApiOperation({
@@ -23,8 +26,8 @@ export class ReadyController {
       required: ['status'],
     },
   })
-  getReady() {
-    // Until DB/Redis are introduced (milestone 4), readiness == process is up.
+  async getReady() {
+    await this.readiness.assertReady();
     return { status: 'ok' };
   }
 }

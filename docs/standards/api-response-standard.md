@@ -17,7 +17,7 @@ List endpoints return:
 ```json
 {
   "data": [{}],
-  "meta": { "nextCursor": "…", "limit": 25 }
+  "meta": { "nextCursor": "…", "limit": 25, "hasMore": true }
 }
 ```
 

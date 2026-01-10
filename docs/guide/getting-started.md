@@ -17,6 +17,19 @@ This guide assumes you are building a service from this core kit and want a repr
 
 Bring up local Postgres + Redis:
 
+- `npm run deps:up` (recommended), or
+- `docker compose up -d`
+
+Defaults:
+
+- Postgres exposed on `localhost:54321` (container `5432`, local-only, passwordless)
+- Redis exposed on `localhost:63790` (container `6379`, local-only, passwordless)
+
+If you need passwords locally, create a `docker-compose.override.yml` (do not commit) and update your `.env`.
+
+If you previously ran this repo with password-protected containers, you may need to re-init volumes once:
+
+- `docker compose down -v`
 - `docker compose up -d`
 
 ## Install Dependencies
@@ -36,6 +49,14 @@ Typical workflow (exact commands depend on the project scaffold):
 Typical workflow:
 
 - `npm run start:dev`
+
+## Run the Worker
+
+The worker process exposes `/health` and `/ready` for orchestration (Kubernetes, ECS, etc.).
+
+Typical workflow:
+
+- `npm run start:worker:dev`
 
 ## Verify
 

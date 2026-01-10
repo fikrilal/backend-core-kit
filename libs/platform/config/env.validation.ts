@@ -9,6 +9,7 @@ import {
   Min,
   validateSync,
 } from 'class-validator';
+import { LogLevel } from './log-level';
 
 export enum NodeEnv {
   Development = 'development',
@@ -40,6 +41,15 @@ class EnvVars {
   @IsInt()
   @Min(0)
   PORT: number = 4000;
+
+  @IsOptional()
+  @IsString()
+  WORKER_HOST?: string;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 4001))
+  @IsInt()
+  @Min(0)
+  WORKER_PORT: number = 4001;
 
   @Transform(({ value }) => parseEnvBoolean(value))
   @IsOptional()
@@ -77,6 +87,30 @@ class EnvVars {
   @Min(1)
   AUTH_REFRESH_TOKEN_TTL_SECONDS: number = 60 * 60 * 24 * 30;
 
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 10))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_PASSWORD_MIN_LENGTH: number = 10;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 10))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_LOGIN_MAX_ATTEMPTS: number = 10;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 60))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_LOGIN_WINDOW_SECONDS: number = 60;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 15 * 60))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_LOGIN_BLOCK_SECONDS: number = 15 * 60;
+
   @IsOptional()
   @IsString()
   AUTH_JWT_ALG?: string;
@@ -98,9 +132,16 @@ class EnvVars {
   @IsString()
   OTEL_EXPORTER_OTLP_HEADERS?: string;
 
+  // Logging
+  @Transform(({ value }) => (value !== undefined ? String(value).trim().toLowerCase() : undefined))
   @IsOptional()
-  @IsString()
-  LOG_LEVEL?: string;
+  @IsEnum(LogLevel)
+  LOG_LEVEL?: LogLevel;
+
+  @Transform(({ value }) => parseEnvBoolean(value))
+  @IsOptional()
+  @IsBoolean()
+  LOG_PRETTY?: boolean;
 }
 
 function formatValidationErrors(errors: unknown[]): string {

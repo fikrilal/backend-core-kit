@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Agent-only convenience wrapper around `tools/agent/win` for Docker Desktop (Windows).
+#
+# Usage:
+# - `bash tools/agent/dockw info`
+# - `bash tools/agent/dockw compose up -d postgres redis`
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec bash "$script_dir/win" docker "$@"
+

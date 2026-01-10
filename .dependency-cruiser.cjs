@@ -35,6 +35,14 @@ module.exports = {
       from: { path: '^libs/features' },
       to: { path: '^apps/' },
     },
+    {
+      name: 'shared-must-be-framework-free',
+      severity: 'error',
+      from: { path: '^libs/shared' },
+      to: {
+        path: '^(apps/|libs/platform|libs/features)|node_modules/(?:@nestjs|@prisma|fastify|bullmq|ioredis|redis)',
+      },
+    },
   ],
   options: {
     // Keep the analysis limited to our source tree.
