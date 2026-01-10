@@ -139,6 +139,15 @@ const hasDeps =
     expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
   });
 
+  it('PATCH /v1/me requires an access token', async () => {
+    const res = await request(baseUrl)
+      .patch('/v1/me')
+      .send({ profile: { displayName: 'Dante' } })
+      .expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
   it('register -> GET /v1/me returns current user', async () => {
     const email = `me+${Date.now()}@example.com`;
     const password = 'correct-horse-battery-staple';
@@ -166,6 +175,148 @@ const hasDeps =
       roles: ['USER'],
       profile: { displayName: null, givenName: null, familyName: null },
     });
+  });
+
+  it('register -> PATCH /v1/me updates profile', async () => {
+    const email = `me-patch+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const patchRes = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({
+        profile: {
+          displayName: '  Dante  ',
+          givenName: 'Dante',
+          familyName: ' Alighieri ',
+        },
+      })
+      .expect(200);
+
+    expect(patchRes.body.data).toMatchObject({
+      id: reg.user.id,
+      email: email.toLowerCase(),
+      emailVerified: false,
+      roles: ['USER'],
+      profile: { displayName: 'Dante', givenName: 'Dante', familyName: 'Alighieri' },
+    });
+
+    const meRes = await request(baseUrl)
+      .get('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
+
+    expect(meRes.body.data.profile).toEqual({
+      displayName: 'Dante',
+      givenName: 'Dante',
+      familyName: 'Alighieri',
+    });
+  });
+
+  it('register -> PATCH /v1/me supports clearing fields with null', async () => {
+    const email = `me-clear+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ profile: { displayName: 'Dante' } })
+      .expect(200);
+
+    const cleared = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ profile: { displayName: null } })
+      .expect(200);
+
+    expect(cleared.body.data.profile).toMatchObject({
+      displayName: null,
+      givenName: null,
+      familyName: null,
+    });
+  });
+
+  it('PATCH /v1/me rejects empty patches', async () => {
+    const email = `me-empty+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const res = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ profile: {} })
+      .expect(400);
+
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'VALIDATION_FAILED', status: 400 });
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: 'profile',
+          message: 'At least one profile field must be provided',
+        }),
+      ]),
+    );
+  });
+
+  it('PATCH /v1/me rejects whitespace-only strings', async () => {
+    const email = `me-ws+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const res = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ profile: { displayName: '   ' } })
+      .expect(400);
+
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'VALIDATION_FAILED', status: 400 });
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: 'profile.displayName' })]),
+    );
   });
 
   it('GET /v1/admin/whoami requires an admin access token', async () => {

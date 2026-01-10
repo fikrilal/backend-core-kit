@@ -1,7 +1,7 @@
 import type { UsersRepository } from './ports/users.repository';
 import { UserNotFoundError } from './users.errors';
 import type { MeView } from './users.types';
-import type { UserProfileRecord } from './users.types';
+import type { UpdateMeProfilePatch, UserProfileRecord, UserRecord } from './users.types';
 
 export class UsersService {
   constructor(private readonly users: UsersRepository) {}
@@ -12,6 +12,19 @@ export class UsersService {
       throw new UserNotFoundError();
     }
 
+    return this.toMeView(user);
+  }
+
+  async updateMeProfile(userId: string, patch: UpdateMeProfilePatch): Promise<MeView> {
+    const user = await this.users.updateProfile(userId, patch);
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    return this.toMeView(user);
+  }
+
+  private toMeView(user: UserRecord): MeView {
     const profile: UserProfileRecord = user.profile ?? {
       displayName: null,
       givenName: null,

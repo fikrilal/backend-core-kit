@@ -183,9 +183,35 @@ paths:
       security:
         - access-token: []
       summary: Get current user
-      tags:
+      tags: &a2
         - Users
       x-error-codes:
+        - UNAUTHORIZED
+        - INTERNAL
+    patch:
+      description: Partially updates the authenticated user profile. Omitted fields
+        are unchanged; null clears a field.
+      operationId: users.me.patch
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchMeRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeEnvelopeDto"
+      security:
+        - access-token: []
+      summary: Update current user profile
+      tags: *a2
+      x-error-codes:
+        - VALIDATION_FAILED
         - UNAUTHORIZED
         - INTERNAL
   /v1/admin/whoami:
@@ -460,6 +486,34 @@ components:
           $ref: "#/components/schemas/MeDto"
       required:
         - data
+    PatchMeProfileDto:
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: Dante
+          nullable: true
+          minLength: 1
+          maxLength: 100
+        givenName:
+          type: string
+          example: Dante
+          nullable: true
+          minLength: 1
+          maxLength: 100
+        familyName:
+          type: string
+          example: Alighieri
+          nullable: true
+          minLength: 1
+          maxLength: 100
+    PatchMeRequestDto:
+      type: object
+      properties:
+        profile:
+          $ref: "#/components/schemas/PatchMeProfileDto"
+      required:
+        - profile
     AdminWhoamiDto:
       type: object
       properties:

@@ -6,6 +6,12 @@ export type UserProfileRecord = Readonly<{
   familyName: string | null;
 }>;
 
+export type UpdateMeProfilePatch = Readonly<{
+  displayName?: string | null;
+  givenName?: string | null;
+  familyName?: string | null;
+}>;
+
 export type UserRecord = Readonly<{
   id: string;
   email: string;
