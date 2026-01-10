@@ -119,6 +119,40 @@ const hasDeps =
     expect(afterLogout.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });
   });
 
+  it('GET /v1/me requires an access token', async () => {
+    const res = await request(baseUrl).get('/v1/me').expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
+  it('register -> GET /v1/me returns current user', async () => {
+    const email = `me+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const meRes = await request(baseUrl)
+      .get('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
+
+    expect(meRes.body.data).toMatchObject({
+      id: reg.user.id,
+      email: email.toLowerCase(),
+      emailVerified: false,
+      roles: ['USER'],
+    });
+  });
+
   it('duplicate register returns AUTH_EMAIL_ALREADY_EXISTS', async () => {
     const email = `dupe+${Date.now()}@example.com`;
     const password = 'correct-horse-battery-staple';

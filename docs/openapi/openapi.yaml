@@ -168,6 +168,26 @@ paths:
         - Auth
       x-error-codes:
         - INTERNAL
+  /v1/me:
+    get:
+      description: Returns the authenticated user profile.
+      operationId: users.me.get
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeEnvelopeDto"
+      security:
+        - access-token: []
+      summary: Get current user
+      tags:
+        - Users
+      x-error-codes:
+        - UNAUTHORIZED
+        - INTERNAL
 info:
   title: Backend Core Kit API
   description: Generated API contract (code-first).
@@ -178,6 +198,8 @@ tags:
     description: Service health and readiness endpoints.
   - name: Auth
     description: Authentication and session endpoints.
+  - name: Users
+    description: User profile endpoints.
 servers:
   - url: /
 components:
@@ -278,3 +300,33 @@ components:
           example: <refresh-token>
       required:
         - refreshToken
+    MeDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        email:
+          type: string
+          example: user@example.com
+        emailVerified:
+          type: boolean
+          example: false
+        roles:
+          example:
+            - USER
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - email
+        - emailVerified
+        - roles
+    MeEnvelopeDto:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/MeDto"
+      required:
+        - data
