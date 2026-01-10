@@ -215,6 +215,100 @@ const hasDeps =
     expect(typeof whoami.body.data.sessionId).toBe('string');
   });
 
+  it('GET /v1/admin/users supports search, filters, sort, and pagination (admin only)', async () => {
+    const runId = Date.now();
+    const password = 'correct-horse-battery-staple';
+
+    const adminRegisterRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email: `admin-users+${runId}@example.com`, password })
+      .expect(200);
+
+    const adminReg = adminRegisterRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const forbidden = await request(baseUrl)
+      .get('/v1/admin/users')
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .expect(403);
+
+    expect(forbidden.headers['content-type']).toContain('application/problem+json');
+    expect(forbidden.body).toMatchObject({ code: 'FORBIDDEN', status: 403 });
+
+    const prefix = `list+${runId}`;
+    const userEmails = [
+      `${prefix}-a@example.com`,
+      `${prefix}-b@example.com`,
+      `${prefix}-c@example.com`,
+    ];
+
+    for (const email of userEmails) {
+      await request(baseUrl)
+        .post('/v1/auth/password/register')
+        .send({ email, password })
+        .expect(200);
+    }
+
+    await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
+
+    const refreshRes = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: adminReg.refreshToken })
+      .expect(200);
+
+    const refreshed = refreshRes.body.data as {
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const listUrlPage1 = `/v1/admin/users?limit=2&sort=email&q=${encodeURIComponent(
+      prefix,
+    )}&filter%5Brole%5D=USER&filter%5BemailVerified%5D=false`;
+
+    const page1 = await request(baseUrl)
+      .get(listUrlPage1)
+      .set('Authorization', `Bearer ${refreshed.accessToken}`)
+      .expect(200);
+
+    expect(Array.isArray(page1.body.data)).toBe(true);
+    expect(page1.body.data).toHaveLength(2);
+    expect(page1.body.meta).toMatchObject({ limit: 2, hasMore: true });
+    expect(typeof page1.body.meta.nextCursor).toBe('string');
+
+    for (const u of page1.body.data as Array<{
+      id: string;
+      email: string;
+      emailVerified: boolean;
+      roles: string[];
+      createdAt: string;
+    }>) {
+      expect(u.email).toContain(prefix);
+      expect(u.emailVerified).toBe(false);
+      expect(u.roles).toEqual(['USER']);
+      expect(typeof u.createdAt).toBe('string');
+    }
+
+    const nextCursor = page1.body.meta.nextCursor as string;
+    const listUrlPage2 = `${listUrlPage1}&cursor=${encodeURIComponent(nextCursor)}`;
+
+    const page2 = await request(baseUrl)
+      .get(listUrlPage2)
+      .set('Authorization', `Bearer ${refreshed.accessToken}`)
+      .expect(200);
+
+    expect(Array.isArray(page2.body.data)).toBe(true);
+    expect(page2.body.data).toHaveLength(1);
+    expect(page2.body.meta).toMatchObject({ limit: 2, hasMore: false });
+    expect(page2.body.meta.nextCursor).toBeUndefined();
+
+    const emails = (page1.body.data as Array<{ email: string }>).map((u) => u.email);
+    expect(emails).toEqual([userEmails[0], userEmails[1]]);
+    expect((page2.body.data as Array<{ email: string }>)[0].email).toBe(userEmails[2]);
+  });
+
   it('duplicate register returns AUTH_EMAIL_ALREADY_EXISTS', async () => {
     const email = `dupe+${Date.now()}@example.com`;
     const password = 'correct-horse-battery-staple';
