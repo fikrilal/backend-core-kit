@@ -87,6 +87,30 @@ class EnvVars {
   @Min(1)
   AUTH_REFRESH_TOKEN_TTL_SECONDS: number = 60 * 60 * 24 * 30;
 
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 10))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_PASSWORD_MIN_LENGTH: number = 10;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 10))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_LOGIN_MAX_ATTEMPTS: number = 10;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 60))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_LOGIN_WINDOW_SECONDS: number = 60;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 15 * 60))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_LOGIN_BLOCK_SECONDS: number = 15 * 60;
+
   @IsOptional()
   @IsString()
   AUTH_JWT_ALG?: string;

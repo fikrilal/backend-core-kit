@@ -61,6 +61,7 @@ export async function createApiApp(): Promise<NestFastifyApplication> {
     exclude: [
       { path: 'health', method: RequestMethod.GET },
       { path: 'ready', method: RequestMethod.GET },
+      { path: '.well-known/jwks.json', method: RequestMethod.GET },
     ],
   });
 

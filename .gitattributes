@@ -1,0 +1,3 @@
+# Prisma migrations are checksum-validated; enforce LF to avoid drift across Windows/WSL.
+prisma/migrations/** text eol=lf
+

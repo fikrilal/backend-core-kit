@@ -56,6 +56,10 @@ This is the typical minimal set (exact keys may evolve):
   - `AUTH_AUDIENCE`
   - `AUTH_ACCESS_TOKEN_TTL_SECONDS`
   - `AUTH_REFRESH_TOKEN_TTL_SECONDS`
+  - `AUTH_PASSWORD_MIN_LENGTH`
+  - `AUTH_LOGIN_MAX_ATTEMPTS`
+  - `AUTH_LOGIN_WINDOW_SECONDS`
+  - `AUTH_LOGIN_BLOCK_SECONDS`
   - `AUTH_JWT_ALG` (e.g., `EdDSA` or `RS256`)
   - `AUTH_SIGNING_KEYS_JSON` (private JWK set, includes current + previous keys, each with `kid`)
 - Observability (Grafana Cloud / OTLP)

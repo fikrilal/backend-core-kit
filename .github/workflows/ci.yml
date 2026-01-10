@@ -52,6 +52,11 @@ jobs:
       - name: Start local dependencies (Postgres + Redis)
         run: npm run deps:up
 
+      - name: Apply Prisma migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:54321/backend_core_kit?schema=public
+        run: npm run prisma:migrate:deploy
+
       - name: E2E tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:54321/backend_core_kit?schema=public

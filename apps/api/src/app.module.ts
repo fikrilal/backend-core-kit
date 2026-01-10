@@ -7,6 +7,7 @@ import { QueueModule } from '../../../libs/platform/queue/queue.module';
 import { ResponseEnvelopeInterceptor } from '../../../libs/platform/http/interceptors/response-envelope.interceptor';
 import { ProblemDetailsFilter } from '../../../libs/platform/http/filters/problem-details.filter';
 import { validateEnv } from '../../../libs/platform/config/env.validation';
+import { AuthModule } from '../../../libs/features/auth/infra/auth.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { validateEnv } from '../../../libs/platform/config/env.validation';
     LoggingModule.forRoot('api'),
     HealthModule,
     QueueModule,
+    AuthModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },

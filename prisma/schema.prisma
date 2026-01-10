@@ -7,3 +7,68 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String  @unique
+  emailVerifiedAt DateTime?
+
+  passwordCredential PasswordCredential?
+  sessions           Session[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PasswordCredential {
+  userId String @id @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  passwordHash String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Session {
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  deviceId   String?
+  deviceName String?
+  // Enforces "one active session per (userId, deviceId)" when deviceId is provided.
+  // Revoked sessions must clear this field.
+  activeKey String? @unique
+
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  refreshTokens RefreshToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([deviceId])
+  @@index([revokedAt])
+}
+
+model RefreshToken {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tokenHash String  @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  sessionId String  @db.Uuid
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  replacedById String? @unique @db.Uuid
+  replacedBy   RefreshToken? @relation("RefreshTokenReplacement", fields: [replacedById], references: [id])
+  replaces     RefreshToken? @relation("RefreshTokenReplacement")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId])
+  @@index([revokedAt])
+}
