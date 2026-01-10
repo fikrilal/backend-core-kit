@@ -4,10 +4,12 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: backend_core_kit
+      # Local-only convenience: do not require a password.
+      # Never run this configuration in production.
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - '54321:5432'
+      - '127.0.0.1:54321:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,13 +21,15 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ['redis-server', '--appendonly', 'yes', '--requirepass', 'redis']
+    # Local-only convenience: no AUTH, bind to localhost via port mapping.
+    # Never run this configuration in production.
+    command: ['redis-server', '--appendonly', 'yes']
     ports:
-      - '63790:6379'
+      - '127.0.0.1:63790:6379'
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', '-a', 'redis', 'ping']
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 3s
       retries: 20

@@ -69,7 +69,7 @@ jobs:
       - name: Wait for Redis (docker compose)
         run: |
           for i in {1..30}; do
-            if docker compose exec -T redis redis-cli -a redis ping 2>/dev/null | grep -q PONG; then
+            if docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; then
               echo "Redis is ready"
               exit 0
             fi
@@ -82,13 +82,13 @@ jobs:
 
       - name: Apply Prisma migrations
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:54321/backend_core_kit?schema=public
+          DATABASE_URL: postgresql://postgres@localhost:54321/backend_core_kit?schema=public
         run: npm run prisma:migrate:deploy
 
       - name: E2E tests
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:54321/backend_core_kit?schema=public
-          REDIS_URL: redis://:redis@localhost:63790/0
+          DATABASE_URL: postgresql://postgres@localhost:54321/backend_core_kit?schema=public
+          REDIS_URL: redis://localhost:63790/0
         run: npm run test:e2e
 
       - name: Stop local dependencies
