@@ -6,7 +6,7 @@ This standard defines how list endpoints behave so clients can implement generic
 
 Request:
 
-- `limit` (optional): integer, default 25, max 250
+- `limit` (optional): integer, default 25, max is endpoint-defined (default max 250)
 - `cursor` (optional): opaque string
 
 Example:
