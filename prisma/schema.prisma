@@ -7,10 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
 model User {
   id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email           String  @unique
   emailVerifiedAt DateTime?
+  role            UserRole @default(USER)
 
   passwordCredential PasswordCredential?
   sessions           Session[]

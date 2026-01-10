@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type RefreshToken, type User } from '@prisma/client';
 import type { Email } from '../../domain/email';
-import type { AuthUserRecord } from '../../app/auth.types';
+import type { AuthRole, AuthUserRecord } from '../../app/auth.types';
 import type {
   AuthRepository,
   CreateSessionInput,
@@ -30,11 +30,14 @@ function isUniqueConstraintError(err: unknown, field?: string): boolean {
   return true;
 }
 
-function toAuthUserRecord(user: Pick<User, 'id' | 'email' | 'emailVerifiedAt'>): AuthUserRecord {
+function toAuthUserRecord(
+  user: Pick<User, 'id' | 'email' | 'emailVerifiedAt' | 'role'>,
+): AuthUserRecord {
   return {
     id: user.id,
     email: user.email as Email,
     emailVerifiedAt: user.emailVerifiedAt,
+    role: user.role as AuthRole,
   };
 }
 
@@ -66,7 +69,7 @@ export class PrismaAuthRepository implements AuthRepository {
             email,
             passwordCredential: { create: { passwordHash } },
           },
-          select: { id: true, email: true, emailVerifiedAt: true },
+          select: { id: true, email: true, emailVerifiedAt: true, role: true },
         }),
       );
       return toAuthUserRecord(user);
@@ -88,6 +91,7 @@ export class PrismaAuthRepository implements AuthRepository {
         id: true,
         email: true,
         emailVerifiedAt: true,
+        role: true,
         passwordCredential: { select: { passwordHash: true } },
       },
     });
@@ -177,7 +181,7 @@ export class PrismaAuthRepository implements AuthRepository {
             expiresAt: true,
             revokedAt: true,
             activeKey: true,
-            user: { select: { id: true, email: true, emailVerifiedAt: true } },
+            user: { select: { id: true, email: true, emailVerifiedAt: true, role: true } },
           },
         },
       },

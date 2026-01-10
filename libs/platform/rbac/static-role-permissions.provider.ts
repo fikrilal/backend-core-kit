@@ -6,8 +6,7 @@ import type { PermissionsProvider } from './permissions.provider';
 
 const ROLE_PERMISSIONS: Readonly<Record<string, ReadonlyArray<Permission>>> = Object.freeze({
   USER: [],
-  SUPPORT: [],
-  ADMIN: ['*:*'],
+  ADMIN: ['admin:access'],
 });
 
 @Injectable()
