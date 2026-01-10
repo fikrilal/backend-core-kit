@@ -89,13 +89,13 @@ jobs:
 
       - name: Apply Prisma migrations
         env:
-          DATABASE_URL: postgresql://postgres@localhost:54321/backend_core_kit?schema=public
+          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
         run: npm run prisma:migrate:deploy
 
       - name: E2E tests
         env:
-          DATABASE_URL: postgresql://postgres@localhost:54321/backend_core_kit?schema=public
-          REDIS_URL: redis://localhost:63790/0
+          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
+          REDIS_URL: redis://127.0.0.1:63790/0
         run: npm run test:e2e
 
       - name: Stop local dependencies

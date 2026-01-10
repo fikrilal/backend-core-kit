@@ -76,6 +76,17 @@ Jobs should carry correlation context:
 - include `requestId/traceId` when enqueued from an API request
 - include job identifiers in logs and traces
 
+### Reserved Job Metadata
+
+Job payloads reserve `__meta` for platform-managed metadata.
+
+Current keys:
+
+- `__meta.otel.traceparent` (W3C Trace Context)
+- `__meta.otel.tracestate` (optional)
+
+This is used to propagate OpenTelemetry context from API enqueue → worker processing spans.
+
 ## Dashboard (Roadmap)
 
 BullMQ has excellent dashboard options (e.g., Bull Board), but this kit will only enable a dashboard after auth/RBAC exists so it cannot be exposed accidentally.

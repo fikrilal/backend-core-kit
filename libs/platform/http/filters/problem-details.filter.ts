@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
 import { ErrorCode } from '../errors/error-codes';
 
 @Catch()
@@ -11,6 +12,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
 
     const traceId: string | undefined =
       req.requestId || req.id || (req.headers['x-request-id'] as string | undefined);
+    const otelTraceId = otelTrace.getSpan(otelContext.active())?.spanContext().traceId;
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let title = 'Internal Server Error';
@@ -66,6 +68,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       ...(errors && errors.length ? { errors } : {}),
       code,
       ...(traceId ? { traceId } : {}),
+      ...(otelTraceId ? { otelTraceId } : {}),
     };
 
     reply.header('X-Request-Id', traceId ?? '');

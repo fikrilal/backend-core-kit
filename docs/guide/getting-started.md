@@ -22,8 +22,8 @@ Bring up local Postgres + Redis:
 
 Defaults:
 
-- Postgres exposed on `localhost:54321` (container `5432`, local-only, passwordless)
-- Redis exposed on `localhost:63790` (container `6379`, local-only, passwordless)
+- Postgres exposed on `127.0.0.1:54321` (container `5432`, local-only, passwordless)
+- Redis exposed on `127.0.0.1:63790` (container `6379`, local-only, passwordless)
 
 If you need passwords locally, create a `docker-compose.override.yml` (do not commit) and update your `.env`.
 

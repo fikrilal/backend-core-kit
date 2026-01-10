@@ -7,7 +7,7 @@ This guide standardizes the shape of endpoints so clients can be consistent acro
 - [ ] Route is versioned (e.g., `/v1/...`) unless explicitly excluded
 - [ ] DTOs validate input (whitelist + forbid unknown fields)
 - [ ] Response uses `{ data, meta? }` envelope
-- [ ] Errors are RFC7807 with `code` + `traceId`
+- [ ] Errors are RFC7807 with `code` + `traceId` (+ optional `otelTraceId`)
 - [ ] Pagination/filter/sort follow standard conventions when listing
 - [ ] OpenAPI decorators document request/response and `x-error-codes`
 - [ ] E2E test asserts envelope + error shape + `X-Request-Id`
