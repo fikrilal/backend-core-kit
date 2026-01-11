@@ -6,6 +6,7 @@ import type { AccessTokenIssuer } from './ports/access-token-issuer';
 import type { LoginRateLimiter } from './ports/login-rate-limiter';
 import type { PasswordHasher } from './ports/password-hasher';
 import { generateRefreshToken, hashRefreshToken } from './refresh-token';
+import { hashEmailVerificationToken } from './email-verification-token';
 import type { Clock } from './time';
 import type { AuthResult, AuthUserRecord, AuthUserView } from './auth.types';
 
@@ -291,6 +292,37 @@ export class AuthService {
         message: 'Invalid refresh token',
       });
     }
+  }
+
+  async verifyEmail(input: { token: string }): Promise<void> {
+    const now = this.clock.now();
+    const tokenHash = hashEmailVerificationToken(input.token);
+
+    const result = await this.repo.verifyEmailByTokenHash(tokenHash, now);
+    if (result.kind === 'ok' || result.kind === 'already_verified') return;
+
+    if (result.kind === 'token_expired') {
+      throw new AuthError({
+        status: 400,
+        code: AuthErrorCode.AUTH_EMAIL_VERIFICATION_TOKEN_EXPIRED,
+        message: 'Email verification token expired',
+      });
+    }
+
+    throw new AuthError({
+      status: 400,
+      code: AuthErrorCode.AUTH_EMAIL_VERIFICATION_TOKEN_INVALID,
+      message: 'Email verification token is invalid',
+    });
+  }
+
+  async getEmailVerificationStatus(userId: string): Promise<'verified' | 'unverified'> {
+    const user = await this.repo.findUserById(userId);
+    if (!user) {
+      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+    }
+
+    return user.emailVerifiedAt !== null ? 'verified' : 'unverified';
   }
 
   async getPublicJwks(): Promise<unknown> {

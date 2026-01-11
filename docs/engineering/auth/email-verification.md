@@ -36,11 +36,34 @@ Required to actually deliver emails:
 Optional:
 
 - `AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS` (default: `86400` / 24h)
+- `AUTH_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS` (default: `60`)
 
 ## Job identifiers
 
 - Queue: `emails`
 - Job: `auth.sendVerificationEmail`
+
+## HTTP endpoints
+
+### Verify email (public)
+
+- `POST /v1/auth/email/verify`
+- Body: `{ "token": "<verification-token>" }`
+- Responses:
+  - `204` on success (also returned if the user is already verified)
+  - `400` with `AUTH_EMAIL_VERIFICATION_TOKEN_INVALID` when the token is unknown/used/revoked
+  - `400` with `AUTH_EMAIL_VERIFICATION_TOKEN_EXPIRED` when the token is expired
+
+Note: this endpoint **does not mint new access/refresh tokens**. Clients should
+refresh/login to get an access token with an updated `emailVerified` claim.
+
+### Resend verification email (authenticated)
+
+- `POST /v1/auth/email/verification/resend`
+- Requires `Authorization: Bearer <access-token>`
+- Responses:
+  - `204` on success (also returned if the user is already verified)
+  - `429 RATE_LIMITED` when called too frequently (cooldown enforced in Redis)
 
 ## Reliability & semantics
 

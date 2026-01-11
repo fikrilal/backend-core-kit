@@ -72,6 +72,44 @@ paths:
         - VALIDATION_FAILED
         - AUTH_EMAIL_ALREADY_EXISTS
         - INTERNAL
+  /v1/auth/email/verify:
+    post:
+      description: Verifies a user email using a token sent via email.
+      operationId: auth.email.verify
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailRequestDto"
+      responses:
+        "204":
+          description: ""
+      summary: Verify email
+      tags: *a1
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_EMAIL_VERIFICATION_TOKEN_INVALID
+        - AUTH_EMAIL_VERIFICATION_TOKEN_EXPIRED
+        - INTERNAL
+  /v1/auth/email/verification/resend:
+    post:
+      description: Enqueues a new verification email for the authenticated user (rate
+        limited).
+      operationId: auth.email.verification.resend
+      parameters: []
+      responses:
+        "204":
+          description: ""
+      security:
+        - access-token: []
+      summary: Resend verification email (current user)
+      tags: *a1
+      x-error-codes:
+        - UNAUTHORIZED
+        - RATE_LIMITED
+        - INTERNAL
   /v1/auth/password/login:
     post:
       description: Authenticates a user and issues first-party access + refresh tokens.
@@ -497,6 +535,14 @@ components:
           $ref: "#/components/schemas/AuthResultDto"
       required:
         - data
+    VerifyEmailRequestDto:
+      type: object
+      properties:
+        token:
+          type: string
+          example: <verification-token>
+      required:
+        - token
     PasswordLoginRequestDto:
       type: object
       properties:

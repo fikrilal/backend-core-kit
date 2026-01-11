@@ -10,6 +10,7 @@ import type {
   RefreshTokenRecord,
   RefreshTokenWithSession,
   SessionRecord,
+  VerifyEmailResult,
 } from '../../app/ports/auth.repository';
 import { EmailAlreadyExistsError } from '../../app/auth.errors';
 import { PrismaService } from '../../../../platform/db/prisma.service';
@@ -90,6 +91,15 @@ export class PrismaAuthRepository implements AuthRepository {
     }
   }
 
+  async findUserById(userId: string): Promise<AuthUserRecord | null> {
+    const client = this.prisma.getClient();
+    const user = await client.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, emailVerifiedAt: true, role: true },
+    });
+    return user ? toAuthUserRecord(user) : null;
+  }
+
   async findUserForLogin(
     email: Email,
   ): Promise<{ user: AuthUserRecord; passwordHash: string } | null> {
@@ -110,6 +120,71 @@ export class PrismaAuthRepository implements AuthRepository {
       user: toAuthUserRecord(user),
       passwordHash: user.passwordCredential.passwordHash,
     };
+  }
+
+  async verifyEmailByTokenHash(tokenHash: string, now: Date): Promise<VerifyEmailResult> {
+    const client = this.prisma.getClient();
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await client.$transaction(
+          async (tx) => {
+            const token = await tx.emailVerificationToken.findUnique({
+              where: { tokenHash },
+              select: {
+                id: true,
+                userId: true,
+                expiresAt: true,
+                usedAt: true,
+                revokedAt: true,
+                user: { select: { emailVerifiedAt: true } },
+              },
+            });
+
+            if (!token) return { kind: 'token_invalid' };
+
+            // Idempotent success: if the user is already verified, treat as ok and mark the token as used.
+            if (token.user.emailVerifiedAt !== null) {
+              await tx.emailVerificationToken.updateMany({
+                where: { id: token.id, usedAt: null },
+                data: { usedAt: now },
+              });
+              return { kind: 'already_verified' };
+            }
+
+            if (token.revokedAt !== null || token.usedAt !== null) {
+              return { kind: 'token_invalid' };
+            }
+
+            if (token.expiresAt.getTime() <= now.getTime()) {
+              return { kind: 'token_expired' };
+            }
+
+            const userUpdated = await tx.user.updateMany({
+              where: { id: token.userId, emailVerifiedAt: null },
+              data: { emailVerifiedAt: now },
+            });
+
+            await tx.emailVerificationToken.updateMany({
+              where: { id: token.id, usedAt: null },
+              data: { usedAt: now },
+            });
+
+            if (userUpdated.count === 0) return { kind: 'already_verified' };
+            return { kind: 'ok' };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (err: unknown) {
+        if (attempt < maxAttempts && isRetryableTransactionError(err)) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw new Error('Unexpected: exhausted transaction retries');
   }
 
   async findPasswordCredential(userId: string): Promise<Readonly<{ passwordHash: string }> | null> {

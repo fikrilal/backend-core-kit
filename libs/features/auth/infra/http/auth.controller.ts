@@ -20,6 +20,7 @@ import { Idempotent } from '../../../../platform/http/idempotency/idempotency.de
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { AuthEmailVerificationJobs } from '../jobs/auth-email-verification.jobs';
+import { RedisEmailVerificationRateLimiter } from '../rate-limit/redis-email-verification-rate-limiter';
 import {
   AuthResultEnvelopeDto,
   ChangePasswordRequestDto,
@@ -27,6 +28,7 @@ import {
   PasswordLoginRequestDto,
   PasswordRegisterRequestDto,
   RefreshRequestDto,
+  VerifyEmailRequestDto,
 } from './dtos/auth.dto';
 
 @ApiTags('Auth')
@@ -35,6 +37,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly emailVerificationJobs: AuthEmailVerificationJobs,
+    private readonly emailVerificationRateLimiter: RedisEmailVerificationRateLimiter,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(AuthController.name);
@@ -73,6 +76,69 @@ export class AuthController {
       }
 
       return result;
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
+  @Post('email/verify')
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: 'auth.email.verify',
+    summary: 'Verify email',
+    description: 'Verifies a user email using a token sent via email.',
+  })
+  @ApiErrorCodes([
+    ErrorCode.VALIDATION_FAILED,
+    AuthErrorCode.AUTH_EMAIL_VERIFICATION_TOKEN_INVALID,
+    AuthErrorCode.AUTH_EMAIL_VERIFICATION_TOKEN_EXPIRED,
+    ErrorCode.INTERNAL,
+  ])
+  @ApiNoContentResponse()
+  async verifyEmail(@Body() body: VerifyEmailRequestDto): Promise<void> {
+    try {
+      await this.auth.verifyEmail({ token: body.token });
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
+  @Post('email/verification/resend')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: 'auth.email.verification.resend',
+    summary: 'Resend verification email (current user)',
+    description: 'Enqueues a new verification email for the authenticated user (rate limited).',
+  })
+  @ApiErrorCodes([ErrorCode.UNAUTHORIZED, ErrorCode.RATE_LIMITED, ErrorCode.INTERNAL])
+  @ApiNoContentResponse()
+  async resendVerificationEmail(@CurrentPrincipal() principal: AuthPrincipal): Promise<void> {
+    try {
+      if (!this.emailVerificationJobs.isEnabled()) {
+        throw new AuthError({
+          status: 500,
+          code: ErrorCode.INTERNAL,
+          message: 'Email is not configured',
+        });
+      }
+
+      const status = await this.auth.getEmailVerificationStatus(principal.userId);
+      if (status === 'verified') return;
+
+      await this.emailVerificationRateLimiter.assertResendAllowed(principal.userId);
+
+      const enqueued = await this.emailVerificationJobs.enqueueSendVerificationEmail(
+        principal.userId,
+      );
+      if (!enqueued) {
+        throw new AuthError({
+          status: 500,
+          code: ErrorCode.INTERNAL,
+          message: 'Email is not configured',
+        });
+      }
     } catch (err: unknown) {
       throw this.mapAuthError(err);
     }

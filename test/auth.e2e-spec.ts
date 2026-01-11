@@ -9,6 +9,10 @@ import {
   EMAIL_QUEUE,
   type AuthSendVerificationEmailJobData,
 } from '../libs/features/auth/infra/jobs/auth-email-verification.job';
+import {
+  generateEmailVerificationToken,
+  hashEmailVerificationToken,
+} from '../libs/features/auth/app/email-verification-token';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
@@ -18,6 +22,7 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
   let app: Awaited<ReturnType<typeof createApiApp>>;
   let baseUrl: string;
   let prisma: PrismaClient;
+  let emailQueue: Queue<AuthSendVerificationEmailJobData>;
 
   beforeAll(async () => {
     if (!databaseUrl) {
@@ -38,12 +43,23 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
     prisma = new PrismaClient({ adapter });
     await prisma.$connect();
 
+    emailQueue = new Queue<AuthSendVerificationEmailJobData>(EMAIL_QUEUE, {
+      connection: { url: redisUrl },
+    });
+    await emailQueue.drain(true);
+
     app = await createApiApp();
     await app.listen({ port: 0, host: '127.0.0.1' });
     baseUrl = await app.getUrl();
   });
 
+  afterEach(async () => {
+    await emailQueue.drain(true);
+  });
+
   afterAll(async () => {
+    await emailQueue.drain(true);
+    await emailQueue.close();
     await prisma.$disconnect();
     await app.close();
   });
@@ -103,33 +119,127 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
   });
 
   it('register enqueues auth.sendVerificationEmail job when email is configured', async () => {
-    const emailQueue = new Queue<AuthSendVerificationEmailJobData>(EMAIL_QUEUE, {
-      connection: { url: redisUrl },
+    const email = `verify-email+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string };
+    };
+
+    const jobs = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
+    const jobForUser = jobs.find(
+      (job) => job.name === AUTH_SEND_VERIFICATION_EMAIL_JOB && job.data.userId === reg.user.id,
+    );
+
+    expect(jobForUser).toBeDefined();
+  });
+
+  it('POST /v1/auth/email/verify verifies email and is idempotent', async () => {
+    const email = `verify+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string };
+      accessToken: string;
+    };
+
+    const token = generateEmailVerificationToken();
+    const tokenHash = hashEmailVerificationToken(token);
+    const expiresAt = new Date(Date.now() + 60_000);
+
+    await prisma.emailVerificationToken.create({
+      data: { userId: reg.user.id, tokenHash, expiresAt },
+      select: { id: true },
     });
 
-    try {
-      const email = `verify-email+${Date.now()}@example.com`;
-      const password = 'correct-horse-battery-staple';
+    await request(baseUrl).post('/v1/auth/email/verify').send({ token }).expect(204);
 
-      const registerRes = await request(baseUrl)
-        .post('/v1/auth/password/register')
-        .send({ email, password })
-        .expect(200);
+    const meRes = await request(baseUrl)
+      .get('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
 
-      const reg = registerRes.body.data as {
-        user: { id: string };
-      };
+    expect(meRes.body.data).toMatchObject({ id: reg.user.id, emailVerified: true });
 
-      const jobs = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
-      const jobForUser = jobs.find(
-        (job) => job.name === AUTH_SEND_VERIFICATION_EMAIL_JOB && job.data.userId === reg.user.id,
-      );
+    // Replay should be safe.
+    await request(baseUrl).post('/v1/auth/email/verify').send({ token }).expect(204);
+  });
 
-      expect(jobForUser).toBeDefined();
-    } finally {
-      await emailQueue.drain(true);
-      await emailQueue.close();
-    }
+  it('POST /v1/auth/email/verify returns 400 for invalid token', async () => {
+    const res = await request(baseUrl)
+      .post('/v1/auth/email/verify')
+      .send({ token: 'nope' })
+      .expect(400);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'AUTH_EMAIL_VERIFICATION_TOKEN_INVALID', status: 400 });
+  });
+
+  it('POST /v1/auth/email/verify returns 400 for expired token', async () => {
+    const email = `verify-expired+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { user: { id: string } };
+
+    const token = generateEmailVerificationToken();
+    const tokenHash = hashEmailVerificationToken(token);
+
+    await prisma.emailVerificationToken.create({
+      data: { userId: reg.user.id, tokenHash, expiresAt: new Date(Date.now() - 60_000) },
+      select: { id: true },
+    });
+
+    const res = await request(baseUrl).post('/v1/auth/email/verify').send({ token }).expect(400);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'AUTH_EMAIL_VERIFICATION_TOKEN_EXPIRED', status: 400 });
+  });
+
+  it('POST /v1/auth/email/verification/resend enqueues a new verification email job and rate limits', async () => {
+    const email = `verify-resend+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { user: { id: string }; accessToken: string };
+
+    // Drop the register enqueue so the test only sees the resend enqueue.
+    await emailQueue.drain(true);
+
+    await request(baseUrl)
+      .post('/v1/auth/email/verification/resend')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(204);
+
+    const jobs = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
+    const jobForUser = jobs.find(
+      (job) => job.name === AUTH_SEND_VERIFICATION_EMAIL_JOB && job.data.userId === reg.user.id,
+    );
+    expect(jobForUser).toBeDefined();
+
+    const rateLimited = await request(baseUrl)
+      .post('/v1/auth/email/verification/resend')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(429);
+
+    expect(rateLimited.headers['content-type']).toContain('application/problem+json');
+    expect(rateLimited.body).toMatchObject({ code: 'RATE_LIMITED', status: 429 });
   });
 
   it('POST /v1/auth/password/change requires an access token', async () => {

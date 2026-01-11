@@ -52,11 +52,20 @@ export type ChangePasswordResult =
   | Readonly<{ kind: 'password_not_set' }>
   | Readonly<{ kind: 'current_password_mismatch' }>;
 
+export type VerifyEmailResult =
+  | Readonly<{ kind: 'ok' }>
+  | Readonly<{ kind: 'already_verified' }>
+  | Readonly<{ kind: 'token_invalid' }>
+  | Readonly<{ kind: 'token_expired' }>;
+
 export interface AuthRepository {
   createUserWithPassword(email: Email, passwordHash: string): Promise<AuthUserRecord>;
   findUserForLogin(email: Email): Promise<{ user: AuthUserRecord; passwordHash: string } | null>;
+  findUserById(userId: string): Promise<AuthUserRecord | null>;
 
   findPasswordCredential(userId: string): Promise<Readonly<{ passwordHash: string }> | null>;
+
+  verifyEmailByTokenHash(tokenHash: string, now: Date): Promise<VerifyEmailResult>;
 
   changePasswordAndRevokeOtherSessions(input: {
     userId: string;

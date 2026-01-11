@@ -99,3 +99,10 @@ export class ChangePasswordRequestDto {
   @MinLength(1)
   newPassword!: string;
 }
+
+export class VerifyEmailRequestDto {
+  @ApiProperty({ example: '<verification-token>' })
+  @IsString()
+  @MinLength(1)
+  token!: string;
+}
