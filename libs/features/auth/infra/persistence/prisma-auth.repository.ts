@@ -1,14 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type RefreshToken, type User } from '@prisma/client';
+import { encodeCursorV1, type ListQuery, type SortSpec } from '../../../../shared/list-query';
 import type { Email } from '../../domain/email';
 import type { AuthRole, AuthUserRecord } from '../../app/auth.types';
 import type {
   AuthRepository,
   ChangePasswordResult,
   CreateSessionInput,
+  ListUserSessionsResult,
   RefreshRotationResult,
   RefreshTokenRecord,
   RefreshTokenWithSession,
+  UserSessionListItem,
+  UserSessionsSortField,
   ResetPasswordByTokenHashResult,
   SessionRecord,
   VerifyEmailResult,
@@ -67,6 +71,89 @@ class RefreshTokenAlreadyUsedError extends Error {
   }
 }
 
+function sortSessionFieldOrderBy(
+  field: UserSessionsSortField,
+  direction: 'asc' | 'desc',
+): Prisma.SessionOrderByWithRelationInput {
+  switch (field) {
+    case 'createdAt':
+      return { createdAt: direction };
+    case 'id':
+      return { id: direction };
+  }
+}
+
+function equalsSessionForCursor(
+  field: UserSessionsSortField,
+  value: string | number | boolean,
+): Prisma.SessionWhereInput {
+  switch (field) {
+    case 'createdAt': {
+      if (typeof value !== 'string') {
+        throw new Error('Cursor value for createdAt must be an ISO datetime string');
+      }
+      return { createdAt: { equals: new Date(value) } };
+    }
+    case 'id': {
+      if (typeof value !== 'string') throw new Error('Cursor value for id must be a string');
+      return { id: { equals: value } };
+    }
+  }
+}
+
+function compareSessionForCursor(
+  field: UserSessionsSortField,
+  direction: 'asc' | 'desc',
+  value: string | number | boolean,
+): Prisma.SessionWhereInput {
+  switch (field) {
+    case 'createdAt': {
+      if (typeof value !== 'string') {
+        throw new Error('Cursor value for createdAt must be an ISO datetime string');
+      }
+      const date = new Date(value);
+      return direction === 'asc' ? { createdAt: { gt: date } } : { createdAt: { lt: date } };
+    }
+    case 'id': {
+      if (typeof value !== 'string') throw new Error('Cursor value for id must be a string');
+      return direction === 'asc' ? { id: { gt: value } } : { id: { lt: value } };
+    }
+  }
+}
+
+function buildAfterSessionCursorWhere(
+  sort: ReadonlyArray<SortSpec<UserSessionsSortField>>,
+  after: Readonly<Partial<Record<UserSessionsSortField, string | number | boolean>>>,
+): Prisma.SessionWhereInput {
+  if (sort.length === 0) return {};
+
+  const clauses: Prisma.SessionWhereInput[] = [];
+
+  for (let i = 0; i < sort.length; i += 1) {
+    const and: Prisma.SessionWhereInput[] = [];
+
+    for (let j = 0; j < i; j += 1) {
+      const field = sort[j].field;
+      const value = after[field];
+      if (value === undefined) {
+        throw new Error(`Cursor missing value for sort field "${String(field)}"`);
+      }
+      and.push(equalsSessionForCursor(field, value));
+    }
+
+    const field = sort[i].field;
+    const value = after[field];
+    if (value === undefined) {
+      throw new Error(`Cursor missing value for sort field "${String(field)}"`);
+    }
+    and.push(compareSessionForCursor(field, sort[i].direction, value));
+
+    clauses.push({ AND: and });
+  }
+
+  return { OR: clauses };
+}
+
 @Injectable()
 export class PrismaAuthRepository implements AuthRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -108,6 +195,105 @@ export class PrismaAuthRepository implements AuthRepository {
       select: { id: true, email: true, emailVerifiedAt: true, role: true },
     });
     return user ? toAuthUserRecord(user) : null;
+  }
+
+  async listUserSessions(
+    userId: string,
+    query: ListQuery<UserSessionsSortField, never>,
+  ): Promise<ListUserSessionsResult> {
+    const client = this.prisma.getClient();
+
+    const afterWhere =
+      query.cursor && query.cursor.after
+        ? buildAfterSessionCursorWhere(query.sort, query.cursor.after)
+        : {};
+
+    const where =
+      query.cursor && query.cursor.after ? { AND: [{ userId }, afterWhere] } : { userId };
+
+    const orderBy = query.sort.map((s) => sortSessionFieldOrderBy(s.field, s.direction));
+
+    const take = query.limit + 1;
+    const sessions = await client.session.findMany({
+      where,
+      orderBy,
+      take,
+      select: {
+        id: true,
+        deviceId: true,
+        deviceName: true,
+        createdAt: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    });
+
+    const hasMore = sessions.length > query.limit;
+    const page = hasMore ? sessions.slice(0, query.limit) : sessions;
+
+    const items: UserSessionListItem[] = page.map((s) => ({
+      id: s.id,
+      deviceId: s.deviceId,
+      deviceName: s.deviceName,
+      createdAt: s.createdAt,
+      expiresAt: s.expiresAt,
+      revokedAt: s.revokedAt,
+    }));
+
+    const nextCursor = (() => {
+      if (!hasMore) return undefined;
+      const last = page.at(-1);
+      if (!last) return undefined;
+
+      const after: Partial<Record<UserSessionsSortField, string | number | boolean>> = {};
+      for (const s of query.sort) {
+        if (s.field === 'createdAt') after.createdAt = last.createdAt.toISOString();
+        else if (s.field === 'id') after.id = last.id;
+      }
+
+      return encodeCursorV1({
+        v: 1,
+        sort: query.normalizedSort,
+        after,
+      });
+    })();
+
+    return {
+      items,
+      limit: query.limit,
+      hasMore,
+      ...(nextCursor ? { nextCursor } : {}),
+    };
+  }
+
+  async revokeSessionById(userId: string, sessionId: string, now: Date): Promise<boolean> {
+    return await this.prisma.transaction(async (tx) => {
+      const session = await tx.session.findUnique({
+        where: { id: sessionId },
+        select: { id: true, userId: true, revokedAt: true },
+      });
+      if (!session || session.userId !== userId) return false;
+
+      if (session.revokedAt === null) {
+        await tx.session.update({
+          where: { id: sessionId },
+          data: { revokedAt: now, activeKey: null },
+          select: { id: true },
+        });
+      } else {
+        await tx.session.updateMany({
+          where: { id: sessionId, userId, activeKey: { not: null } },
+          data: { activeKey: null },
+        });
+      }
+
+      await tx.refreshToken.updateMany({
+        where: { sessionId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+
+      return true;
+    });
   }
 
   async findUserForLogin(

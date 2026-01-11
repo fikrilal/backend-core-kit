@@ -150,6 +150,7 @@ Before handing off changes, run the same gates CI enforces (`.github/workflows/c
 When applicable:
 
 - If you changed HTTP routes/controllers/DTOs/OpenAPI decorators: run `npm run openapi:generate`, then re-run `npm run openapi:check`.
+- If you changed Prisma schema/migrations: run `npm run prisma:generate` **before** `npm run typecheck` or `npm run openapi:generate` (keeps Prisma Client types in sync).
 - If you changed Prisma schema/migrations or request flows touching Postgres/Redis: run `npm run verify:e2e` (always stops local deps).
 
 WSL note (agent-only): run these via `bash tools/agent/npmw ...` (and `bash tools/agent/dockw ...` for Docker) to avoid OS-specific artifacts.

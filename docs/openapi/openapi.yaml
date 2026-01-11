@@ -283,6 +283,75 @@ paths:
         - Auth
       x-error-codes:
         - INTERNAL
+  /v1/me/sessions:
+    get:
+      description: Lists all sessions (active, revoked, expired) for the authenticated
+        user. Revoked sessions have refresh tokens revoked; access tokens remain
+        valid until expiry.
+      operationId: users.me.sessions.list
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          description: Max results to return (default 25, max 100).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+        - name: cursor
+          required: false
+          in: query
+          description: Opaque cursor from the previous response meta.nextCursor.
+          schema:
+            type: string
+        - name: sort
+          required: false
+          in: query
+          description: 'Comma-separated fields; prefix "-" for descending. Max 3 fields.
+            Default: "-createdAt". Allowed: createdAt, id'
+          schema:
+            type: string
+            example: -createdAt
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeSessionsListEnvelopeDto"
+      security:
+        - access-token: []
+      summary: List current user sessions
+      tags: &a2
+        - Users
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - INTERNAL
+  /v1/me/sessions/{sessionId}/revoke:
+    post:
+      description: Revokes the given session and its refresh tokens. Idempotent.
+      operationId: users.me.sessions.revoke
+      parameters:
+        - name: sessionId
+          required: true
+          in: path
+          schema:
+            example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+            type: string
+      responses:
+        "204":
+          description: ""
+      security:
+        - access-token: []
+      summary: Revoke a session (current user)
+      tags: *a2
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - NOT_FOUND
+        - INTERNAL
   /v1/me:
     get:
       description: Returns the authenticated user profile.
@@ -298,7 +367,7 @@ paths:
       security:
         - access-token: []
       summary: Get current user
-      tags: &a2
+      tags: &a3
         - Users
       x-error-codes:
         - UNAUTHORIZED
@@ -332,7 +401,7 @@ paths:
       security:
         - access-token: []
       summary: Update current user profile
-      tags: *a2
+      tags: *a3
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -441,10 +510,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUsersListEnvelopeDto"
-      security: &a3
+      security: &a4
         - access-token: []
       summary: List users
-      tags: &a4
+      tags: &a5
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -485,9 +554,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a3
+      security: *a4
       summary: Set user role
-      tags: *a4
+      tags: *a5
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -651,6 +720,76 @@ components:
           example: <refresh-token>
       required:
         - refreshToken
+    MeSessionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        deviceId:
+          type: string
+          example: device-a
+          nullable: true
+        deviceName:
+          type: string
+          example: iPhone 15
+          nullable: true
+        createdAt:
+          type: string
+          example: 2026-01-10T12:34:56.789Z
+          format: date-time
+        expiresAt:
+          type: string
+          example: 2026-02-10T12:34:56.789Z
+          format: date-time
+        revokedAt:
+          type: string
+          example: 2026-01-10T12:34:56.789Z
+          format: date-time
+          nullable: true
+        current:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum:
+            - active
+            - revoked
+            - expired
+          example: active
+      required:
+        - id
+        - createdAt
+        - expiresAt
+        - current
+        - status
+    CursorPaginationMetaDto:
+      type: object
+      properties:
+        limit:
+          type: number
+          example: 25
+        hasMore:
+          type: boolean
+          example: true
+        nextCursor:
+          type: string
+          example: eyJ2IjoxLCJzb3J0IjoiLWNyZWF0ZWRBdCIsImFmdGVyIjp7fX0
+      required:
+        - limit
+        - hasMore
+    MeSessionsListEnvelopeDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeSessionDto"
+        meta:
+          $ref: "#/components/schemas/CursorPaginationMetaDto"
+      required:
+        - data
+        - meta
     MeProfileDto:
       type: object
       properties:
@@ -785,21 +924,6 @@ components:
         - emailVerified
         - roles
         - createdAt
-    CursorPaginationMetaDto:
-      type: object
-      properties:
-        limit:
-          type: number
-          example: 25
-        hasMore:
-          type: boolean
-          example: true
-        nextCursor:
-          type: string
-          example: eyJ2IjoxLCJzb3J0IjoiLWNyZWF0ZWRBdCIsImFmdGVyIjp7fX0
-      required:
-        - limit
-        - hasMore
     AdminUsersListEnvelopeDto:
       type: object
       properties:

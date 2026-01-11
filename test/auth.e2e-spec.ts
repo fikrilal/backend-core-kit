@@ -26,6 +26,35 @@ const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
 const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getSessionIdFromAccessToken(token: string): string {
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    throw new Error('Access token is not a JWT');
+  }
+
+  const payloadSegment = parts[1];
+  if (!payloadSegment) {
+    throw new Error('Access token payload segment is missing');
+  }
+
+  const payloadJson = Buffer.from(payloadSegment, 'base64url').toString('utf8');
+  const parsed: unknown = JSON.parse(payloadJson) as unknown;
+  if (!isObject(parsed)) {
+    throw new Error('Access token payload is not an object');
+  }
+
+  const sid = parsed.sid;
+  if (typeof sid !== 'string' || sid.trim() === '') {
+    throw new Error('Access token session id (sid) is missing');
+  }
+
+  return sid;
+}
+
 (skipDepsTests ? describe.skip : describe)('Auth (e2e)', () => {
   let app: Awaited<ReturnType<typeof createApiApp>>;
   let baseUrl: string;
@@ -463,11 +492,23 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
     expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
   });
 
+  it('GET /v1/me/sessions requires an access token', async () => {
+    const res = await request(baseUrl).get('/v1/me/sessions').expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
   it('PATCH /v1/me requires an access token', async () => {
     const res = await request(baseUrl)
       .patch('/v1/me')
       .send({ profile: { displayName: 'Dante' } })
       .expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
+  it('POST /v1/me/sessions/:sessionId/revoke requires an access token', async () => {
+    const res = await request(baseUrl).post(`/v1/me/sessions/${randomUUID()}/revoke`).expect(401);
     expect(res.headers['content-type']).toContain('application/problem+json');
     expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
   });
@@ -499,6 +540,102 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
       roles: ['USER'],
       profile: { displayName: null, givenName: null, familyName: null },
     });
+  });
+
+  it('register -> login -> GET /v1/me/sessions returns sessions and marks current', async () => {
+    const email = `me-sessions+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password, deviceId: 'device-a', deviceName: 'Device A' })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const loginRes = await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password, deviceId: 'device-b', deviceName: 'Device B' })
+      .expect(200);
+
+    const loggedIn = loginRes.body.data as {
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    expect(typeof loggedIn.refreshToken).toBe('string');
+    expect(loggedIn.refreshToken).not.toBe(reg.refreshToken);
+
+    const currentSessionId = getSessionIdFromAccessToken(reg.accessToken);
+
+    const sessionsRes = await request(baseUrl)
+      .get('/v1/me/sessions')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
+
+    const sessions = sessionsRes.body.data as Array<{
+      id: string;
+      current: boolean;
+      status: string;
+    }>;
+    expect(Array.isArray(sessions)).toBe(true);
+    expect(sessions.length).toBeGreaterThanOrEqual(2);
+
+    const current = sessions.find((s) => s.id === currentSessionId);
+    expect(current).toBeDefined();
+    expect(current?.current).toBe(true);
+  });
+
+  it('register -> login -> revoke session revokes refresh tokens and returns 404 for unknown session', async () => {
+    const email = `me-sessions-revoke+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password, deviceId: 'device-a' })
+      .expect(200);
+
+    const reg = registerRes.body.data as { accessToken: string };
+
+    const loginRes = await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password, deviceId: 'device-b' })
+      .expect(200);
+
+    const loggedIn = loginRes.body.data as { accessToken: string; refreshToken: string };
+
+    const sessionIdToRevoke = getSessionIdFromAccessToken(loggedIn.accessToken);
+
+    await request(baseUrl)
+      .post(`/v1/me/sessions/${sessionIdToRevoke}/revoke`)
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(204);
+
+    // Idempotent replay should be safe.
+    await request(baseUrl)
+      .post(`/v1/me/sessions/${sessionIdToRevoke}/revoke`)
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(204);
+
+    const oldRefresh = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: loggedIn.refreshToken })
+      .expect(401);
+
+    expect(oldRefresh.headers['content-type']).toContain('application/problem+json');
+    expect(oldRefresh.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });
+
+    const missing = await request(baseUrl)
+      .post(`/v1/me/sessions/${randomUUID()}/revoke`)
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(404);
+
+    expect(missing.headers['content-type']).toContain('application/problem+json');
+    expect(missing.body).toMatchObject({ code: 'NOT_FOUND', status: 404 });
   });
 
   it('register -> PATCH /v1/me updates profile', async () => {
@@ -882,16 +1019,17 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 
     await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
 
+    const promoteTraceId = randomUUID();
     const promoted = await request(baseUrl)
       .patch(`/v1/admin/users/${userReg.user.id}/role`)
       .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .set('X-Request-Id', promoteTraceId)
       .send({ role: 'ADMIN' })
       .expect(200);
 
     expect(promoted.body.data).toMatchObject({ id: userReg.user.id, roles: ['ADMIN'] });
 
-    const promoteTraceId = promoted.headers['x-request-id'];
-    expect(typeof promoteTraceId).toBe('string');
+    expect(promoted.headers['x-request-id']).toBe(promoteTraceId);
 
     const promoteAudit = await prisma.userRoleChangeAudit.findFirst({
       where: { traceId: promoteTraceId },
@@ -911,16 +1049,17 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
       .set('Authorization', `Bearer ${userReg.accessToken}`)
       .expect(200);
 
+    const selfDemoteTraceId = randomUUID();
     const selfDemoted = await request(baseUrl)
       .patch(`/v1/admin/users/${adminReg.user.id}/role`)
       .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .set('X-Request-Id', selfDemoteTraceId)
       .send({ role: 'USER' })
       .expect(200);
 
     expect(selfDemoted.body.data).toMatchObject({ id: adminReg.user.id, roles: ['USER'] });
 
-    const selfDemoteTraceId = selfDemoted.headers['x-request-id'];
-    expect(typeof selfDemoteTraceId).toBe('string');
+    expect(selfDemoted.headers['x-request-id']).toBe(selfDemoteTraceId);
 
     const selfDemoteAudit = await prisma.userRoleChangeAudit.findFirst({
       where: { traceId: selfDemoteTraceId },
@@ -953,9 +1092,11 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
       data: { role: UserRole.USER },
     });
 
+    const lastAdminTraceId = randomUUID();
     const lastAdminBlocked = await request(baseUrl)
       .patch(`/v1/admin/users/${userReg.user.id}/role`)
       .set('Authorization', `Bearer ${userReg.accessToken}`)
+      .set('X-Request-Id', lastAdminTraceId)
       .send({ role: 'USER' })
       .expect(409);
 
@@ -965,8 +1106,7 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
       status: 409,
     });
 
-    const lastAdminTraceId = lastAdminBlocked.headers['x-request-id'];
-    expect(typeof lastAdminTraceId).toBe('string');
+    expect(lastAdminBlocked.headers['x-request-id']).toBe(lastAdminTraceId);
 
     const lastAdminAudit = await prisma.userRoleChangeAudit.findFirst({
       where: { traceId: lastAdminTraceId },

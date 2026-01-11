@@ -7,8 +7,10 @@ import { PlatformEmailModule } from '../../../platform/email/email.module';
 import { QueueModule } from '../../../platform/queue/queue.module';
 import { AuthService } from '../app/auth.service';
 import { SystemClock } from '../app/time';
+import { AuthSessionsService } from '../app/auth-sessions.service';
 import { AuthController } from './http/auth.controller';
 import { JwksController } from './http/jwks.controller';
+import { MeSessionsController } from './http/me-sessions.controller';
 import { PrismaAuthRepository } from './persistence/prisma-auth.repository';
 import { AuthEmailVerificationJobs } from './jobs/auth-email-verification.jobs';
 import { AuthPasswordResetJobs } from './jobs/auth-password-reset.jobs';
@@ -20,7 +22,7 @@ import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
 
 @Module({
   imports: [PrismaModule, RedisModule, PlatformAuthModule, PlatformEmailModule, QueueModule],
-  controllers: [AuthController, JwksController],
+  controllers: [AuthController, JwksController, MeSessionsController],
   providers: [
     PrismaAuthRepository,
     AuthEmailVerificationJobs,
@@ -30,6 +32,11 @@ import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
     RedisEmailVerificationRateLimiter,
     RedisLoginRateLimiter,
     RedisPasswordResetRateLimiter,
+    {
+      provide: AuthSessionsService,
+      inject: [PrismaAuthRepository],
+      useFactory: (repo: PrismaAuthRepository) => new AuthSessionsService(repo),
+    },
     {
       provide: AuthService,
       inject: [
