@@ -1,10 +1,15 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
+import { AdminErrorCode } from '../../app/admin.error-codes';
+import { AdminError } from '../../app/admin.errors';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
+import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiListQuery } from '../../../../platform/http/list-query/api-list-query.decorator';
 import { ListQueryParam } from '../../../../platform/http/list-query/list-query.decorator';
+import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
+import { ProblemException } from '../../../../platform/http/errors/problem.exception';
 import type { ListQuery } from '../../../../shared/list-query';
 import { RbacGuard } from '../../../../platform/rbac/rbac.guard';
 import { RequirePermissions } from '../../../../platform/rbac/rbac.decorator';
@@ -12,7 +17,8 @@ import { UseDbRoles } from '../../../../platform/rbac/use-db-roles.decorator';
 import type { ListQueryPipeOptions } from '../../../../platform/http/list-query/list-query.pipe';
 import type { AdminUsersFilterField, AdminUsersSortField } from '../../app/admin-users.types';
 import { AdminUsersService } from '../../app/admin-users.service';
-import { AdminUsersListEnvelopeDto } from './dtos/admin-users.dto';
+import { AdminUserEnvelopeDto, AdminUsersListEnvelopeDto } from './dtos/admin-users.dto';
+import { AdminUserIdParamDto, SetAdminUserRoleRequestDto } from './dtos/admin-user-role.dto';
 
 const listUsersQueryOptions = {
   search: true,
@@ -62,5 +68,68 @@ export class AdminUsersController {
     query: ListQuery<AdminUsersSortField, AdminUsersFilterField>,
   ) {
     return this.users.listUsers(query);
+  }
+
+  @Patch('users/:userId/role')
+  @RequirePermissions('users:role:write')
+  @ApiOperation({
+    operationId: 'admin.users.role.patch',
+    summary: 'Set user role',
+    description:
+      'Sets the user role. For /v1/admin/* endpoints, RBAC roles are hydrated from the database on every request (promotion/demotion takes effect immediately).',
+  })
+  @ApiErrorCodes([
+    ErrorCode.VALIDATION_FAILED,
+    ErrorCode.UNAUTHORIZED,
+    ErrorCode.FORBIDDEN,
+    ErrorCode.NOT_FOUND,
+    ErrorCode.IDEMPOTENCY_IN_PROGRESS,
+    ErrorCode.CONFLICT,
+    AdminErrorCode.ADMIN_CANNOT_DEMOTE_LAST_ADMIN,
+    ErrorCode.INTERNAL,
+  ])
+  @ApiOkResponse({ type: AdminUserEnvelopeDto })
+  @ApiIdempotencyKeyHeader({ required: false })
+  @Idempotent({ scopeKey: 'admin.users.role.patch' })
+  async setUserRole(
+    @Param() params: AdminUserIdParamDto,
+    @Body() body: SetAdminUserRoleRequestDto,
+  ) {
+    try {
+      return await this.users.setUserRole(params.userId, body.role);
+    } catch (err: unknown) {
+      throw this.mapAdminError(err);
+    }
+  }
+
+  private mapAdminError(err: unknown): ProblemException {
+    if (err instanceof AdminError) {
+      return new ProblemException(err.status, {
+        title: this.titleForStatus(err.status, err.code),
+        detail: err.message,
+        code: err.code,
+        errors: err.issues ? [...err.issues] : undefined,
+      });
+    }
+    throw err;
+  }
+
+  private titleForStatus(status: number, code: string): string {
+    if (code === ErrorCode.VALIDATION_FAILED) return 'Validation Failed';
+
+    switch (status) {
+      case 400:
+        return 'Bad Request';
+      case 401:
+        return 'Unauthorized';
+      case 403:
+        return 'Forbidden';
+      case 404:
+        return 'Not Found';
+      case 409:
+        return 'Conflict';
+      default:
+        return status >= 500 ? 'Internal Server Error' : 'Error';
+    }
   }
 }

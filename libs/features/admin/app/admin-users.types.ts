@@ -2,6 +2,8 @@ export type AdminUsersSortField = 'createdAt' | 'email' | 'id';
 
 export type AdminUsersFilterField = 'role' | 'emailVerified' | 'createdAt' | 'email';
 
+export type AdminUserRole = 'USER' | 'ADMIN';
+
 export type AdminUserListItem = Readonly<{
   id: string;
   email: string;

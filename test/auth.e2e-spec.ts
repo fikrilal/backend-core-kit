@@ -487,6 +487,86 @@ const hasDeps =
     expect((page2.body.data as Array<{ email: string }>)[0].email).toBe(userEmails[2]);
   });
 
+  it('PATCH /v1/admin/users/:userId/role updates roles and blocks last-admin demotion', async () => {
+    const runId = Date.now();
+    const password = 'correct-horse-battery-staple';
+
+    const adminRegisterRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email: `admin-role+${runId}@example.com`, password })
+      .expect(200);
+
+    const adminReg = adminRegisterRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const userRegisterRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email: `user-role+${runId}@example.com`, password })
+      .expect(200);
+
+    const userReg = userRegisterRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
+
+    const promoted = await request(baseUrl)
+      .patch(`/v1/admin/users/${userReg.user.id}/role`)
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .send({ role: 'ADMIN' })
+      .expect(200);
+
+    expect(promoted.body.data).toMatchObject({ id: userReg.user.id, roles: ['ADMIN'] });
+
+    await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${userReg.accessToken}`)
+      .expect(200);
+
+    const selfDemoted = await request(baseUrl)
+      .patch(`/v1/admin/users/${adminReg.user.id}/role`)
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .send({ role: 'USER' })
+      .expect(200);
+
+    expect(selfDemoted.body.data).toMatchObject({ id: adminReg.user.id, roles: ['USER'] });
+
+    const forbidden = await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .expect(403);
+
+    expect(forbidden.headers['content-type']).toContain('application/problem+json');
+    expect(forbidden.body).toMatchObject({ code: 'FORBIDDEN', status: 403 });
+
+    await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${userReg.accessToken}`)
+      .expect(200);
+
+    await prisma.user.updateMany({
+      where: { role: UserRole.ADMIN, id: { not: userReg.user.id } },
+      data: { role: UserRole.USER },
+    });
+
+    const lastAdminBlocked = await request(baseUrl)
+      .patch(`/v1/admin/users/${userReg.user.id}/role`)
+      .set('Authorization', `Bearer ${userReg.accessToken}`)
+      .send({ role: 'USER' })
+      .expect(409);
+
+    expect(lastAdminBlocked.headers['content-type']).toContain('application/problem+json');
+    expect(lastAdminBlocked.body).toMatchObject({
+      code: 'ADMIN_CANNOT_DEMOTE_LAST_ADMIN',
+      status: 409,
+    });
+  });
+
   it('duplicate register returns AUTH_EMAIL_ALREADY_EXISTS', async () => {
     const email = `dupe+${Date.now()}@example.com`;
     const password = 'correct-horse-battery-staple';

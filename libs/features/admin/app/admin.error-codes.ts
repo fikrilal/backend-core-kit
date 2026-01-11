@@ -1,0 +1,3 @@
+export enum AdminErrorCode {
+  ADMIN_CANNOT_DEMOTE_LAST_ADMIN = 'ADMIN_CANNOT_DEMOTE_LAST_ADMIN',
+}
