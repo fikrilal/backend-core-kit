@@ -192,7 +192,15 @@ paths:
       description: Partially updates the authenticated user profile. Omitted fields
         are unchanged; null clears a field.
       operationId: users.me.patch
-      parameters: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: "Idempotency key for safe retries of write requests. Replays return
+            `Idempotency-Replayed: true`."
+          required: false
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -213,6 +221,8 @@ paths:
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
+        - IDEMPOTENCY_IN_PROGRESS
+        - CONFLICT
         - INTERNAL
   /v1/admin/whoami:
     get:

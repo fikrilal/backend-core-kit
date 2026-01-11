@@ -6,7 +6,9 @@ import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
+import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
 import { ProblemException } from '../../../../platform/http/errors/problem.exception';
+import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { MeEnvelopeDto, PatchMeRequestDto } from './dtos/me.dto';
 
@@ -46,8 +48,16 @@ export class MeController {
     description:
       'Partially updates the authenticated user profile. Omitted fields are unchanged; null clears a field.',
   })
-  @ApiErrorCodes([ErrorCode.VALIDATION_FAILED, ErrorCode.UNAUTHORIZED, ErrorCode.INTERNAL])
+  @ApiErrorCodes([
+    ErrorCode.VALIDATION_FAILED,
+    ErrorCode.UNAUTHORIZED,
+    ErrorCode.IDEMPOTENCY_IN_PROGRESS,
+    ErrorCode.CONFLICT,
+    ErrorCode.INTERNAL,
+  ])
   @ApiOkResponse({ type: MeEnvelopeDto })
+  @ApiIdempotencyKeyHeader({ required: false })
+  @Idempotent({ scopeKey: 'users.me.patch' })
   async patchMe(@CurrentPrincipal() principal: AuthPrincipal, @Body() body: PatchMeRequestDto) {
     try {
       return await this.users.updateMeProfile(principal.userId, body.profile);

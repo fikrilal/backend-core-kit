@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import request from 'supertest';
@@ -222,6 +223,52 @@ const hasDeps =
       givenName: 'Dante',
       familyName: 'Alighieri',
     });
+  });
+
+  it('PATCH /v1/me supports Idempotency-Key replay for safe retries', async () => {
+    const email = `me-idem+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const idemKey = randomUUID();
+    const payload = { profile: { displayName: 'Dante' } };
+
+    const first = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Idempotency-Key', idemKey)
+      .send(payload)
+      .expect(200);
+
+    const replayed = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Idempotency-Key', idemKey)
+      .send(payload)
+      .expect(200);
+
+    expect(replayed.headers['idempotency-replayed']).toBe('true');
+    expect(replayed.body).toEqual(first.body);
+
+    const conflict = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Idempotency-Key', idemKey)
+      .send({ profile: { displayName: 'Virgil' } })
+      .expect(409);
+
+    expect(conflict.headers['content-type']).toContain('application/problem+json');
+    expect(conflict.body).toMatchObject({ code: 'CONFLICT', status: 409 });
   });
 
   it('register -> PATCH /v1/me supports clearing fields with null', async () => {
