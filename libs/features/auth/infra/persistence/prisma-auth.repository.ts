@@ -6,6 +6,7 @@ import {
   type User,
 } from '@prisma/client';
 import { encodeCursorV1, type ListQuery, type SortSpec } from '../../../../shared/list-query';
+import type { AuthMethod } from '../../../../shared/auth/auth-method';
 import type { Email } from '../../domain/email';
 import type { AuthRole, AuthUserRecord } from '../../app/auth.types';
 import type { OidcProvider } from '../../app/ports/oidc-id-token-verifier';
@@ -243,6 +244,29 @@ export class PrismaAuthRepository implements AuthRepository {
       select: { id: true, email: true, emailVerifiedAt: true, role: true },
     });
     return user ? toAuthUserRecord(user) : null;
+  }
+
+  async getAuthMethods(userId: string): Promise<ReadonlyArray<AuthMethod>> {
+    const client = this.prisma.getClient();
+    const user = await client.user.findUnique({
+      where: { id: userId },
+      select: {
+        passwordCredential: { select: { userId: true } },
+        externalIdentities: { select: { provider: true } },
+      },
+    });
+    if (!user) throw new Error('User not found');
+
+    const methods: AuthMethod[] = [];
+
+    if (user.passwordCredential) methods.push('PASSWORD');
+
+    const hasGoogle = user.externalIdentities.some(
+      (i) => i.provider === PrismaExternalIdentityProvider.GOOGLE,
+    );
+    if (hasGoogle) methods.push('GOOGLE');
+
+    return methods;
   }
 
   async findUserByExternalIdentity(

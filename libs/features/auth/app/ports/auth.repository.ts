@@ -1,6 +1,7 @@
 import type { ListQuery } from '../../../../shared/list-query';
 import type { Email } from '../../domain/email';
 import type { AuthUserRecord } from '../auth.types';
+import type { AuthMethod } from '../../../../shared/auth/auth-method';
 import type { OidcProvider } from './oidc-id-token-verifier';
 
 export type CreateSessionInput = Readonly<{
@@ -95,6 +96,7 @@ export interface AuthRepository {
   findUserIdByEmail(email: Email): Promise<string | null>;
   findUserForLogin(email: Email): Promise<{ user: AuthUserRecord; passwordHash: string } | null>;
   findUserById(userId: string): Promise<AuthUserRecord | null>;
+  getAuthMethods(userId: string): Promise<ReadonlyArray<AuthMethod>>;
   findUserByExternalIdentity(
     provider: OidcProvider,
     subject: string,

@@ -688,6 +688,18 @@ components:
         emailVerified:
           type: boolean
           example: false
+        authMethods:
+          type: array
+          example:
+            - PASSWORD
+            - GOOGLE
+          description: Linked authentication methods on this account. Omitted on token
+            refresh responses.
+          items:
+            type: string
+            enum: &a7
+              - PASSWORD
+              - GOOGLE
       required:
         - id
         - email
@@ -924,6 +936,14 @@ components:
           type: array
           items:
             type: string
+        authMethods:
+          type: array
+          example:
+            - PASSWORD
+          description: Linked authentication methods on this account.
+          items:
+            type: string
+            enum: *a7
         profile:
           $ref: "#/components/schemas/MeProfileDto"
       required:
@@ -931,6 +951,7 @@ components:
         - email
         - emailVerified
         - roles
+        - authMethods
         - profile
     MeEnvelopeDto:
       type: object

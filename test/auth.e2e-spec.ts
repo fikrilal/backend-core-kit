@@ -572,7 +572,7 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       .expect(200);
 
     const reg = registerRes.body.data as {
-      user: { id: string; email: string; emailVerified: boolean };
+      user: { id: string; email: string; emailVerified: boolean; authMethods: string[] };
       accessToken: string;
       refreshToken: string;
     };
@@ -582,11 +582,13 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       .set('Authorization', `Bearer ${reg.accessToken}`)
       .expect(200);
 
+    expect(reg.user.authMethods).toEqual(['PASSWORD']);
     expect(meRes.body.data).toMatchObject({
       id: reg.user.id,
       email: email.toLowerCase(),
       emailVerified: false,
       roles: ['USER'],
+      authMethods: ['PASSWORD'],
       profile: { displayName: null, givenName: null, familyName: null },
     });
   });
@@ -612,10 +614,12 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       .expect(200);
 
     const loggedIn = loginRes.body.data as {
+      user: { authMethods: string[] };
       accessToken: string;
       refreshToken: string;
     };
 
+    expect(loggedIn.user.authMethods).toEqual(['PASSWORD']);
     expect(typeof loggedIn.refreshToken).toBe('string');
     expect(loggedIn.refreshToken).not.toBe(reg.refreshToken);
 

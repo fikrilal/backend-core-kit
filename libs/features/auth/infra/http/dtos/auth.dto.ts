@@ -1,5 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { AUTH_METHOD_VALUES } from '../../../../../shared/auth/auth-method';
 
 const OIDC_PROVIDER_VALUES = ['GOOGLE'] as const;
 
@@ -14,6 +15,16 @@ export class AuthUserDto {
 
   @ApiProperty({ example: false })
   emailVerified!: boolean;
+
+  @ApiPropertyOptional({
+    isArray: true,
+    enum: AUTH_METHOD_VALUES,
+    example: ['PASSWORD', 'GOOGLE'],
+    description:
+      'Linked authentication methods on this account. Omitted on token refresh responses.',
+  })
+  @IsOptional()
+  authMethods?: string[];
 }
 
 export class AuthResultDto {

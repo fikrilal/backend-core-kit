@@ -15,6 +15,7 @@ import { hashEmailVerificationToken } from './email-verification-token';
 import { hashPasswordResetToken } from './password-reset-token';
 import type { Clock } from './time';
 import type { AuthResult, AuthUserRecord, AuthUserView } from './auth.types';
+import type { AuthMethod } from '../../../shared/auth/auth-method';
 
 export type AuthConfig = Readonly<{
   accessTokenTtlSeconds: number;
@@ -78,7 +79,7 @@ export class AuthService {
       ttlSeconds: this.config.accessTokenTtlSeconds,
     });
 
-    return { user: this.toUserView(user), accessToken, refreshToken };
+    return { user: this.toUserView(user, ['PASSWORD']), accessToken, refreshToken };
   }
 
   async loginWithPassword(input: {
@@ -125,7 +126,8 @@ export class AuthService {
       ttlSeconds: this.config.accessTokenTtlSeconds,
     });
 
-    return { user: this.toUserView(found.user), accessToken, refreshToken };
+    const authMethods = await this.repo.getAuthMethods(found.user.id);
+    return { user: this.toUserView(found.user, authMethods), accessToken, refreshToken };
   }
 
   async exchangeOidc(input: {
@@ -171,6 +173,7 @@ export class AuthService {
       verified.identity.provider,
       verified.identity.subject,
     );
+    let createdNewUser = false;
 
     if (!user) {
       const existingUserId = await this.repo.findUserIdByEmail(email);
@@ -200,6 +203,7 @@ export class AuthService {
             email,
           },
         });
+        createdNewUser = true;
       } catch (err: unknown) {
         if (err instanceof EmailAlreadyExistsError) {
           throw new AuthError({
@@ -222,6 +226,10 @@ export class AuthService {
       }
     }
 
+    const authMethods: ReadonlyArray<AuthMethod> = createdNewUser
+      ? ['GOOGLE']
+      : await this.repo.getAuthMethods(user.id);
+
     const sessionExpiresAt = new Date(now.getTime() + this.config.refreshTokenTtlSeconds * 1000);
     const { sessionId, refreshToken } = await this.createSessionAndTokens(user.id, {
       deviceId: input.deviceId,
@@ -238,7 +246,7 @@ export class AuthService {
       ttlSeconds: this.config.accessTokenTtlSeconds,
     });
 
-    return { user: this.toUserView(user), accessToken, refreshToken };
+    return { user: this.toUserView(user, authMethods), accessToken, refreshToken };
   }
 
   async connectOidc(input: {
@@ -556,11 +564,12 @@ export class AuthService {
     return this.accessTokens.getPublicJwks();
   }
 
-  private toUserView(user: AuthUserRecord): AuthUserView {
+  private toUserView(user: AuthUserRecord, authMethods?: ReadonlyArray<AuthMethod>): AuthUserView {
     return {
       id: user.id,
       email: user.email,
       emailVerified: user.emailVerifiedAt !== null,
+      ...(authMethods ? { authMethods: [...authMethods] } : {}),
     };
   }
 
