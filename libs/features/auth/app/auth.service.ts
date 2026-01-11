@@ -24,6 +24,7 @@ export class AuthService {
     private readonly accessTokens: AccessTokenIssuer,
     private readonly loginRateLimiter: LoginRateLimiter,
     private readonly clock: Clock,
+    private readonly dummyPasswordHash: string,
     private readonly config: AuthConfig,
   ) {}
 
@@ -87,8 +88,9 @@ export class AuthService {
     await this.loginRateLimiter.assertAllowed({ email, ip: input.ip });
 
     const found = await this.repo.findUserForLogin(email);
-    const ok =
-      found !== null ? await this.passwordHasher.verify(found.passwordHash, input.password) : false;
+    const passwordHash = found?.passwordHash ?? this.dummyPasswordHash;
+    const verified = await this.passwordHasher.verify(passwordHash, input.password);
+    const ok = found !== null && verified;
 
     if (!ok || !found) {
       await this.loginRateLimiter.recordFailure({ email, ip: input.ip });

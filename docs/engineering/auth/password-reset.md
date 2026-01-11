@@ -54,6 +54,9 @@ Optional:
 
 - `AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS` (default: `1800` / 30m)
 - `AUTH_PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS` (default: `60`)
+- `AUTH_PASSWORD_RESET_REQUEST_IP_MAX_ATTEMPTS` (default: `20`)
+- `AUTH_PASSWORD_RESET_REQUEST_IP_WINDOW_SECONDS` (default: `300` / 5m)
+- `AUTH_PASSWORD_RESET_REQUEST_IP_BLOCK_SECONDS` (default: `900` / 15m)
 
 ## Job identifiers
 
@@ -68,7 +71,7 @@ Optional:
 - Body: `{ "email": "user@example.com" }`
 - Responses:
   - `204` on accepted (even if the email is unknown)
-  - `429 RATE_LIMITED` when called too frequently
+  - `429 RATE_LIMITED` when called too frequently (cooldown + IP throttling)
 
 ### Confirm password reset (public)
 

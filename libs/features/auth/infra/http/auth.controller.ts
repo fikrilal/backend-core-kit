@@ -120,7 +120,10 @@ export class AuthController {
   })
   @ApiErrorCodes([ErrorCode.UNAUTHORIZED, ErrorCode.RATE_LIMITED, ErrorCode.INTERNAL])
   @ApiNoContentResponse()
-  async resendVerificationEmail(@CurrentPrincipal() principal: AuthPrincipal): Promise<void> {
+  async resendVerificationEmail(
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Req() req: FastifyRequest,
+  ): Promise<void> {
     try {
       if (!this.emailVerificationJobs.isEnabled()) {
         throw new AuthError({
@@ -133,7 +136,10 @@ export class AuthController {
       const status = await this.auth.getEmailVerificationStatus(principal.userId);
       if (status === 'verified') return;
 
-      await this.emailVerificationRateLimiter.assertResendAllowed(principal.userId);
+      await this.emailVerificationRateLimiter.assertResendAllowed({
+        userId: principal.userId,
+        ip: req.ip,
+      });
 
       const enqueued = await this.emailVerificationJobs.enqueueSendVerificationEmail(
         principal.userId,
@@ -160,7 +166,10 @@ export class AuthController {
   })
   @ApiErrorCodes([ErrorCode.VALIDATION_FAILED, ErrorCode.RATE_LIMITED, ErrorCode.INTERNAL])
   @ApiNoContentResponse()
-  async requestPasswordReset(@Body() body: PasswordResetRequestDto): Promise<void> {
+  async requestPasswordReset(
+    @Body() body: PasswordResetRequestDto,
+    @Req() req: FastifyRequest,
+  ): Promise<void> {
     try {
       if (!this.passwordResetJobs.isEnabled()) {
         throw new AuthError({
@@ -170,7 +179,7 @@ export class AuthController {
         });
       }
 
-      await this.passwordResetRateLimiter.assertRequestAllowed({ email: body.email });
+      await this.passwordResetRateLimiter.assertRequestAllowed({ email: body.email, ip: req.ip });
 
       const target = await this.auth.requestPasswordReset({ email: body.email });
       if (!target) return;

@@ -46,19 +46,30 @@ import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
         RedisLoginRateLimiter,
         ConfigService,
       ],
-      useFactory: (
+      useFactory: async (
         repo: PrismaAuthRepository,
         passwordHasher: Argon2PasswordHasher,
         accessTokens: CryptoAccessTokenIssuer,
         loginRateLimiter: RedisLoginRateLimiter,
         config: ConfigService,
-      ) =>
-        new AuthService(repo, passwordHasher, accessTokens, loginRateLimiter, new SystemClock(), {
-          accessTokenTtlSeconds: config.get<number>('AUTH_ACCESS_TOKEN_TTL_SECONDS') ?? 900,
-          refreshTokenTtlSeconds:
-            config.get<number>('AUTH_REFRESH_TOKEN_TTL_SECONDS') ?? 60 * 60 * 24 * 30,
-          passwordMinLength: config.get<number>('AUTH_PASSWORD_MIN_LENGTH') ?? 10,
-        }),
+      ) => {
+        const dummyPasswordHash = await passwordHasher.hash('dummy-password-for-timing');
+
+        return new AuthService(
+          repo,
+          passwordHasher,
+          accessTokens,
+          loginRateLimiter,
+          new SystemClock(),
+          dummyPasswordHash,
+          {
+            accessTokenTtlSeconds: config.get<number>('AUTH_ACCESS_TOKEN_TTL_SECONDS') ?? 900,
+            refreshTokenTtlSeconds:
+              config.get<number>('AUTH_REFRESH_TOKEN_TTL_SECONDS') ?? 60 * 60 * 24 * 30,
+            passwordMinLength: config.get<number>('AUTH_PASSWORD_MIN_LENGTH') ?? 10,
+          },
+        );
+      },
     },
   ],
   exports: [AuthService],

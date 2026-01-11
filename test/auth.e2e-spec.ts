@@ -3,6 +3,7 @@ import request from 'supertest';
 import { createApiApp } from '../apps/api/src/bootstrap';
 import { PrismaClient, UserRole } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import Redis from 'ioredis';
 import { Queue } from 'bullmq';
 import {
   AUTH_SEND_VERIFICATION_EMAIL_JOB,
@@ -55,11 +56,18 @@ function getSessionIdFromAccessToken(token: string): string {
   return sid;
 }
 
+async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void> {
+  const keys = await redis.keys(pattern);
+  if (keys.length === 0) return;
+  await redis.del(...keys);
+}
+
 (skipDepsTests ? describe.skip : describe)('Auth (e2e)', () => {
   let app: Awaited<ReturnType<typeof createApiApp>>;
   let baseUrl: string;
   let prisma: PrismaClient;
   let emailQueue: Queue<AuthSendVerificationEmailJobData | AuthSendPasswordResetEmailJobData>;
+  let redis: Redis;
 
   beforeAll(async () => {
     if (!databaseUrl) {
@@ -81,6 +89,9 @@ function getSessionIdFromAccessToken(token: string): string {
     prisma = new PrismaClient({ adapter });
     await prisma.$connect();
 
+    redis = new Redis(redisUrl);
+    await redis.ping();
+
     emailQueue = new Queue<AuthSendVerificationEmailJobData | AuthSendPasswordResetEmailJobData>(
       EMAIL_QUEUE,
       {
@@ -96,11 +107,17 @@ function getSessionIdFromAccessToken(token: string): string {
 
   afterEach(async () => {
     await emailQueue.drain(true);
+    await Promise.all([
+      deleteKeysByPattern(redis, 'auth:login:*'),
+      deleteKeysByPattern(redis, 'auth:password-reset:request:*'),
+      deleteKeysByPattern(redis, 'auth:email-verification:resend:*'),
+    ]);
   });
 
   afterAll(async () => {
     await emailQueue.drain(true);
     await emailQueue.close();
+    await redis.quit();
     await prisma.$disconnect();
     await app.close();
   });
@@ -283,6 +300,20 @@ function getSessionIdFromAccessToken(token: string): string {
     expect(rateLimited.body).toMatchObject({ code: 'RATE_LIMITED', status: 429 });
   });
 
+  it('POST /v1/auth/password/reset/request returns 429 RATE_LIMITED when called too frequently', async () => {
+    const email = `pw-reset-rate-limit+${Date.now()}@example.com`;
+
+    await request(baseUrl).post('/v1/auth/password/reset/request').send({ email }).expect(204);
+
+    const rateLimited = await request(baseUrl)
+      .post('/v1/auth/password/reset/request')
+      .send({ email })
+      .expect(429);
+
+    expect(rateLimited.headers['content-type']).toContain('application/problem+json');
+    expect(rateLimited.body).toMatchObject({ code: 'RATE_LIMITED', status: 429 });
+  });
+
   it('POST /v1/auth/password/reset/request enqueues auth.sendPasswordResetEmail job for existing user', async () => {
     const email = `pw-reset-request+${Date.now()}@example.com`;
     const password = 'correct-horse-battery-staple';
@@ -411,6 +442,24 @@ function getSessionIdFromAccessToken(token: string): string {
 
     expect(res.headers['content-type']).toContain('application/problem+json');
     expect(res.body).toMatchObject({ code: 'AUTH_PASSWORD_RESET_TOKEN_EXPIRED', status: 400 });
+  });
+
+  it('POST /v1/auth/password/login returns 429 RATE_LIMITED after too many failures', async () => {
+    const email = `login-rate-limit+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    // User does not need to exist; we only care about limiter behavior.
+    for (let i = 0; i < 10; i += 1) {
+      await request(baseUrl).post('/v1/auth/password/login').send({ email, password }).expect(401);
+    }
+
+    const rateLimited = await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password })
+      .expect(429);
+
+    expect(rateLimited.headers['content-type']).toContain('application/problem+json');
+    expect(rateLimited.body).toMatchObject({ code: 'RATE_LIMITED', status: 429 });
   });
 
   it('POST /v1/auth/password/change requires an access token', async () => {

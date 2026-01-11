@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import type { LoginRateLimitContext, LoginRateLimiter } from '../../app/ports/login-rate-limiter';
 import { AuthError } from '../../app/auth.errors';
 import { RedisService } from '../../../../platform/redis/redis.service';
+import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 
 type RateLimitConfig = Readonly<{
   maxAttempts: number;
@@ -117,7 +118,7 @@ export class RedisLoginRateLimiter implements LoginRateLimiter {
   private rateLimited(): AuthError {
     return new AuthError({
       status: 429,
-      code: 'RATE_LIMITED',
+      code: ErrorCode.RATE_LIMITED,
       message: 'Too many login attempts. Try again later.',
     });
   }
