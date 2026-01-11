@@ -27,6 +27,7 @@ import {
   AuthResultEnvelopeDto,
   ChangePasswordRequestDto,
   LogoutRequestDto,
+  OidcExchangeRequestDto,
   PasswordResetConfirmRequestDto,
   PasswordLoginRequestDto,
   PasswordRegisterRequestDto,
@@ -82,6 +83,37 @@ export class AuthController {
       }
 
       return result;
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
+  @Post('oidc/exchange')
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: 'auth.oidc.exchange',
+    summary: 'Exchange OIDC id_token',
+    description:
+      'Verifies an OIDC id_token (e.g., Google) and issues first-party access + refresh tokens. Does not auto-link to an existing password account purely by email.',
+  })
+  @ApiErrorCodes([
+    ErrorCode.VALIDATION_FAILED,
+    AuthErrorCode.AUTH_OIDC_NOT_CONFIGURED,
+    AuthErrorCode.AUTH_OIDC_TOKEN_INVALID,
+    AuthErrorCode.AUTH_OIDC_EMAIL_NOT_VERIFIED,
+    AuthErrorCode.AUTH_OIDC_LINK_REQUIRED,
+    ErrorCode.INTERNAL,
+  ])
+  @ApiOkResponse({ type: AuthResultEnvelopeDto })
+  async exchangeOidc(@Body() body: OidcExchangeRequestDto, @Req() req: FastifyRequest) {
+    try {
+      return await this.auth.exchangeOidc({
+        provider: body.provider,
+        idToken: body.idToken,
+        deviceId: body.deviceId,
+        deviceName: body.deviceName,
+        ip: req.ip,
+      });
     } catch (err: unknown) {
       throw this.mapAuthError(err);
     }

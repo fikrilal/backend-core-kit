@@ -1,9 +1,14 @@
 import { normalizeEmail } from '../domain/email';
 import { AuthErrorCode } from './auth.error-codes';
-import { AuthError, EmailAlreadyExistsError } from './auth.errors';
+import {
+  AuthError,
+  EmailAlreadyExistsError,
+  ExternalIdentityAlreadyExistsError,
+} from './auth.errors';
 import type { AuthRepository } from './ports/auth.repository';
 import type { AccessTokenIssuer } from './ports/access-token-issuer';
 import type { LoginRateLimiter } from './ports/login-rate-limiter';
+import type { OidcIdTokenVerifier, OidcProvider } from './ports/oidc-id-token-verifier';
 import type { PasswordHasher } from './ports/password-hasher';
 import { generateRefreshToken, hashRefreshToken } from './refresh-token';
 import { hashEmailVerificationToken } from './email-verification-token';
@@ -22,6 +27,7 @@ export class AuthService {
     private readonly repo: AuthRepository,
     private readonly passwordHasher: PasswordHasher,
     private readonly accessTokens: AccessTokenIssuer,
+    private readonly oidcVerifier: OidcIdTokenVerifier,
     private readonly loginRateLimiter: LoginRateLimiter,
     private readonly clock: Clock,
     private readonly dummyPasswordHash: string,
@@ -120,6 +126,119 @@ export class AuthService {
     });
 
     return { user: this.toUserView(found.user), accessToken, refreshToken };
+  }
+
+  async exchangeOidc(input: {
+    provider: OidcProvider;
+    idToken: string;
+    deviceId?: string;
+    deviceName?: string;
+    ip?: string;
+  }): Promise<AuthResult> {
+    const verified = await this.oidcVerifier.verifyIdToken({
+      provider: input.provider,
+      idToken: input.idToken,
+    });
+
+    if (verified.kind === 'not_configured') {
+      throw new AuthError({
+        status: 500,
+        code: AuthErrorCode.AUTH_OIDC_NOT_CONFIGURED,
+        message: 'OIDC is not configured',
+      });
+    }
+
+    if (verified.kind === 'invalid') {
+      throw new AuthError({
+        status: 401,
+        code: AuthErrorCode.AUTH_OIDC_TOKEN_INVALID,
+        message: 'Invalid OIDC token',
+      });
+    }
+
+    if (!verified.identity.emailVerified) {
+      throw new AuthError({
+        status: 400,
+        code: AuthErrorCode.AUTH_OIDC_EMAIL_NOT_VERIFIED,
+        message: 'Email is not verified',
+      });
+    }
+
+    const now = this.clock.now();
+    const email = normalizeEmail(verified.identity.email);
+
+    let user = await this.repo.findUserByExternalIdentity(
+      verified.identity.provider,
+      verified.identity.subject,
+    );
+
+    if (!user) {
+      const existingUserId = await this.repo.findUserIdByEmail(email);
+      if (existingUserId) {
+        throw new AuthError({
+          status: 409,
+          code: AuthErrorCode.AUTH_OIDC_LINK_REQUIRED,
+          message:
+            'We found an existing account for this email. Sign in with your password to link Google sign-in.',
+        });
+      }
+
+      try {
+        user = await this.repo.createUserWithExternalIdentity({
+          email,
+          emailVerifiedAt: now,
+          profile: {
+            ...(verified.identity.displayName
+              ? { displayName: verified.identity.displayName }
+              : {}),
+            ...(verified.identity.givenName ? { givenName: verified.identity.givenName } : {}),
+            ...(verified.identity.familyName ? { familyName: verified.identity.familyName } : {}),
+          },
+          externalIdentity: {
+            provider: verified.identity.provider,
+            subject: verified.identity.subject,
+            email,
+          },
+        });
+      } catch (err: unknown) {
+        if (err instanceof EmailAlreadyExistsError) {
+          throw new AuthError({
+            status: 409,
+            code: AuthErrorCode.AUTH_OIDC_LINK_REQUIRED,
+            message:
+              'We found an existing account for this email. Sign in with your password to link Google sign-in.',
+          });
+        }
+        if (err instanceof ExternalIdentityAlreadyExistsError) {
+          const existing = await this.repo.findUserByExternalIdentity(
+            verified.identity.provider,
+            verified.identity.subject,
+          );
+          if (existing) user = existing;
+          else throw err;
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    const sessionExpiresAt = new Date(now.getTime() + this.config.refreshTokenTtlSeconds * 1000);
+    const { sessionId, refreshToken } = await this.createSessionAndTokens(user.id, {
+      deviceId: input.deviceId,
+      deviceName: input.deviceName,
+      sessionExpiresAt,
+      now,
+    });
+
+    const accessToken = await this.accessTokens.signAccessToken({
+      userId: user.id,
+      sessionId,
+      emailVerified: user.emailVerifiedAt !== null,
+      roles: [user.role],
+      ttlSeconds: this.config.accessTokenTtlSeconds,
+    });
+
+    return { user: this.toUserView(user), accessToken, refreshToken };
   }
 
   async changePassword(input: {

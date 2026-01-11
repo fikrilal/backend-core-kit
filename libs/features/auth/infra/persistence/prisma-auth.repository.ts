@@ -1,8 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type RefreshToken, type User } from '@prisma/client';
+import {
+  ExternalIdentityProvider as PrismaExternalIdentityProvider,
+  Prisma,
+  type RefreshToken,
+  type User,
+} from '@prisma/client';
 import { encodeCursorV1, type ListQuery, type SortSpec } from '../../../../shared/list-query';
 import type { Email } from '../../domain/email';
 import type { AuthRole, AuthUserRecord } from '../../app/auth.types';
+import type { OidcProvider } from '../../app/ports/oidc-id-token-verifier';
 import type {
   AuthRepository,
   ChangePasswordResult,
@@ -17,7 +23,7 @@ import type {
   SessionRecord,
   VerifyEmailResult,
 } from '../../app/ports/auth.repository';
-import { EmailAlreadyExistsError } from '../../app/auth.errors';
+import { EmailAlreadyExistsError, ExternalIdentityAlreadyExistsError } from '../../app/auth.errors';
 import { PrismaService } from '../../../../platform/db/prisma.service';
 
 function isUniqueConstraintError(err: unknown, field?: string): boolean {
@@ -38,6 +44,24 @@ function isUniqueConstraintError(err: unknown, field?: string): boolean {
   return true;
 }
 
+function isUniqueConstraintErrorOnFields(err: unknown, fields: ReadonlyArray<string>): boolean {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (err.code !== 'P2002') return false;
+
+  const meta: unknown = err.meta;
+  if (!meta || typeof meta !== 'object') return false;
+
+  const target: unknown = (meta as { target?: unknown }).target;
+  if (Array.isArray(target)) {
+    const t = target.filter((v): v is string => typeof v === 'string');
+    return fields.every((f) => t.includes(f));
+  }
+  if (typeof target === 'string') {
+    return fields.every((f) => target.includes(f));
+  }
+  return false;
+}
+
 function toAuthUserRecord(
   user: Pick<User, 'id' | 'email' | 'emailVerifiedAt' | 'role'>,
 ): AuthUserRecord {
@@ -47,6 +71,13 @@ function toAuthUserRecord(
     emailVerifiedAt: user.emailVerifiedAt,
     role: user.role as AuthRole,
   };
+}
+
+function toPrismaExternalIdentityProvider(provider: OidcProvider): PrismaExternalIdentityProvider {
+  switch (provider) {
+    case 'GOOGLE':
+      return PrismaExternalIdentityProvider.GOOGLE;
+  }
 }
 
 function toRefreshTokenRecord(
@@ -195,6 +226,60 @@ export class PrismaAuthRepository implements AuthRepository {
       select: { id: true, email: true, emailVerifiedAt: true, role: true },
     });
     return user ? toAuthUserRecord(user) : null;
+  }
+
+  async findUserByExternalIdentity(
+    provider: OidcProvider,
+    subject: string,
+  ): Promise<AuthUserRecord | null> {
+    const client = this.prisma.getClient();
+    const found = await client.externalIdentity.findFirst({
+      where: { provider: toPrismaExternalIdentityProvider(provider), subject },
+      select: { user: { select: { id: true, email: true, emailVerifiedAt: true, role: true } } },
+    });
+    return found ? toAuthUserRecord(found.user) : null;
+  }
+
+  async createUserWithExternalIdentity(input: {
+    email: Email;
+    emailVerifiedAt: Date;
+    profile?: Readonly<{ displayName?: string; givenName?: string; familyName?: string }>;
+    externalIdentity: Readonly<{ provider: OidcProvider; subject: string; email?: string }>;
+  }): Promise<AuthUserRecord> {
+    try {
+      const user = await this.prisma.transaction(async (tx) =>
+        tx.user.create({
+          data: {
+            email: input.email,
+            emailVerifiedAt: input.emailVerifiedAt,
+            profile: {
+              create: {
+                ...(input.profile?.displayName ? { displayName: input.profile.displayName } : {}),
+                ...(input.profile?.givenName ? { givenName: input.profile.givenName } : {}),
+                ...(input.profile?.familyName ? { familyName: input.profile.familyName } : {}),
+              },
+            },
+            externalIdentities: {
+              create: {
+                provider: toPrismaExternalIdentityProvider(input.externalIdentity.provider),
+                subject: input.externalIdentity.subject,
+                ...(input.externalIdentity.email ? { email: input.externalIdentity.email } : {}),
+              },
+            },
+          },
+          select: { id: true, email: true, emailVerifiedAt: true, role: true },
+        }),
+      );
+      return toAuthUserRecord(user);
+    } catch (err: unknown) {
+      if (isUniqueConstraintError(err, 'email')) {
+        throw new EmailAlreadyExistsError();
+      }
+      if (isUniqueConstraintErrorOnFields(err, ['provider', 'subject'])) {
+        throw new ExternalIdentityAlreadyExistsError();
+      }
+      throw err;
+    }
   }
 
   async listUserSessions(

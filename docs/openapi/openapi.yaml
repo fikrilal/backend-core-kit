@@ -72,6 +72,35 @@ paths:
         - VALIDATION_FAILED
         - AUTH_EMAIL_ALREADY_EXISTS
         - INTERNAL
+  /v1/auth/oidc/exchange:
+    post:
+      description: Verifies an OIDC id_token (e.g., Google) and issues first-party
+        access + refresh tokens. Does not auto-link to an existing password
+        account purely by email.
+      operationId: auth.oidc.exchange
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OidcExchangeRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResultEnvelopeDto"
+      summary: Exchange OIDC id_token
+      tags: *a1
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_OIDC_NOT_CONFIGURED
+        - AUTH_OIDC_TOKEN_INVALID
+        - AUTH_OIDC_EMAIL_NOT_VERIFIED
+        - AUTH_OIDC_LINK_REQUIRED
+        - INTERNAL
   /v1/auth/email/verify:
     post:
       description: Verifies a user email using a token sent via email.
@@ -646,6 +675,26 @@ components:
           $ref: "#/components/schemas/AuthResultDto"
       required:
         - data
+    OidcExchangeRequestDto:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+            - GOOGLE
+          example: GOOGLE
+        idToken:
+          type: string
+          example: <oidc-id-token>
+        deviceId:
+          type: string
+          description: Stable per-device identifier (recommended).
+        deviceName:
+          type: string
+          description: Human-friendly device name (optional).
+      required:
+        - provider
+        - idToken
     VerifyEmailRequestDto:
       type: object
       properties:

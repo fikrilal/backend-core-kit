@@ -23,3 +23,9 @@ export class EmailAlreadyExistsError extends Error {
     super('Email already exists');
   }
 }
+
+export class ExternalIdentityAlreadyExistsError extends Error {
+  constructor() {
+    super('External identity already exists');
+  }
+}

@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+
+const OIDC_PROVIDER_VALUES = ['GOOGLE'] as const;
 
 export class AuthUserDto {
   @ApiProperty({ example: '3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0' })
@@ -62,6 +64,28 @@ export class PasswordLoginRequestDto {
   @IsString()
   @MinLength(1)
   password!: string;
+
+  @ApiProperty({ required: false, description: 'Stable per-device identifier (recommended).' })
+  @IsOptional()
+  @IsString()
+  deviceId?: string;
+
+  @ApiProperty({ required: false, description: 'Human-friendly device name (optional).' })
+  @IsOptional()
+  @IsString()
+  deviceName?: string;
+}
+
+export class OidcExchangeRequestDto {
+  @ApiProperty({ enum: OIDC_PROVIDER_VALUES, example: 'GOOGLE' })
+  @IsString()
+  @IsIn(OIDC_PROVIDER_VALUES)
+  provider!: (typeof OIDC_PROVIDER_VALUES)[number];
+
+  @ApiProperty({ example: '<oidc-id-token>' })
+  @IsString()
+  @MinLength(1)
+  idToken!: string;
 
   @ApiProperty({ required: false, description: 'Stable per-device identifier (recommended).' })
   @IsOptional()

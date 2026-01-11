@@ -179,6 +179,10 @@ class EnvVars {
   @IsString()
   AUTH_SIGNING_KEYS_JSON?: string;
 
+  @IsOptional()
+  @IsString()
+  AUTH_OIDC_GOOGLE_CLIENT_IDS?: string;
+
   // Public client URLs (frontend/mobile)
   @IsOptional()
   @IsUrl({ require_tld: false })
