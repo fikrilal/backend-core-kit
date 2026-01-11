@@ -7,10 +7,12 @@ import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { RbacGuard } from '../../../../platform/rbac/rbac.guard';
 import { RequirePermissions } from '../../../../platform/rbac/rbac.decorator';
+import { UseDbRoles } from '../../../../platform/rbac/use-db-roles.decorator';
 import { AdminWhoamiEnvelopeDto } from './dtos/whoami.dto';
 
 @ApiTags('Admin')
 @Controller('admin')
+@UseDbRoles()
 export class AdminWhoamiController {
   @Get('whoami')
   @UseGuards(AccessTokenGuard, RbacGuard)
@@ -19,7 +21,8 @@ export class AdminWhoamiController {
   @ApiOperation({
     operationId: 'admin.whoami.get',
     summary: 'Get current principal (admin)',
-    description: 'Returns the authenticated principal as derived from the access token.',
+    description:
+      'Returns the authenticated principal. For /v1/admin/* endpoints, roles are hydrated from the database to ensure immediate demotion/promotion.',
   })
   @ApiErrorCodes([ErrorCode.UNAUTHORIZED, ErrorCode.FORBIDDEN, ErrorCode.INTERNAL])
   @ApiOkResponse({ type: AdminWhoamiEnvelopeDto })

@@ -12,7 +12,9 @@ These are the typical commands a project should provide:
 - `npm run typecheck`
 - `npm run deps:check` (dependency boundaries + cycles)
 - `npm test`
+- `npm run test:int`
 - `npm run test:e2e`
+- `npm run verify:e2e` (deps + migrations + integration + e2e)
 - `npm run openapi:generate` (or similar)
 - `npm run openapi:lint` (Spectral)
 - `npm run start:dev` (API)

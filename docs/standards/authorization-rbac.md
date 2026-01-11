@@ -30,6 +30,30 @@ Baseline behavior:
 - Every authenticated principal is issued a default `["USER"]` role.
 - Unknown roles grant **no** permissions (deny by default).
 
+### Admin Endpoints (DB-Hydrated Roles)
+
+For `/v1/admin/*` endpoints, authorization must reflect **current** role assignment (immediate demotion/promotion).
+
+Policy:
+
+- Access tokens may contain a stale `roles` claim after an admin role change.
+- For admin routes, RBAC uses the database as the source of truth for roles on every request (single indexed lookup by `userId`).
+
+Implementation hooks:
+
+- `RbacGuard` hydrates roles from the DB for `/v1/admin/*` routes.
+- `@UseDbRoles()` can be used to opt-in explicitly on other routes if needed.
+
+### Audit Logging (Role Changes)
+
+Role assignments are security-sensitive and must be auditable.
+
+Baseline behavior:
+
+- Successful admin role changes are persisted as immutable audit records in the database.
+- Audit records include: actor user id, actor session id, target user id, old role, new role, `traceId` (`X-Request-Id`), and timestamp.
+- Audit writes are performed in the same DB transaction as the role update (atomic).
+
 ### Permissions (Capabilities)
 
 Permissions are fine-grained capabilities expressed as strings:

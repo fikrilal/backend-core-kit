@@ -226,7 +226,9 @@ paths:
         - INTERNAL
   /v1/admin/whoami:
     get:
-      description: Returns the authenticated principal as derived from the access token.
+      description: Returns the authenticated principal. For /v1/admin/* endpoints,
+        roles are hydrated from the database to ensure immediate
+        demotion/promotion.
       operationId: admin.whoami.get
       parameters: []
       responses:
@@ -324,15 +326,61 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUsersListEnvelopeDto"
-      security:
+      security: &a3
         - access-token: []
       summary: List users
-      tags:
+      tags: &a4
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
         - FORBIDDEN
+        - INTERNAL
+  /v1/admin/users/{userId}/role:
+    patch:
+      description: Sets the user role. For /v1/admin/* endpoints, RBAC roles are
+        hydrated from the database on every request (promotion/demotion takes
+        effect immediately).
+      operationId: admin.users.role.patch
+      parameters:
+        - name: userId
+          required: true
+          in: path
+          schema:
+            example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+            type: string
+        - name: Idempotency-Key
+          in: header
+          description: "Idempotency key for safe retries of write requests. Replays return
+            `Idempotency-Replayed: true`."
+          required: false
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetAdminUserRoleRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserEnvelopeDto"
+      security: *a3
+      summary: Set user role
+      tags: *a4
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - NOT_FOUND
+        - IDEMPOTENCY_IN_PROGRESS
+        - CONFLICT
+        - ADMIN_CANNOT_DEMOTE_LAST_ADMIN
         - INTERNAL
 info:
   title: Backend Core Kit API
@@ -609,3 +657,21 @@ components:
       required:
         - data
         - meta
+    SetAdminUserRoleRequestDto:
+      type: object
+      properties:
+        role:
+          type: string
+          enum:
+            - USER
+            - ADMIN
+          example: USER
+      required:
+        - role
+    AdminUserEnvelopeDto:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminUserDto"
+      required:
+        - data

@@ -19,12 +19,17 @@ Rules:
 - No DB, no Redis, no HTTP.
 - Deterministic and fast.
 
+Command:
+
+- `npm test`
+
 ## Integration Tests
 
 Scope:
 
 - repositories against real Postgres
 - Redis primitives (rate limiter, idempotency storage, BullMQ enqueue semantics)
+  - including worker job processing / queue semantics when needed
 
 Baseline dependency strategy:
 
@@ -37,7 +42,15 @@ Core kit baseline:
 
 Rules:
 
-- Tests must run from a clean DB state (migrate + reset + seed).
+- Tests must be isolated and reproducible:
+  - prefer a clean DB state (migrate + reset + seed), or
+  - use an isolated schema/database per run to avoid cross-test pollution.
+
+Conventions:
+
+- Files: `test/**/*.int-spec.ts`
+- Command: `npm run test:int`
+- Optional escape hatch: set `SKIP_DEPS_TESTS=true` to intentionally skip deps-required integration suites.
 
 ## End-to-End Tests
 
@@ -49,6 +62,18 @@ Rules:
 
 - Assert response envelope and problem-details shapes.
 - Assert `X-Request-Id` behavior.
+
+Conventions:
+
+- Files: `test/**/*.e2e-spec.ts`
+- Command: `npm run test:e2e`
+- Optional escape hatch: set `SKIP_DEPS_TESTS=true` to intentionally skip deps-required e2e suites.
+
+## Local Golden Path (Deps + Tests)
+
+To run the full deps-backed suite locally (Docker Compose + migrations + integration + e2e) use:
+
+- `npm run verify:e2e`
 
 ## Contract Gates (CI)
 

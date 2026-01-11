@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma, UserRole } from '@prisma/client';
+import { Prisma, type UserRole } from '@prisma/client';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import {
   encodeCursorV1,
@@ -13,7 +13,11 @@ import type {
   AdminUsersListResult,
   AdminUsersSortField,
 } from '../../app/admin-users.types';
-import type { AdminUsersRepository } from '../../app/ports/admin-users.repository';
+import type {
+  AdminUsersRepository,
+  SetUserRoleResult,
+  SetUserRoleInput,
+} from '../../app/ports/admin-users.repository';
 import { PrismaService } from '../../../../platform/db/prisma.service';
 
 function isPrismaUserRole(value: string): value is UserRole {
@@ -254,4 +258,66 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
       ...(nextCursor ? { nextCursor } : {}),
     };
   }
+
+  async setUserRole(input: SetUserRoleInput): Promise<SetUserRoleResult> {
+    const client = this.prisma.getClient();
+    const nextRole = input.role === 'ADMIN' ? PrismaUserRole.ADMIN : PrismaUserRole.USER;
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await client.$transaction(
+          async (tx) => {
+            const found = await tx.user.findUnique({
+              where: { id: input.targetUserId },
+              select: { id: true, email: true, emailVerifiedAt: true, role: true, createdAt: true },
+            });
+
+            if (!found) return { kind: 'not_found' };
+
+            if (found.role === nextRole) {
+              return { kind: 'ok', user: toListItem(found) };
+            }
+
+            if (found.role === PrismaUserRole.ADMIN && nextRole !== PrismaUserRole.ADMIN) {
+              const adminCount = await tx.user.count({ where: { role: PrismaUserRole.ADMIN } });
+              if (adminCount <= 1) return { kind: 'last_admin' };
+            }
+
+            const updated = await tx.user.update({
+              where: { id: input.targetUserId },
+              data: { role: nextRole },
+              select: { id: true, email: true, emailVerifiedAt: true, role: true, createdAt: true },
+            });
+
+            await tx.userRoleChangeAudit.create({
+              data: {
+                actorUserId: input.actorUserId,
+                actorSessionId: input.actorSessionId,
+                targetUserId: input.targetUserId,
+                oldRole: found.role,
+                newRole: updated.role,
+                traceId: input.traceId,
+              },
+            });
+
+            return { kind: 'ok', user: toListItem(updated) };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (err: unknown) {
+        if (attempt < maxAttempts && isRetryableTransactionError(err)) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw new Error('Unexpected: exhausted transaction retries');
+  }
+}
+
+function isRetryableTransactionError(err: unknown): boolean {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  return err.code === 'P2034';
 }

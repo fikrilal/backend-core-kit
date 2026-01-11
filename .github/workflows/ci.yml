@@ -35,6 +35,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Prisma generate (client types)
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
+        run: npm run prisma:generate
+
       - name: Format check
         run: npm run format:check
 
@@ -91,6 +96,12 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
         run: npm run prisma:migrate:deploy
+
+      - name: Integration tests
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
+          REDIS_URL: redis://127.0.0.1:63790/0
+        run: npm run test:int
 
       - name: E2E tests
         env:

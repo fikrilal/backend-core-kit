@@ -1,6 +1,4 @@
 import { randomUUID } from 'crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { QueueEvents } from 'bullmq';
 import request from 'supertest';
 import { createApiApp } from '../apps/api/src/bootstrap';
@@ -9,54 +7,10 @@ import { jobName } from '../libs/platform/queue/job-name';
 import { QueueProducer } from '../libs/platform/queue/queue.producer';
 import { queueName } from '../libs/platform/queue/queue-name';
 
-function parseDotEnv(content: string): Record<string, string> {
-  const out: Record<string, string> = {};
-
-  for (const rawLine of content.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
-
-    const idx = line.indexOf('=');
-    if (idx <= 0) continue;
-
-    const key = line.slice(0, idx).trim();
-    let value = line.slice(idx + 1).trim();
-
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    out[key] = value;
-  }
-
-  return out;
-}
-
-function loadDotEnvIfPresent(keys: string[]): void {
-  const envPath = resolve(process.cwd(), '.env');
-  if (!existsSync(envPath)) return;
-
-  const parsed = parseDotEnv(readFileSync(envPath, 'utf8'));
-  for (const key of keys) {
-    if (process.env[key] === undefined && parsed[key] !== undefined) {
-      process.env[key] = parsed[key];
-    }
-  }
-}
-
-loadDotEnvIfPresent(['DATABASE_URL', 'REDIS_URL']);
-
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
 
-const hasDeps =
-  typeof databaseUrl === 'string' &&
-  databaseUrl !== '' &&
-  typeof redisUrl === 'string' &&
-  redisUrl !== '';
+const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 
 async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -72,13 +26,24 @@ async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> 
   throw new Error(`Timed out waiting for /ready (last status: ${lastStatus ?? 'unknown'})`);
 }
 
-(hasDeps ? describe : describe.skip)('Queue smoke (e2e)', () => {
+(skipDepsTests ? describe.skip : describe)('Queue smoke (int)', () => {
   let apiApp: Awaited<ReturnType<typeof createApiApp>>;
   let workerApp: Awaited<ReturnType<typeof createWorkerApp>>;
   let workerBaseUrl: string;
   let producer: QueueProducer;
 
   beforeAll(async () => {
+    if (!databaseUrl) {
+      throw new Error(
+        'DATABASE_URL is required for Queue smoke (int) tests (set DATABASE_URL/REDIS_URL or set SKIP_DEPS_TESTS=true to skip)',
+      );
+    }
+    if (!redisUrl) {
+      throw new Error(
+        'REDIS_URL is required for Queue smoke (int) tests (set DATABASE_URL/REDIS_URL or set SKIP_DEPS_TESTS=true to skip)',
+      );
+    }
+
     workerApp = await createWorkerApp();
     await workerApp.listen({ port: 0, host: '127.0.0.1' });
     workerBaseUrl = await workerApp.getUrl();
@@ -105,10 +70,6 @@ async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> 
   });
 
   it('Processes system.smoke job and touches Postgres', async () => {
-    if (!redisUrl) {
-      throw new Error('REDIS_URL is required for this test');
-    }
-
     const systemQueue = queueName('system');
     const smokeJob = jobName('system.smoke');
 
@@ -130,10 +91,6 @@ async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> 
   });
 
   it('Retries system.smokeRetry with backoff, then succeeds', async () => {
-    if (!redisUrl) {
-      throw new Error('REDIS_URL is required for this test');
-    }
-
     const systemQueue = queueName('system');
     const smokeRetryJob = jobName('system.smokeRetry');
 

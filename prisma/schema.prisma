@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
@@ -90,4 +89,19 @@ model RefreshToken {
 
   @@index([sessionId])
   @@index([revokedAt])
+}
+
+model UserRoleChangeAudit {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId    String   @db.Uuid
+  actorSessionId String   @db.Uuid
+  targetUserId   String   @db.Uuid
+  oldRole        UserRole
+  newRole        UserRole
+  traceId        String
+  createdAt      DateTime @default(now())
+
+  @@index([targetUserId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([traceId])
 }

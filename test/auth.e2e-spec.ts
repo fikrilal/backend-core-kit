@@ -1,73 +1,32 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import request from 'supertest';
 import { createApiApp } from '../apps/api/src/bootstrap';
 import { PrismaClient, UserRole } from '@prisma/client';
-
-function parseDotEnv(content: string): Record<string, string> {
-  const out: Record<string, string> = {};
-
-  for (const rawLine of content.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
-
-    const idx = line.indexOf('=');
-    if (idx <= 0) continue;
-
-    const key = line.slice(0, idx).trim();
-    let value = line.slice(idx + 1).trim();
-
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    out[key] = value;
-  }
-
-  return out;
-}
-
-function loadDotEnvIfPresent(keys: string[]): void {
-  const envPath = resolve(process.cwd(), '.env');
-  if (!existsSync(envPath)) return;
-
-  const parsed = parseDotEnv(readFileSync(envPath, 'utf8'));
-  for (const key of keys) {
-    if (process.env[key] === undefined && parsed[key] !== undefined) {
-      process.env[key] = parsed[key];
-    }
-  }
-}
-
-loadDotEnvIfPresent(['DATABASE_URL', 'REDIS_URL']);
+import { PrismaPg } from '@prisma/adapter-pg';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
-const hasDeps =
-  typeof databaseUrl === 'string' &&
-  databaseUrl !== '' &&
-  typeof redisUrl === 'string' &&
-  redisUrl !== '';
+const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 
-(hasDeps ? describe : describe.skip)('Auth (e2e)', () => {
+(skipDepsTests ? describe.skip : describe)('Auth (e2e)', () => {
   let app: Awaited<ReturnType<typeof createApiApp>>;
   let baseUrl: string;
   let prisma: PrismaClient;
 
   beforeAll(async () => {
     if (!databaseUrl) {
-      throw new Error('DATABASE_URL is required for Auth (e2e) tests');
+      throw new Error(
+        'DATABASE_URL is required for Auth (e2e) tests (set DATABASE_URL/REDIS_URL or set SKIP_DEPS_TESTS=true to skip)',
+      );
+    }
+    if (!redisUrl) {
+      throw new Error(
+        'REDIS_URL is required for Auth (e2e) tests (set DATABASE_URL/REDIS_URL or set SKIP_DEPS_TESTS=true to skip)',
+      );
     }
 
-    prisma = new PrismaClient({
-      datasources: {
-        db: { url: databaseUrl },
-      },
-    });
+    const adapter = new PrismaPg({ connectionString: databaseUrl });
+    prisma = new PrismaClient({ adapter });
     await prisma.$connect();
 
     app = await createApiApp();
@@ -366,7 +325,7 @@ const hasDeps =
     );
   });
 
-  it('GET /v1/admin/whoami requires an admin access token', async () => {
+  it('GET /v1/admin/whoami uses DB-hydrated roles (promotion takes effect immediately)', async () => {
     const email = `admin+${Date.now()}@example.com`;
     const password = 'correct-horse-battery-staple';
 
@@ -391,19 +350,9 @@ const hasDeps =
 
     await prisma.user.update({ where: { id: reg.user.id }, data: { role: UserRole.ADMIN } });
 
-    const refreshRes = await request(baseUrl)
-      .post('/v1/auth/refresh')
-      .send({ refreshToken: reg.refreshToken })
-      .expect(200);
-
-    const refreshed = refreshRes.body.data as {
-      accessToken: string;
-      refreshToken: string;
-    };
-
     const whoami = await request(baseUrl)
       .get('/v1/admin/whoami')
-      .set('Authorization', `Bearer ${refreshed.accessToken}`)
+      .set('Authorization', `Bearer ${reg.accessToken}`)
       .expect(200);
 
     expect(whoami.body.data).toMatchObject({
@@ -412,6 +361,39 @@ const hasDeps =
       roles: ['ADMIN'],
     });
     expect(typeof whoami.body.data.sessionId).toBe('string');
+  });
+
+  it('GET /v1/admin/whoami uses DB-hydrated roles (demotion takes effect immediately)', async () => {
+    const email = `admin-demote+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    await prisma.user.update({ where: { id: reg.user.id }, data: { role: UserRole.ADMIN } });
+
+    await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
+
+    await prisma.user.update({ where: { id: reg.user.id }, data: { role: UserRole.USER } });
+
+    const forbidden = await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(403);
+
+    expect(forbidden.headers['content-type']).toContain('application/problem+json');
+    expect(forbidden.body).toMatchObject({ code: 'FORBIDDEN', status: 403 });
   });
 
   it('GET /v1/admin/users supports search, filters, sort, and pagination (admin only)', async () => {
@@ -506,6 +488,126 @@ const hasDeps =
     const emails = (page1.body.data as Array<{ email: string }>).map((u) => u.email);
     expect(emails).toEqual([userEmails[0], userEmails[1]]);
     expect((page2.body.data as Array<{ email: string }>)[0].email).toBe(userEmails[2]);
+  });
+
+  it('PATCH /v1/admin/users/:userId/role updates roles and blocks last-admin demotion', async () => {
+    const runId = Date.now();
+    const password = 'correct-horse-battery-staple';
+
+    const adminRegisterRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email: `admin-role+${runId}@example.com`, password })
+      .expect(200);
+
+    const adminReg = adminRegisterRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const userRegisterRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email: `user-role+${runId}@example.com`, password })
+      .expect(200);
+
+    const userReg = userRegisterRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
+
+    const promoted = await request(baseUrl)
+      .patch(`/v1/admin/users/${userReg.user.id}/role`)
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .send({ role: 'ADMIN' })
+      .expect(200);
+
+    expect(promoted.body.data).toMatchObject({ id: userReg.user.id, roles: ['ADMIN'] });
+
+    const promoteTraceId = promoted.headers['x-request-id'];
+    expect(typeof promoteTraceId).toBe('string');
+
+    const promoteAudit = await prisma.userRoleChangeAudit.findFirst({
+      where: { traceId: promoteTraceId },
+    });
+
+    expect(promoteAudit).toMatchObject({
+      actorUserId: adminReg.user.id,
+      actorSessionId: expect.any(String),
+      targetUserId: userReg.user.id,
+      oldRole: UserRole.USER,
+      newRole: UserRole.ADMIN,
+      traceId: promoteTraceId,
+    });
+
+    await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${userReg.accessToken}`)
+      .expect(200);
+
+    const selfDemoted = await request(baseUrl)
+      .patch(`/v1/admin/users/${adminReg.user.id}/role`)
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .send({ role: 'USER' })
+      .expect(200);
+
+    expect(selfDemoted.body.data).toMatchObject({ id: adminReg.user.id, roles: ['USER'] });
+
+    const selfDemoteTraceId = selfDemoted.headers['x-request-id'];
+    expect(typeof selfDemoteTraceId).toBe('string');
+
+    const selfDemoteAudit = await prisma.userRoleChangeAudit.findFirst({
+      where: { traceId: selfDemoteTraceId },
+    });
+
+    expect(selfDemoteAudit).toMatchObject({
+      actorUserId: adminReg.user.id,
+      actorSessionId: expect.any(String),
+      targetUserId: adminReg.user.id,
+      oldRole: UserRole.ADMIN,
+      newRole: UserRole.USER,
+      traceId: selfDemoteTraceId,
+    });
+
+    const forbidden = await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .expect(403);
+
+    expect(forbidden.headers['content-type']).toContain('application/problem+json');
+    expect(forbidden.body).toMatchObject({ code: 'FORBIDDEN', status: 403 });
+
+    await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${userReg.accessToken}`)
+      .expect(200);
+
+    await prisma.user.updateMany({
+      where: { role: UserRole.ADMIN, id: { not: userReg.user.id } },
+      data: { role: UserRole.USER },
+    });
+
+    const lastAdminBlocked = await request(baseUrl)
+      .patch(`/v1/admin/users/${userReg.user.id}/role`)
+      .set('Authorization', `Bearer ${userReg.accessToken}`)
+      .send({ role: 'USER' })
+      .expect(409);
+
+    expect(lastAdminBlocked.headers['content-type']).toContain('application/problem+json');
+    expect(lastAdminBlocked.body).toMatchObject({
+      code: 'ADMIN_CANNOT_DEMOTE_LAST_ADMIN',
+      status: 409,
+    });
+
+    const lastAdminTraceId = lastAdminBlocked.headers['x-request-id'];
+    expect(typeof lastAdminTraceId).toBe('string');
+
+    const lastAdminAudit = await prisma.userRoleChangeAudit.findFirst({
+      where: { traceId: lastAdminTraceId },
+    });
+    expect(lastAdminAudit).toBeNull();
   });
 
   it('duplicate register returns AUTH_EMAIL_ALREADY_EXISTS', async () => {

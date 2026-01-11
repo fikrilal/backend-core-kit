@@ -37,7 +37,7 @@ This stack is selected for long-term support, strong ecosystem maturity, and ent
 ## Database
 
 - Postgres
-- ORM: Prisma
+- ORM: Prisma (driver adapters)
 - Migrations: Prisma migrations (reproducible, committed)
 
 ## Cache + Queue

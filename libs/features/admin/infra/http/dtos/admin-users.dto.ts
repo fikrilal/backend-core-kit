@@ -47,3 +47,8 @@ export class AdminUsersListEnvelopeDto {
   @ApiProperty({ type: CursorPaginationMetaDto })
   meta!: CursorPaginationMetaDto;
 }
+
+export class AdminUserEnvelopeDto {
+  @ApiProperty({ type: AdminUserDto })
+  data!: AdminUserDto;
+}

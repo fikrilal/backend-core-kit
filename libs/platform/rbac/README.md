@@ -5,6 +5,7 @@ This folder contains the **platform RBAC scaffold** used by HTTP controllers to 
 RBAC in this kit is intentionally simple:
 
 - **Roles** live on the authenticated principal (`AuthPrincipal.roles`) and are carried in the **first-party access token**.
+- For `/v1/admin/*` endpoints, roles are **hydrated from the database** on each request to ensure immediate demotion/promotion.
 - **Permissions** are fine-grained capability strings: `<resource>:<action>`.
 - Routes declare required permissions via decorators; a guard enforces them.
 - Unknown roles grant nothing (deny-by-default).
@@ -21,6 +22,7 @@ Provides:
 
 - `RbacGuard`
 - `RBAC_PERMISSIONS_PROVIDER` (defaults to `StaticRolePermissionsProvider`)
+- `DbRoleHydrator` (used for DB-hydrated role evaluation)
 
 ### `RbacGuard`
 
@@ -32,6 +34,7 @@ Enforcement flow:
 2. If `@SkipRbac()` is present → allow (skips RBAC only; rare).
 3. Read required permissions from class + handler metadata (additive merge).
 4. Read `req.principal` (set by `AccessTokenGuard`).
+   - For `/v1/admin/*` endpoints (or when `@UseDbRoles()` is present), the guard refreshes the principal’s `roles` from the database first.
 5. Resolve granted permissions via `PermissionsProvider`.
 6. Require **all** declared permissions (AND semantics).
 7. On failure: throw RFC7807 `FORBIDDEN`.
@@ -47,6 +50,8 @@ Enforcement flow:
   - Escape hatch to bypass RBAC checks while still requiring authentication.
 - `@Public()` — file: `libs/platform/auth/public.decorator.ts`
   - Escape hatch to bypass authentication and RBAC entirely.
+- `@UseDbRoles()` — file: `libs/platform/rbac/use-db-roles.decorator.ts`
+  - Opt-in to DB-hydrated role evaluation for a controller/handler (admin endpoints enforce this by default).
 
 ## Permission Strings
 

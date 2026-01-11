@@ -20,8 +20,10 @@ Rules:
 
 Current scaffolding:
 
-- Prisma schema: `prisma/schema.prisma`
+- Prisma schema: `prisma/schema.prisma` (schema only; no datasource URL in Prisma 7)
+- Prisma config: `prisma.config.ts` (schema path + datasource URL for Prisma CLI)
 - Scripts: `npm run prisma:generate`, `npm run prisma:migrate`, `npm run prisma:migrate:deploy`
+- Prisma client wiring: `libs/platform/db/prisma.service.ts` (Postgres driver adapter via `@prisma/adapter-pg`)
 
 ## Repository Pattern
 
