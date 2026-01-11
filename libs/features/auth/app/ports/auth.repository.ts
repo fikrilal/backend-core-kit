@@ -50,6 +50,8 @@ export interface AuthRepository {
   createUserWithPassword(email: Email, passwordHash: string): Promise<AuthUserRecord>;
   findUserForLogin(email: Email): Promise<{ user: AuthUserRecord; passwordHash: string } | null>;
 
+  findRefreshTokenWithSession(tokenHash: string): Promise<RefreshTokenWithSession | null>;
+
   revokeActiveSessionForDevice(userId: string, activeKey: string, now: Date): Promise<void>;
   createSession(input: CreateSessionInput): Promise<SessionRecord>;
 

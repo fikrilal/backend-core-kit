@@ -7,6 +7,7 @@ import type {
   CreateSessionInput,
   RefreshRotationResult,
   RefreshTokenRecord,
+  RefreshTokenWithSession,
   SessionRecord,
 } from '../../app/ports/auth.repository';
 import { EmailAlreadyExistsError } from '../../app/auth.errors';
@@ -57,6 +58,12 @@ function toRefreshTokenRecord(
   };
 }
 
+class RefreshTokenAlreadyUsedError extends Error {
+  constructor() {
+    super('Refresh token already used');
+  }
+}
+
 @Injectable()
 export class PrismaAuthRepository implements AuthRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -101,6 +108,43 @@ export class PrismaAuthRepository implements AuthRepository {
     return {
       user: toAuthUserRecord(user),
       passwordHash: user.passwordCredential.passwordHash,
+    };
+  }
+
+  async findRefreshTokenWithSession(tokenHash: string): Promise<RefreshTokenWithSession | null> {
+    const client = this.prisma.getClient();
+    const found = await client.refreshToken.findUnique({
+      where: { tokenHash },
+      select: {
+        id: true,
+        tokenHash: true,
+        expiresAt: true,
+        revokedAt: true,
+        sessionId: true,
+        replacedById: true,
+        session: {
+          select: {
+            id: true,
+            userId: true,
+            expiresAt: true,
+            revokedAt: true,
+            user: { select: { id: true, email: true, emailVerifiedAt: true, role: true } },
+          },
+        },
+      },
+    });
+
+    if (!found) return null;
+
+    return {
+      token: toRefreshTokenRecord(found),
+      session: {
+        id: found.session.id,
+        userId: found.session.userId,
+        expiresAt: found.session.expiresAt,
+        revokedAt: found.session.revokedAt,
+      },
+      user: toAuthUserRecord(found.session.user),
     };
   }
 
@@ -228,13 +272,16 @@ export class PrismaAuthRepository implements AuthRepository {
         });
 
         if (updated.count !== 1) {
-          throw new Error('Refresh token already used');
+          throw new RefreshTokenAlreadyUsedError();
         }
       });
-    } catch {
-      // If we lost a race, treat as reuse and revoke the session to contain potential replay.
-      await this.revokeSessionAndTokens(sessionId, now);
-      return { kind: 'revoked_or_reused', sessionId, userId };
+    } catch (err: unknown) {
+      if (err instanceof RefreshTokenAlreadyUsedError) {
+        // If we lost a race, treat as reuse and revoke the session to contain potential replay.
+        await this.revokeSessionAndTokens(sessionId, now);
+        return { kind: 'revoked_or_reused', sessionId, userId };
+      }
+      throw err;
     }
 
     return { kind: 'ok', sessionId, user, sessionExpiresAt: existing.session.expiresAt };
