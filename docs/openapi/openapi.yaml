@@ -183,10 +183,46 @@ paths:
       security:
         - access-token: []
       summary: Get current user
-      tags:
+      tags: &a2
         - Users
       x-error-codes:
         - UNAUTHORIZED
+        - INTERNAL
+    patch:
+      description: Partially updates the authenticated user profile. Omitted fields
+        are unchanged; null clears a field.
+      operationId: users.me.patch
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: "Idempotency key for safe retries of write requests. Replays return
+            `Idempotency-Replayed: true`."
+          required: false
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchMeRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeEnvelopeDto"
+      security:
+        - access-token: []
+      summary: Update current user profile
+      tags: *a2
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - IDEMPOTENCY_IN_PROGRESS
+        - CONFLICT
         - INTERNAL
   /v1/admin/whoami:
     get:
@@ -206,6 +242,95 @@ paths:
       tags:
         - Admin
       x-error-codes:
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - INTERNAL
+  /v1/admin/users:
+    get:
+      description: Admin-only user listing with cursor pagination, sorting, filtering,
+        and search.
+      operationId: admin.users.list
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          description: Max results to return (default 25, max 250).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+            default: 25
+        - name: cursor
+          required: false
+          in: query
+          description: Opaque cursor from the previous response meta.nextCursor.
+          schema:
+            type: string
+        - name: sort
+          required: false
+          in: query
+          description: 'Comma-separated fields; prefix "-" for descending. Max 3 fields.
+            Default: "-createdAt". Allowed: createdAt, email, id'
+          schema:
+            type: string
+            example: -createdAt
+        - name: q
+          required: false
+          in: query
+          description: Free-text search query (endpoint-specific semantics).
+          schema:
+            type: string
+        - name: filter[createdAt][gte]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: filter[createdAt][lte]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: filter[email]
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: filter[emailVerified]
+          required: false
+          in: query
+          schema:
+            type: boolean
+        - name: filter[role]
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - USER
+              - ADMIN
+        - name: filter[role][in]
+          required: false
+          in: query
+          description: Comma-separated list (no repeated params).
+          schema:
+            type: string
+            example: A,B,C
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUsersListEnvelopeDto"
+      security:
+        - access-token: []
+      summary: List users
+      tags:
+        - Admin
+      x-error-codes:
+        - VALIDATION_FAILED
         - UNAUTHORIZED
         - FORBIDDEN
         - INTERNAL
@@ -323,6 +448,21 @@ components:
           example: <refresh-token>
       required:
         - refreshToken
+    MeProfileDto:
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: Dante
+          nullable: true
+        givenName:
+          type: string
+          example: Dante
+          nullable: true
+        familyName:
+          type: string
+          example: Alighieri
+          nullable: true
     MeDto:
       type: object
       properties:
@@ -341,11 +481,14 @@ components:
           type: array
           items:
             type: string
+        profile:
+          $ref: "#/components/schemas/MeProfileDto"
       required:
         - id
         - email
         - emailVerified
         - roles
+        - profile
     MeEnvelopeDto:
       type: object
       properties:
@@ -353,6 +496,34 @@ components:
           $ref: "#/components/schemas/MeDto"
       required:
         - data
+    PatchMeProfileDto:
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: Dante
+          nullable: true
+          minLength: 1
+          maxLength: 100
+        givenName:
+          type: string
+          example: Dante
+          nullable: true
+          minLength: 1
+          maxLength: 100
+        familyName:
+          type: string
+          example: Alighieri
+          nullable: true
+          minLength: 1
+          maxLength: 100
+    PatchMeRequestDto:
+      type: object
+      properties:
+        profile:
+          $ref: "#/components/schemas/PatchMeProfileDto"
+      required:
+        - profile
     AdminWhoamiDto:
       type: object
       properties:
@@ -383,3 +554,58 @@ components:
           $ref: "#/components/schemas/AdminWhoamiDto"
       required:
         - data
+    AdminUserDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        email:
+          type: string
+          example: user@example.com
+        emailVerified:
+          type: boolean
+          example: false
+        roles:
+          example:
+            - USER
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          example: 2026-01-10T12:34:56.789Z
+          format: date-time
+      required:
+        - id
+        - email
+        - emailVerified
+        - roles
+        - createdAt
+    CursorPaginationMetaDto:
+      type: object
+      properties:
+        limit:
+          type: number
+          example: 25
+        hasMore:
+          type: boolean
+          example: true
+        nextCursor:
+          type: string
+          example: eyJ2IjoxLCJzb3J0IjoiLWNyZWF0ZWRBdCIsImFmdGVyIjp7fX0
+      required:
+        - limit
+        - hasMore
+    AdminUsersListEnvelopeDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUserDto"
+        meta:
+          $ref: "#/components/schemas/CursorPaginationMetaDto"
+      required:
+        - data
+        - meta

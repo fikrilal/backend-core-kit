@@ -121,11 +121,9 @@ export class AuthService {
   async refresh(input: { refreshToken: string }): Promise<AuthResult> {
     const now = this.clock.now();
     const currentHash = hashRefreshToken(input.refreshToken);
-    const nextRefreshToken = generateRefreshToken();
-    const nextHash = hashRefreshToken(nextRefreshToken);
 
-    const result = await this.repo.rotateRefreshToken(currentHash, nextHash, now);
-    if (result.kind === 'not_found') {
+    const existing = await this.repo.findRefreshTokenWithSession(currentHash);
+    if (!existing) {
       throw new AuthError({
         status: 401,
         code: AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID,
@@ -133,15 +131,7 @@ export class AuthService {
       });
     }
 
-    if (result.kind === 'expired') {
-      throw new AuthError({
-        status: 401,
-        code: AuthErrorCode.AUTH_REFRESH_TOKEN_EXPIRED,
-        message: 'Refresh token expired',
-      });
-    }
-
-    if (result.kind === 'session_revoked') {
+    if (existing.session.revokedAt !== null) {
       throw new AuthError({
         status: 401,
         code: AuthErrorCode.AUTH_SESSION_REVOKED,
@@ -149,7 +139,20 @@ export class AuthService {
       });
     }
 
-    if (result.kind === 'revoked_or_reused') {
+    const expired =
+      existing.token.expiresAt.getTime() <= now.getTime() ||
+      existing.session.expiresAt.getTime() <= now.getTime();
+    if (expired) {
+      throw new AuthError({
+        status: 401,
+        code: AuthErrorCode.AUTH_REFRESH_TOKEN_EXPIRED,
+        message: 'Refresh token expired',
+      });
+    }
+
+    const alreadyUsed = existing.token.revokedAt !== null || existing.token.replacedById !== null;
+    if (alreadyUsed) {
+      await this.repo.revokeSessionByRefreshTokenHash(currentHash, now);
       throw new AuthError({
         status: 401,
         code: AuthErrorCode.AUTH_REFRESH_TOKEN_REUSED,
@@ -157,15 +160,53 @@ export class AuthService {
       });
     }
 
+    // Mint the access token before rotating the refresh token so that non-2xx refresh responses
+    // never consume the caller's refresh token.
     const accessToken = await this.accessTokens.signAccessToken({
-      userId: result.user.id,
-      sessionId: result.sessionId,
-      emailVerified: result.user.emailVerifiedAt !== null,
-      roles: [result.user.role],
+      userId: existing.user.id,
+      sessionId: existing.session.id,
+      emailVerified: existing.user.emailVerifiedAt !== null,
+      roles: [existing.user.role],
       ttlSeconds: this.config.accessTokenTtlSeconds,
     });
 
-    return { user: this.toUserView(result.user), accessToken, refreshToken: nextRefreshToken };
+    const nextRefreshToken = generateRefreshToken();
+    const nextHash = hashRefreshToken(nextRefreshToken);
+
+    const rotation = await this.repo.rotateRefreshToken(currentHash, nextHash, now);
+    if (rotation.kind === 'not_found') {
+      throw new AuthError({
+        status: 401,
+        code: AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID,
+        message: 'Invalid refresh token',
+      });
+    }
+
+    if (rotation.kind === 'expired') {
+      throw new AuthError({
+        status: 401,
+        code: AuthErrorCode.AUTH_REFRESH_TOKEN_EXPIRED,
+        message: 'Refresh token expired',
+      });
+    }
+
+    if (rotation.kind === 'session_revoked') {
+      throw new AuthError({
+        status: 401,
+        code: AuthErrorCode.AUTH_SESSION_REVOKED,
+        message: 'Session revoked',
+      });
+    }
+
+    if (rotation.kind === 'revoked_or_reused') {
+      throw new AuthError({
+        status: 401,
+        code: AuthErrorCode.AUTH_REFRESH_TOKEN_REUSED,
+        message: 'Refresh token reuse detected',
+      });
+    }
+
+    return { user: this.toUserView(existing.user), accessToken, refreshToken: nextRefreshToken };
   }
 
   async logout(input: { refreshToken: string }): Promise<void> {

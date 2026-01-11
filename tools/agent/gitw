@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Agent-only convenience wrapper around `tools/agent/win` for Windows git.
+#
+# Usage:
+# - `bash tools/agent/gitw status`
+# - `bash tools/agent/gitw push origin development`
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec bash "$script_dir/win" git "$@"
+

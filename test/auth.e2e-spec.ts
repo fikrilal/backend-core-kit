@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import request from 'supertest';
@@ -139,6 +140,15 @@ const hasDeps =
     expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
   });
 
+  it('PATCH /v1/me requires an access token', async () => {
+    const res = await request(baseUrl)
+      .patch('/v1/me')
+      .send({ profile: { displayName: 'Dante' } })
+      .expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
   it('register -> GET /v1/me returns current user', async () => {
     const email = `me+${Date.now()}@example.com`;
     const password = 'correct-horse-battery-staple';
@@ -164,7 +174,196 @@ const hasDeps =
       email: email.toLowerCase(),
       emailVerified: false,
       roles: ['USER'],
+      profile: { displayName: null, givenName: null, familyName: null },
     });
+  });
+
+  it('register -> PATCH /v1/me updates profile', async () => {
+    const email = `me-patch+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const patchRes = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({
+        profile: {
+          displayName: '  Dante  ',
+          givenName: 'Dante',
+          familyName: ' Alighieri ',
+        },
+      })
+      .expect(200);
+
+    expect(patchRes.body.data).toMatchObject({
+      id: reg.user.id,
+      email: email.toLowerCase(),
+      emailVerified: false,
+      roles: ['USER'],
+      profile: { displayName: 'Dante', givenName: 'Dante', familyName: 'Alighieri' },
+    });
+
+    const meRes = await request(baseUrl)
+      .get('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
+
+    expect(meRes.body.data.profile).toEqual({
+      displayName: 'Dante',
+      givenName: 'Dante',
+      familyName: 'Alighieri',
+    });
+  });
+
+  it('PATCH /v1/me supports Idempotency-Key replay for safe retries', async () => {
+    const email = `me-idem+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const idemKey = randomUUID();
+    const payload = { profile: { displayName: 'Dante' } };
+
+    const first = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Idempotency-Key', idemKey)
+      .send(payload)
+      .expect(200);
+
+    const replayed = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Idempotency-Key', idemKey)
+      .send(payload)
+      .expect(200);
+
+    expect(replayed.headers['idempotency-replayed']).toBe('true');
+    expect(replayed.body).toEqual(first.body);
+
+    const conflict = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Idempotency-Key', idemKey)
+      .send({ profile: { displayName: 'Virgil' } })
+      .expect(409);
+
+    expect(conflict.headers['content-type']).toContain('application/problem+json');
+    expect(conflict.body).toMatchObject({ code: 'CONFLICT', status: 409 });
+  });
+
+  it('register -> PATCH /v1/me supports clearing fields with null', async () => {
+    const email = `me-clear+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ profile: { displayName: 'Dante' } })
+      .expect(200);
+
+    const cleared = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ profile: { displayName: null } })
+      .expect(200);
+
+    expect(cleared.body.data.profile).toMatchObject({
+      displayName: null,
+      givenName: null,
+      familyName: null,
+    });
+  });
+
+  it('PATCH /v1/me rejects empty patches', async () => {
+    const email = `me-empty+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const res = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ profile: {} })
+      .expect(400);
+
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'VALIDATION_FAILED', status: 400 });
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: 'profile',
+          message: 'At least one profile field must be provided',
+        }),
+      ]),
+    );
+  });
+
+  it('PATCH /v1/me rejects whitespace-only strings', async () => {
+    const email = `me-ws+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const res = await request(baseUrl)
+      .patch('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ profile: { displayName: '   ' } })
+      .expect(400);
+
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'VALIDATION_FAILED', status: 400 });
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: 'profile.displayName' })]),
+    );
   });
 
   it('GET /v1/admin/whoami requires an admin access token', async () => {
@@ -213,6 +412,100 @@ const hasDeps =
       roles: ['ADMIN'],
     });
     expect(typeof whoami.body.data.sessionId).toBe('string');
+  });
+
+  it('GET /v1/admin/users supports search, filters, sort, and pagination (admin only)', async () => {
+    const runId = Date.now();
+    const password = 'correct-horse-battery-staple';
+
+    const adminRegisterRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email: `admin-users+${runId}@example.com`, password })
+      .expect(200);
+
+    const adminReg = adminRegisterRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const forbidden = await request(baseUrl)
+      .get('/v1/admin/users')
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .expect(403);
+
+    expect(forbidden.headers['content-type']).toContain('application/problem+json');
+    expect(forbidden.body).toMatchObject({ code: 'FORBIDDEN', status: 403 });
+
+    const prefix = `list+${runId}`;
+    const userEmails = [
+      `${prefix}-a@example.com`,
+      `${prefix}-b@example.com`,
+      `${prefix}-c@example.com`,
+    ];
+
+    for (const email of userEmails) {
+      await request(baseUrl)
+        .post('/v1/auth/password/register')
+        .send({ email, password })
+        .expect(200);
+    }
+
+    await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
+
+    const refreshRes = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: adminReg.refreshToken })
+      .expect(200);
+
+    const refreshed = refreshRes.body.data as {
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const listUrlPage1 = `/v1/admin/users?limit=2&sort=email&q=${encodeURIComponent(
+      prefix,
+    )}&filter%5Brole%5D=USER&filter%5BemailVerified%5D=false`;
+
+    const page1 = await request(baseUrl)
+      .get(listUrlPage1)
+      .set('Authorization', `Bearer ${refreshed.accessToken}`)
+      .expect(200);
+
+    expect(Array.isArray(page1.body.data)).toBe(true);
+    expect(page1.body.data).toHaveLength(2);
+    expect(page1.body.meta).toMatchObject({ limit: 2, hasMore: true });
+    expect(typeof page1.body.meta.nextCursor).toBe('string');
+
+    for (const u of page1.body.data as Array<{
+      id: string;
+      email: string;
+      emailVerified: boolean;
+      roles: string[];
+      createdAt: string;
+    }>) {
+      expect(u.email).toContain(prefix);
+      expect(u.emailVerified).toBe(false);
+      expect(u.roles).toEqual(['USER']);
+      expect(typeof u.createdAt).toBe('string');
+    }
+
+    const nextCursor = page1.body.meta.nextCursor as string;
+    const listUrlPage2 = `${listUrlPage1}&cursor=${encodeURIComponent(nextCursor)}`;
+
+    const page2 = await request(baseUrl)
+      .get(listUrlPage2)
+      .set('Authorization', `Bearer ${refreshed.accessToken}`)
+      .expect(200);
+
+    expect(Array.isArray(page2.body.data)).toBe(true);
+    expect(page2.body.data).toHaveLength(1);
+    expect(page2.body.meta).toMatchObject({ limit: 2, hasMore: false });
+    expect(page2.body.meta.nextCursor).toBeUndefined();
+
+    const emails = (page1.body.data as Array<{ email: string }>).map((u) => u.email);
+    expect(emails).toEqual([userEmails[0], userEmails[1]]);
+    expect((page2.body.data as Array<{ email: string }>)[0].email).toBe(userEmails[2]);
   });
 
   it('duplicate register returns AUTH_EMAIL_ALREADY_EXISTS', async () => {
