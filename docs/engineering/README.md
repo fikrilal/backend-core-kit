@@ -8,3 +8,6 @@ These documents are not “standards”. Standards live under `docs/standards/`.
 
 - Auth
   - `docs/engineering/auth/token-refresh-and-request-retry.md`
+  - `docs/engineering/auth/password-change.md`
+- Email
+  - `docs/engineering/email/resend.md`

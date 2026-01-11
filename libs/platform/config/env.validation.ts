@@ -142,6 +142,19 @@ class EnvVars {
   @IsOptional()
   @IsBoolean()
   LOG_PRETTY?: boolean;
+
+  // Email (Resend)
+  @IsOptional()
+  @IsString()
+  RESEND_API_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  EMAIL_FROM?: string;
+
+  @IsOptional()
+  @IsString()
+  EMAIL_REPLY_TO?: string;
 }
 
 function formatValidationErrors(errors: unknown[]): string {
@@ -189,6 +202,26 @@ function requireInProductionLike(env: EnvVars) {
   }
 }
 
+function assertEmailConfigConsistency(env: EnvVars) {
+  const resendKey = env.RESEND_API_KEY?.trim();
+  const emailFrom = env.EMAIL_FROM?.trim();
+
+  const hasResendKey = typeof resendKey === 'string' && resendKey !== '';
+  const hasFrom = typeof emailFrom === 'string' && emailFrom !== '';
+
+  if (hasResendKey && !hasFrom) {
+    throw new Error(
+      'Missing required environment variables: EMAIL_FROM (required when RESEND_API_KEY is set)',
+    );
+  }
+
+  if (hasFrom && !hasResendKey) {
+    throw new Error(
+      'Missing required environment variables: RESEND_API_KEY (required when EMAIL_FROM is set)',
+    );
+  }
+}
+
 export function validateEnv(config: Record<string, unknown>): EnvVars {
   const validated = plainToInstance(EnvVars, config, { enableImplicitConversion: true });
   const errors = validateSync(validated, {
@@ -200,5 +233,6 @@ export function validateEnv(config: Record<string, unknown>): EnvVars {
   }
 
   requireInProductionLike(validated);
+  assertEmailConfigConsistency(validated);
   return validated;
 }

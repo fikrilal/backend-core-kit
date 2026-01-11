@@ -28,4 +28,12 @@ describe('validateEnv', () => {
   it('allows minimal config in development', () => {
     expect(() => validateEnv({ NODE_ENV: NodeEnv.Development })).not.toThrow();
   });
+
+  it('throws when RESEND_API_KEY is set without EMAIL_FROM', () => {
+    expect(() => validateEnv({ RESEND_API_KEY: 're_test' })).toThrow(/EMAIL_FROM/i);
+  });
+
+  it('throws when EMAIL_FROM is set without RESEND_API_KEY', () => {
+    expect(() => validateEnv({ EMAIL_FROM: 'no-reply@example.com' })).toThrow(/RESEND_API_KEY/i);
+  });
 });
