@@ -1,8 +1,8 @@
 import type { ListQuery } from '../../../shared/list-query';
 import type { AdminUsersRepository } from './ports/admin-users.repository';
+import type { SetUserRoleInput } from './ports/admin-users.repository';
 import type {
   AdminUsersFilterField,
-  AdminUserRole,
   AdminUsersListResult,
   AdminUsersSortField,
 } from './admin-users.types';
@@ -18,8 +18,8 @@ export class AdminUsersService {
     return this.users.listUsers(query);
   }
 
-  async setUserRole(userId: string, role: AdminUserRole) {
-    const res = await this.users.setUserRole(userId, role);
+  async setUserRole(input: SetUserRoleInput) {
+    const res = await this.users.setUserRole(input);
 
     if (res.kind === 'not_found') {
       throw new AdminError({

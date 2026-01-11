@@ -7,6 +7,14 @@ import type {
   AdminUsersSortField,
 } from '../admin-users.types';
 
+export type SetUserRoleInput = Readonly<{
+  actorUserId: string;
+  actorSessionId: string;
+  traceId: string;
+  targetUserId: string;
+  role: AdminUserRole;
+}>;
+
 export type SetUserRoleResult =
   | Readonly<{ kind: 'ok'; user: AdminUserListItem }>
   | Readonly<{ kind: 'not_found' }>
@@ -17,5 +25,5 @@ export interface AdminUsersRepository {
     query: ListQuery<AdminUsersSortField, AdminUsersFilterField>,
   ): Promise<AdminUsersListResult>;
 
-  setUserRole(userId: string, role: AdminUserRole): Promise<SetUserRoleResult>;
+  setUserRole(input: SetUserRoleInput): Promise<SetUserRoleResult>;
 }

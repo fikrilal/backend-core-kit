@@ -44,6 +44,16 @@ Implementation hooks:
 - `RbacGuard` hydrates roles from the DB for `/v1/admin/*` routes.
 - `@UseDbRoles()` can be used to opt-in explicitly on other routes if needed.
 
+### Audit Logging (Role Changes)
+
+Role assignments are security-sensitive and must be auditable.
+
+Baseline behavior:
+
+- Successful admin role changes are persisted as immutable audit records in the database.
+- Audit records include: actor user id, actor session id, target user id, old role, new role, `traceId` (`X-Request-Id`), and timestamp.
+- Audit writes are performed in the same DB transaction as the role update (atomic).
+
 ### Permissions (Capabilities)
 
 Permissions are fine-grained capabilities expressed as strings:

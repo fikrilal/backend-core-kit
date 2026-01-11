@@ -12,11 +12,11 @@ import type {
   AdminUsersFilterField,
   AdminUsersListResult,
   AdminUsersSortField,
-  AdminUserRole,
 } from '../../app/admin-users.types';
 import type {
   AdminUsersRepository,
   SetUserRoleResult,
+  SetUserRoleInput,
 } from '../../app/ports/admin-users.repository';
 import { PrismaService } from '../../../../platform/db/prisma.service';
 
@@ -259,9 +259,9 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
     };
   }
 
-  async setUserRole(userId: string, role: AdminUserRole): Promise<SetUserRoleResult> {
+  async setUserRole(input: SetUserRoleInput): Promise<SetUserRoleResult> {
     const client = this.prisma.getClient();
-    const nextRole = role === 'ADMIN' ? PrismaUserRole.ADMIN : PrismaUserRole.USER;
+    const nextRole = input.role === 'ADMIN' ? PrismaUserRole.ADMIN : PrismaUserRole.USER;
 
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -269,7 +269,7 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
         return await client.$transaction(
           async (tx) => {
             const found = await tx.user.findUnique({
-              where: { id: userId },
+              where: { id: input.targetUserId },
               select: { id: true, email: true, emailVerifiedAt: true, role: true, createdAt: true },
             });
 
@@ -285,9 +285,20 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
             }
 
             const updated = await tx.user.update({
-              where: { id: userId },
+              where: { id: input.targetUserId },
               data: { role: nextRole },
               select: { id: true, email: true, emailVerifiedAt: true, role: true, createdAt: true },
+            });
+
+            await tx.userRoleChangeAudit.create({
+              data: {
+                actorUserId: input.actorUserId,
+                actorSessionId: input.actorSessionId,
+                targetUserId: input.targetUserId,
+                oldRole: found.role,
+                newRole: updated.role,
+                traceId: input.traceId,
+              },
             });
 
             return { kind: 'ok', user: toListItem(updated) };

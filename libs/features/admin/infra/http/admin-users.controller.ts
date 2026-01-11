@@ -1,6 +1,9 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { FastifyRequest } from 'fastify';
 import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
+import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
+import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
 import { AdminErrorCode } from '../../app/admin.error-codes';
 import { AdminError } from '../../app/admin.errors';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
@@ -92,11 +95,19 @@ export class AdminUsersController {
   @ApiIdempotencyKeyHeader({ required: false })
   @Idempotent({ scopeKey: 'admin.users.role.patch' })
   async setUserRole(
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Req() req: FastifyRequest,
     @Param() params: AdminUserIdParamDto,
     @Body() body: SetAdminUserRoleRequestDto,
   ) {
     try {
-      return await this.users.setUserRole(params.userId, body.role);
+      return await this.users.setUserRole({
+        actorUserId: principal.userId,
+        actorSessionId: principal.sessionId,
+        traceId: req.requestId ?? 'unknown',
+        targetUserId: params.userId,
+        role: body.role,
+      });
     } catch (err: unknown) {
       throw this.mapAdminError(err);
     }

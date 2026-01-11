@@ -523,6 +523,22 @@ const hasDeps =
 
     expect(promoted.body.data).toMatchObject({ id: userReg.user.id, roles: ['ADMIN'] });
 
+    const promoteTraceId = promoted.headers['x-request-id'];
+    expect(typeof promoteTraceId).toBe('string');
+
+    const promoteAudit = await prisma.userRoleChangeAudit.findFirst({
+      where: { traceId: promoteTraceId },
+    });
+
+    expect(promoteAudit).toMatchObject({
+      actorUserId: adminReg.user.id,
+      actorSessionId: expect.any(String),
+      targetUserId: userReg.user.id,
+      oldRole: UserRole.USER,
+      newRole: UserRole.ADMIN,
+      traceId: promoteTraceId,
+    });
+
     await request(baseUrl)
       .get('/v1/admin/whoami')
       .set('Authorization', `Bearer ${userReg.accessToken}`)
@@ -535,6 +551,22 @@ const hasDeps =
       .expect(200);
 
     expect(selfDemoted.body.data).toMatchObject({ id: adminReg.user.id, roles: ['USER'] });
+
+    const selfDemoteTraceId = selfDemoted.headers['x-request-id'];
+    expect(typeof selfDemoteTraceId).toBe('string');
+
+    const selfDemoteAudit = await prisma.userRoleChangeAudit.findFirst({
+      where: { traceId: selfDemoteTraceId },
+    });
+
+    expect(selfDemoteAudit).toMatchObject({
+      actorUserId: adminReg.user.id,
+      actorSessionId: expect.any(String),
+      targetUserId: adminReg.user.id,
+      oldRole: UserRole.ADMIN,
+      newRole: UserRole.USER,
+      traceId: selfDemoteTraceId,
+    });
 
     const forbidden = await request(baseUrl)
       .get('/v1/admin/whoami')
@@ -565,6 +597,14 @@ const hasDeps =
       code: 'ADMIN_CANNOT_DEMOTE_LAST_ADMIN',
       status: 409,
     });
+
+    const lastAdminTraceId = lastAdminBlocked.headers['x-request-id'];
+    expect(typeof lastAdminTraceId).toBe('string');
+
+    const lastAdminAudit = await prisma.userRoleChangeAudit.findFirst({
+      where: { traceId: lastAdminTraceId },
+    });
+    expect(lastAdminAudit).toBeNull();
   });
 
   it('duplicate register returns AUTH_EMAIL_ALREADY_EXISTS', async () => {
