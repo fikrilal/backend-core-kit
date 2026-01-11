@@ -1,0 +1,11 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "../",
+  "testRegex": "test/.*\\.int-spec\\.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "tsconfig.json" }]
+  },
+  "setupFiles": ["<rootDir>/test/jest-e2e.setup.ts"],
+  "testEnvironment": "node",
+  "testTimeout": 30000
+}

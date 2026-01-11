@@ -6,20 +6,23 @@ import { PrismaPg } from '@prisma/adapter-pg';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
-const hasDeps =
-  typeof databaseUrl === 'string' &&
-  databaseUrl !== '' &&
-  typeof redisUrl === 'string' &&
-  redisUrl !== '';
+const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 
-(hasDeps ? describe : describe.skip)('Auth (e2e)', () => {
+(skipDepsTests ? describe.skip : describe)('Auth (e2e)', () => {
   let app: Awaited<ReturnType<typeof createApiApp>>;
   let baseUrl: string;
   let prisma: PrismaClient;
 
   beforeAll(async () => {
     if (!databaseUrl) {
-      throw new Error('DATABASE_URL is required for Auth (e2e) tests');
+      throw new Error(
+        'DATABASE_URL is required for Auth (e2e) tests (set DATABASE_URL/REDIS_URL or set SKIP_DEPS_TESTS=true to skip)',
+      );
+    }
+    if (!redisUrl) {
+      throw new Error(
+        'REDIS_URL is required for Auth (e2e) tests (set DATABASE_URL/REDIS_URL or set SKIP_DEPS_TESTS=true to skip)',
+      );
     }
 
     const adapter = new PrismaPg({ connectionString: databaseUrl });

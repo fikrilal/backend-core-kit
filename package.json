@@ -19,6 +19,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "deps:check": "depcruise --config .dependency-cruiser.cjs --output-type err --validate .dependency-cruiser.cjs apps libs",
     "test": "jest --config jest.config.cjs",
+    "test:int": "jest --config test/jest-int.json --runInBand",
     "test:e2e": "jest --config test/jest-e2e.json --runInBand",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run deps:check && npm test && npm run openapi:check && npm run openapi:lint",
     "verify:e2e": "ts-node --files scripts/verify-e2e.ts",
