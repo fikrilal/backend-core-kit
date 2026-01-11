@@ -41,7 +41,7 @@ When a feature exposes protected endpoints, wire RBAC at the route boundary:
 - [ ] Apply `@UseGuards(AccessTokenGuard, RbacGuard)` (authenticate first, then authorize).
 - [ ] Set baseline permissions on the controller and add per-handler requirements as needed (`@RequirePermissions(...)` is additive).
 - [ ] Add OpenAPI auth + errors: `@ApiBearerAuth('access-token')` and include `UNAUTHORIZED`/`FORBIDDEN` in `@ApiErrorCodes([...])`.
-- [ ] Remember: roles come from the access token (`roles: string[]`); default is `["USER"]`; unknown roles grant nothing.
+- [ ] Remember: roles normally come from the access token (`roles: string[]`); default is `["USER"]`; unknown roles grant nothing. For `/v1/admin/*`, roles are hydrated from the DB to ensure immediate demotion/promotion.
 - [ ] Use escape hatches intentionally: `@Public()` (skips auth+rbac) and `@SkipRbac()` (skips RBAC only; rare).
 
 See `docs/guide/adding-an-endpoint.md` for copy-paste examples.

@@ -8,6 +8,7 @@ import { ListQueryParam } from '../../../../platform/http/list-query/list-query.
 import type { ListQuery } from '../../../../shared/list-query';
 import { RbacGuard } from '../../../../platform/rbac/rbac.guard';
 import { RequirePermissions } from '../../../../platform/rbac/rbac.decorator';
+import { UseDbRoles } from '../../../../platform/rbac/use-db-roles.decorator';
 import type { ListQueryPipeOptions } from '../../../../platform/http/list-query/list-query.pipe';
 import type { AdminUsersFilterField, AdminUsersSortField } from '../../app/admin-users.types';
 import { AdminUsersService } from '../../app/admin-users.service';
@@ -34,6 +35,7 @@ const listUsersQueryOptions = {
 
 @ApiTags('Admin')
 @Controller('admin')
+@UseDbRoles()
 @UseGuards(AccessTokenGuard, RbacGuard)
 @RequirePermissions('admin:access')
 @ApiBearerAuth('access-token')

@@ -226,7 +226,9 @@ paths:
         - INTERNAL
   /v1/admin/whoami:
     get:
-      description: Returns the authenticated principal as derived from the access token.
+      description: Returns the authenticated principal. For /v1/admin/* endpoints,
+        roles are hydrated from the database to ensure immediate
+        demotion/promotion.
       operationId: admin.whoami.get
       parameters: []
       responses:

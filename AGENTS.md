@@ -169,7 +169,7 @@ This repo commonly lives on a Windows filesystem mount (`/mnt/c/...`). To avoid 
 
 Documentation hygiene:
 
-- When you need **up-to-date** third-party library documentation (NestJS, Prisma, BullMQ, etc.), **use Context7 first** (`resolve-library-id` → `query-docs`).
+- When implementing/changing behavior that depends on an **external library** (Prisma, Resend, BullMQ, NestJS, etc.), **look up the latest official docs via Context7 first** (`resolve-library-id` → `query-docs`).
 - Do not rely on memory or ad-hoc web searching unless Context7 has no coverage for the library/topic; if you fall back, say so explicitly.
 
 If you must handle unknown input, use `unknown` + validation and keep domain pure.

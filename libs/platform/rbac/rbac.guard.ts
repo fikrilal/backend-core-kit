@@ -11,12 +11,15 @@ import type { PermissionsProvider } from './permissions.provider';
 import { getRequiredPermissions } from './rbac.decorator';
 import { RBAC_PERMISSIONS_PROVIDER } from './rbac.tokens';
 import { SKIP_RBAC_KEY } from './skip-rbac.decorator';
+import { DbRoleHydrator } from './db-role-hydrator.service';
+import { USE_DB_ROLES_KEY } from './use-db-roles.decorator';
 
 @Injectable()
 export class RbacGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     @Inject(RBAC_PERMISSIONS_PROVIDER) private readonly permissionsProvider: PermissionsProvider,
+    private readonly dbRoleHydrator: DbRoleHydrator,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -33,9 +36,18 @@ export class RbacGuard implements CanActivate {
     if (required.length === 0) return true;
 
     const req = context.switchToHttp().getRequest<FastifyRequest>();
-    const principal = req.principal;
+    let principal = req.principal;
     if (!principal) {
       throw new ProblemException(401, { title: 'Unauthorized', code: ErrorCode.UNAUTHORIZED });
+    }
+
+    const useDbRoles =
+      this.isAdminPath(req.url) ||
+      this.reflector.getAllAndOverride<boolean>(USE_DB_ROLES_KEY, [handler, cls]) === true;
+
+    if (useDbRoles) {
+      principal = await this.dbRoleHydrator.hydrate(principal);
+      req.principal = principal;
     }
 
     const grantedRaw = await this.permissionsProvider.getPermissions(principal);
@@ -46,5 +58,10 @@ export class RbacGuard implements CanActivate {
     }
 
     return true;
+  }
+
+  private isAdminPath(url: string): boolean {
+    const path = url.split('?', 1)[0] ?? '';
+    return path === '/v1/admin' || path.startsWith('/v1/admin/');
   }
 }

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { createApiApp } from '../apps/api/src/bootstrap';
 import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
@@ -21,11 +22,8 @@ const hasDeps =
       throw new Error('DATABASE_URL is required for Auth (e2e) tests');
     }
 
-    prisma = new PrismaClient({
-      datasources: {
-        db: { url: databaseUrl },
-      },
-    });
+    const adapter = new PrismaPg({ connectionString: databaseUrl });
+    prisma = new PrismaClient({ adapter });
     await prisma.$connect();
 
     app = await createApiApp();
@@ -324,7 +322,7 @@ const hasDeps =
     );
   });
 
-  it('GET /v1/admin/whoami requires an admin access token', async () => {
+  it('GET /v1/admin/whoami uses DB-hydrated roles (promotion takes effect immediately)', async () => {
     const email = `admin+${Date.now()}@example.com`;
     const password = 'correct-horse-battery-staple';
 
@@ -349,19 +347,9 @@ const hasDeps =
 
     await prisma.user.update({ where: { id: reg.user.id }, data: { role: UserRole.ADMIN } });
 
-    const refreshRes = await request(baseUrl)
-      .post('/v1/auth/refresh')
-      .send({ refreshToken: reg.refreshToken })
-      .expect(200);
-
-    const refreshed = refreshRes.body.data as {
-      accessToken: string;
-      refreshToken: string;
-    };
-
     const whoami = await request(baseUrl)
       .get('/v1/admin/whoami')
-      .set('Authorization', `Bearer ${refreshed.accessToken}`)
+      .set('Authorization', `Bearer ${reg.accessToken}`)
       .expect(200);
 
     expect(whoami.body.data).toMatchObject({
@@ -370,6 +358,39 @@ const hasDeps =
       roles: ['ADMIN'],
     });
     expect(typeof whoami.body.data.sessionId).toBe('string');
+  });
+
+  it('GET /v1/admin/whoami uses DB-hydrated roles (demotion takes effect immediately)', async () => {
+    const email = `admin-demote+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    await prisma.user.update({ where: { id: reg.user.id }, data: { role: UserRole.ADMIN } });
+
+    await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
+
+    await prisma.user.update({ where: { id: reg.user.id }, data: { role: UserRole.USER } });
+
+    const forbidden = await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(403);
+
+    expect(forbidden.headers['content-type']).toContain('application/problem+json');
+    expect(forbidden.body).toMatchObject({ code: 'FORBIDDEN', status: 403 });
   });
 
   it('GET /v1/admin/users supports search, filters, sort, and pagination (admin only)', async () => {

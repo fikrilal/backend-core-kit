@@ -63,6 +63,8 @@ listUsers() {
 }
 ```
 
+Note: for `/v1/admin/*` endpoints, `RbacGuard` hydrates roles from the database on each request to ensure immediate demotion/promotion. You can also opt-in explicitly via `@UseDbRoles()` on other controllers/handlers if needed.
+
 Escape hatches (when needed):
 
 - `@Public()` marks an endpoint as unauthenticated (skips access-token guard and RBAC when present).
