@@ -110,6 +110,48 @@ paths:
         - UNAUTHORIZED
         - RATE_LIMITED
         - INTERNAL
+  /v1/auth/password/reset/request:
+    post:
+      description: Enqueues a password reset email for an existing user. Returns 204
+        even if the email is unknown to avoid account enumeration.
+      operationId: auth.password.reset.request
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetRequestDto"
+      responses:
+        "204":
+          description: ""
+      summary: Request password reset
+      tags: *a1
+      x-error-codes:
+        - VALIDATION_FAILED
+        - RATE_LIMITED
+        - INTERNAL
+  /v1/auth/password/reset/confirm:
+    post:
+      description: Resets the user password using a one-time token and revokes all sessions.
+      operationId: auth.password.reset.confirm
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetConfirmRequestDto"
+      responses:
+        "204":
+          description: ""
+      summary: Confirm password reset
+      tags: *a1
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_PASSWORD_RESET_TOKEN_INVALID
+        - AUTH_PASSWORD_RESET_TOKEN_EXPIRED
+        - INTERNAL
   /v1/auth/password/login:
     post:
       description: Authenticates a user and issues first-party access + refresh tokens.
@@ -543,6 +585,26 @@ components:
           example: <verification-token>
       required:
         - token
+    PasswordResetRequestDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: user@example.com
+      required:
+        - email
+    PasswordResetConfirmRequestDto:
+      type: object
+      properties:
+        token:
+          type: string
+          example: <password-reset-token>
+        newPassword:
+          type: string
+          minLength: 1
+      required:
+        - token
+        - newPassword
     PasswordLoginRequestDto:
       type: object
       properties:

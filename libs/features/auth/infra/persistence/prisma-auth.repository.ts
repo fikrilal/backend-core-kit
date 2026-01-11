@@ -9,6 +9,7 @@ import type {
   RefreshRotationResult,
   RefreshTokenRecord,
   RefreshTokenWithSession,
+  ResetPasswordByTokenHashResult,
   SessionRecord,
   VerifyEmailResult,
 } from '../../app/ports/auth.repository';
@@ -89,6 +90,15 @@ export class PrismaAuthRepository implements AuthRepository {
       }
       throw err;
     }
+  }
+
+  async findUserIdByEmail(email: Email): Promise<string | null> {
+    const client = this.prisma.getClient();
+    const user = await client.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    return user?.id ?? null;
   }
 
   async findUserById(userId: string): Promise<AuthUserRecord | null> {
@@ -195,6 +205,69 @@ export class PrismaAuthRepository implements AuthRepository {
     });
     if (!found) return null;
     return { passwordHash: found.passwordHash };
+  }
+
+  async resetPasswordByTokenHash(
+    tokenHash: string,
+    newPasswordHash: string,
+    now: Date,
+  ): Promise<ResetPasswordByTokenHashResult> {
+    const client = this.prisma.getClient();
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await client.$transaction(
+          async (tx) => {
+            const token = await tx.passwordResetToken.findUnique({
+              where: { tokenHash },
+              select: { id: true, userId: true, expiresAt: true, usedAt: true, revokedAt: true },
+            });
+
+            if (!token) return { kind: 'token_invalid' };
+            if (token.revokedAt !== null || token.usedAt !== null) return { kind: 'token_invalid' };
+            if (token.expiresAt.getTime() <= now.getTime()) return { kind: 'token_expired' };
+
+            const markedUsed = await tx.passwordResetToken.updateMany({
+              where: { id: token.id, usedAt: null, revokedAt: null },
+              data: { usedAt: now },
+            });
+            if (markedUsed.count !== 1) return { kind: 'token_invalid' };
+
+            await tx.passwordCredential.upsert({
+              where: { userId: token.userId },
+              create: { userId: token.userId, passwordHash: newPasswordHash },
+              update: { passwordHash: newPasswordHash },
+            });
+
+            await tx.session.updateMany({
+              where: { userId: token.userId, revokedAt: null },
+              data: { revokedAt: now, activeKey: null },
+            });
+
+            await tx.refreshToken.updateMany({
+              where: { revokedAt: null, session: { userId: token.userId } },
+              data: { revokedAt: now },
+            });
+
+            await tx.passwordResetToken.updateMany({
+              where: { userId: token.userId, usedAt: null, revokedAt: null },
+              data: { revokedAt: now },
+            });
+
+            return { kind: 'ok', userId: token.userId };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (err: unknown) {
+        if (attempt < maxAttempts && isRetryableTransactionError(err)) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw new Error('Unexpected: exhausted transaction retries');
   }
 
   async changePasswordAndRevokeOtherSessions(input: {

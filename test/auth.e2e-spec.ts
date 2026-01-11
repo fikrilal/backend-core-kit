@@ -10,9 +10,17 @@ import {
   type AuthSendVerificationEmailJobData,
 } from '../libs/features/auth/infra/jobs/auth-email-verification.job';
 import {
+  AUTH_SEND_PASSWORD_RESET_EMAIL_JOB,
+  type AuthSendPasswordResetEmailJobData,
+} from '../libs/features/auth/infra/jobs/auth-password-reset.job';
+import {
   generateEmailVerificationToken,
   hashEmailVerificationToken,
 } from '../libs/features/auth/app/email-verification-token';
+import {
+  generatePasswordResetToken,
+  hashPasswordResetToken,
+} from '../libs/features/auth/app/password-reset-token';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
@@ -22,7 +30,7 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
   let app: Awaited<ReturnType<typeof createApiApp>>;
   let baseUrl: string;
   let prisma: PrismaClient;
-  let emailQueue: Queue<AuthSendVerificationEmailJobData>;
+  let emailQueue: Queue<AuthSendVerificationEmailJobData | AuthSendPasswordResetEmailJobData>;
 
   beforeAll(async () => {
     if (!databaseUrl) {
@@ -38,14 +46,18 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 
     process.env.RESEND_API_KEY ??= 're_test_dummy';
     process.env.EMAIL_FROM ??= 'no-reply@example.com';
+    process.env.PUBLIC_APP_URL ??= 'http://localhost:3000';
 
     const adapter = new PrismaPg({ connectionString: databaseUrl });
     prisma = new PrismaClient({ adapter });
     await prisma.$connect();
 
-    emailQueue = new Queue<AuthSendVerificationEmailJobData>(EMAIL_QUEUE, {
-      connection: { url: redisUrl },
-    });
+    emailQueue = new Queue<AuthSendVerificationEmailJobData | AuthSendPasswordResetEmailJobData>(
+      EMAIL_QUEUE,
+      {
+        connection: { url: redisUrl },
+      },
+    );
     await emailQueue.drain(true);
 
     app = await createApiApp();
@@ -240,6 +252,136 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 
     expect(rateLimited.headers['content-type']).toContain('application/problem+json');
     expect(rateLimited.body).toMatchObject({ code: 'RATE_LIMITED', status: 429 });
+  });
+
+  it('POST /v1/auth/password/reset/request enqueues auth.sendPasswordResetEmail job for existing user', async () => {
+    const email = `pw-reset-request+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { user: { id: string } };
+
+    // Drop the register enqueue so the test only sees the reset enqueue.
+    await emailQueue.drain(true);
+
+    await request(baseUrl)
+      .post('/v1/auth/password/reset/request')
+      .send({ email: email.toUpperCase() })
+      .expect(204);
+
+    const jobs = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
+    const jobForUser = jobs.find(
+      (job) => job.name === AUTH_SEND_PASSWORD_RESET_EMAIL_JOB && job.data.userId === reg.user.id,
+    );
+
+    expect(jobForUser).toBeDefined();
+  });
+
+  it('POST /v1/auth/password/reset/request returns 204 for unknown email (no enumeration)', async () => {
+    await emailQueue.drain(true);
+
+    await request(baseUrl)
+      .post('/v1/auth/password/reset/request')
+      .send({ email: `nope+${Date.now()}@example.com` })
+      .expect(204);
+
+    const jobs = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
+    const hasResetJob = jobs.some((job) => job.name === AUTH_SEND_PASSWORD_RESET_EMAIL_JOB);
+    expect(hasResetJob).toBe(false);
+  });
+
+  it('register -> password reset confirm resets password and revokes sessions', async () => {
+    const email = `pw-reset-confirm+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+    const newPassword = 'new-correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string };
+      refreshToken: string;
+    };
+
+    const token = generatePasswordResetToken();
+    const tokenHash = hashPasswordResetToken(token);
+    const expiresAt = new Date(Date.now() + 60_000);
+
+    await prisma.passwordResetToken.create({
+      data: { userId: reg.user.id, tokenHash, expiresAt },
+      select: { id: true },
+    });
+
+    await request(baseUrl)
+      .post('/v1/auth/password/reset/confirm')
+      .send({ token, newPassword })
+      .expect(204);
+
+    const oldRefresh = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: reg.refreshToken })
+      .expect(401);
+
+    expect(oldRefresh.headers['content-type']).toContain('application/problem+json');
+    expect(oldRefresh.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });
+
+    await request(baseUrl).post('/v1/auth/password/login').send({ email, password }).expect(401);
+    await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password: newPassword })
+      .expect(200);
+
+    const reuse = await request(baseUrl)
+      .post('/v1/auth/password/reset/confirm')
+      .send({ token, newPassword: 'another-new-password' })
+      .expect(400);
+
+    expect(reuse.headers['content-type']).toContain('application/problem+json');
+    expect(reuse.body).toMatchObject({ code: 'AUTH_PASSWORD_RESET_TOKEN_INVALID', status: 400 });
+  });
+
+  it('POST /v1/auth/password/reset/confirm returns 400 for invalid token', async () => {
+    const res = await request(baseUrl)
+      .post('/v1/auth/password/reset/confirm')
+      .send({ token: 'nope', newPassword: 'correct-horse-battery-staple' })
+      .expect(400);
+
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'AUTH_PASSWORD_RESET_TOKEN_INVALID', status: 400 });
+  });
+
+  it('POST /v1/auth/password/reset/confirm returns 400 for expired token', async () => {
+    const email = `pw-reset-expired+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { user: { id: string } };
+
+    const token = generatePasswordResetToken();
+    const tokenHash = hashPasswordResetToken(token);
+
+    await prisma.passwordResetToken.create({
+      data: { userId: reg.user.id, tokenHash, expiresAt: new Date(Date.now() - 60_000) },
+      select: { id: true },
+    });
+
+    const res = await request(baseUrl)
+      .post('/v1/auth/password/reset/confirm')
+      .send({ token, newPassword: 'new-correct-horse-battery-staple' })
+      .expect(400);
+
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'AUTH_PASSWORD_RESET_TOKEN_EXPIRED', status: 400 });
   });
 
   it('POST /v1/auth/password/change requires an access token', async () => {

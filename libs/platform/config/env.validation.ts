@@ -93,11 +93,23 @@ class EnvVars {
   @Min(1)
   AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: number = 60 * 60 * 24;
 
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 60 * 30))
+  @IsOptional()
+  @IsInt()
+  @Min(60)
+  AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: number = 60 * 30;
+
   @Transform(({ value }) => (value !== undefined ? Number(value) : 60))
   @IsOptional()
   @IsInt()
   @Min(1)
   AUTH_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS: number = 60;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 60))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS: number = 60;
 
   @Transform(({ value }) => (value !== undefined ? Number(value) : 10))
   @IsOptional()
@@ -130,6 +142,11 @@ class EnvVars {
   @IsOptional()
   @IsString()
   AUTH_SIGNING_KEYS_JSON?: string;
+
+  // Public client URLs (frontend/mobile)
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  PUBLIC_APP_URL?: string;
 
   // Observability (Grafana Cloud via OTLP)
   @IsOptional()

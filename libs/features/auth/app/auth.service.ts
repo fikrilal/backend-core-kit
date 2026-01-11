@@ -7,6 +7,7 @@ import type { LoginRateLimiter } from './ports/login-rate-limiter';
 import type { PasswordHasher } from './ports/password-hasher';
 import { generateRefreshToken, hashRefreshToken } from './refresh-token';
 import { hashEmailVerificationToken } from './email-verification-token';
+import { hashPasswordResetToken } from './password-reset-token';
 import type { Clock } from './time';
 import type { AuthResult, AuthUserRecord, AuthUserView } from './auth.types';
 
@@ -323,6 +324,40 @@ export class AuthService {
     }
 
     return user.emailVerifiedAt !== null ? 'verified' : 'unverified';
+  }
+
+  async requestPasswordReset(input: {
+    email: string;
+  }): Promise<Readonly<{ userId: string }> | null> {
+    const email = normalizeEmail(input.email);
+    const userId = await this.repo.findUserIdByEmail(email);
+    if (!userId) return null;
+    return { userId };
+  }
+
+  async confirmPasswordReset(input: { token: string; newPassword: string }): Promise<void> {
+    this.assertPasswordPolicy(input.newPassword);
+
+    const now = this.clock.now();
+    const tokenHash = hashPasswordResetToken(input.token);
+    const newPasswordHash = await this.passwordHasher.hash(input.newPassword);
+
+    const result = await this.repo.resetPasswordByTokenHash(tokenHash, newPasswordHash, now);
+    if (result.kind === 'ok') return;
+
+    if (result.kind === 'token_expired') {
+      throw new AuthError({
+        status: 400,
+        code: AuthErrorCode.AUTH_PASSWORD_RESET_TOKEN_EXPIRED,
+        message: 'Password reset token expired',
+      });
+    }
+
+    throw new AuthError({
+      status: 400,
+      code: AuthErrorCode.AUTH_PASSWORD_RESET_TOKEN_INVALID,
+      message: 'Password reset token is invalid',
+    });
   }
 
   async getPublicJwks(): Promise<unknown> {

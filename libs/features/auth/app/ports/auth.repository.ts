@@ -58,14 +58,26 @@ export type VerifyEmailResult =
   | Readonly<{ kind: 'token_invalid' }>
   | Readonly<{ kind: 'token_expired' }>;
 
+export type ResetPasswordByTokenHashResult =
+  | Readonly<{ kind: 'ok'; userId: string }>
+  | Readonly<{ kind: 'token_invalid' }>
+  | Readonly<{ kind: 'token_expired' }>;
+
 export interface AuthRepository {
   createUserWithPassword(email: Email, passwordHash: string): Promise<AuthUserRecord>;
+  findUserIdByEmail(email: Email): Promise<string | null>;
   findUserForLogin(email: Email): Promise<{ user: AuthUserRecord; passwordHash: string } | null>;
   findUserById(userId: string): Promise<AuthUserRecord | null>;
 
   findPasswordCredential(userId: string): Promise<Readonly<{ passwordHash: string }> | null>;
 
   verifyEmailByTokenHash(tokenHash: string, now: Date): Promise<VerifyEmailResult>;
+
+  resetPasswordByTokenHash(
+    tokenHash: string,
+    newPasswordHash: string,
+    now: Date,
+  ): Promise<ResetPasswordByTokenHashResult>;
 
   changePasswordAndRevokeOtherSessions(input: {
     userId: string;

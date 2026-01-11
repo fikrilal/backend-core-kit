@@ -11,8 +11,10 @@ import { AuthController } from './http/auth.controller';
 import { JwksController } from './http/jwks.controller';
 import { PrismaAuthRepository } from './persistence/prisma-auth.repository';
 import { AuthEmailVerificationJobs } from './jobs/auth-email-verification.jobs';
+import { AuthPasswordResetJobs } from './jobs/auth-password-reset.jobs';
 import { RedisEmailVerificationRateLimiter } from './rate-limit/redis-email-verification-rate-limiter';
 import { RedisLoginRateLimiter } from './rate-limit/redis-login-rate-limiter';
+import { RedisPasswordResetRateLimiter } from './rate-limit/redis-password-reset-rate-limiter';
 import { Argon2PasswordHasher } from './security/argon2.password-hasher';
 import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
 
@@ -22,10 +24,12 @@ import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
   providers: [
     PrismaAuthRepository,
     AuthEmailVerificationJobs,
+    AuthPasswordResetJobs,
     Argon2PasswordHasher,
     CryptoAccessTokenIssuer,
     RedisEmailVerificationRateLimiter,
     RedisLoginRateLimiter,
+    RedisPasswordResetRateLimiter,
     {
       provide: AuthService,
       inject: [

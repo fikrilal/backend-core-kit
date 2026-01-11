@@ -10,7 +10,7 @@ import { LoggingModule } from '../../../libs/platform/logging/logging.module';
 import { PlatformEmailModule } from '../../../libs/platform/email/email.module';
 import { QueueModule } from '../../../libs/platform/queue/queue.module';
 import { SystemSmokeWorker } from './jobs/system-smoke.worker';
-import { AuthEmailVerificationWorker } from './jobs/auth-email-verification.worker';
+import { AuthEmailsWorker } from './jobs/auth-email-verification.worker';
 
 @Module({
   imports: [
@@ -25,7 +25,7 @@ import { AuthEmailVerificationWorker } from './jobs/auth-email-verification.work
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },
     SystemSmokeWorker,
-    AuthEmailVerificationWorker,
+    AuthEmailsWorker,
   ],
 })
 export class WorkerModule {}

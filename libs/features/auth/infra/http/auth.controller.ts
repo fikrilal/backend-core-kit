@@ -20,13 +20,17 @@ import { Idempotent } from '../../../../platform/http/idempotency/idempotency.de
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { AuthEmailVerificationJobs } from '../jobs/auth-email-verification.jobs';
+import { AuthPasswordResetJobs } from '../jobs/auth-password-reset.jobs';
 import { RedisEmailVerificationRateLimiter } from '../rate-limit/redis-email-verification-rate-limiter';
+import { RedisPasswordResetRateLimiter } from '../rate-limit/redis-password-reset-rate-limiter';
 import {
   AuthResultEnvelopeDto,
   ChangePasswordRequestDto,
   LogoutRequestDto,
+  PasswordResetConfirmRequestDto,
   PasswordLoginRequestDto,
   PasswordRegisterRequestDto,
+  PasswordResetRequestDto,
   RefreshRequestDto,
   VerifyEmailRequestDto,
 } from './dtos/auth.dto';
@@ -38,6 +42,8 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly emailVerificationJobs: AuthEmailVerificationJobs,
     private readonly emailVerificationRateLimiter: RedisEmailVerificationRateLimiter,
+    private readonly passwordResetJobs: AuthPasswordResetJobs,
+    private readonly passwordResetRateLimiter: RedisPasswordResetRateLimiter,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(AuthController.name);
@@ -139,6 +145,66 @@ export class AuthController {
           message: 'Email is not configured',
         });
       }
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
+  @Post('password/reset/request')
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: 'auth.password.reset.request',
+    summary: 'Request password reset',
+    description:
+      'Enqueues a password reset email for an existing user. Returns 204 even if the email is unknown to avoid account enumeration.',
+  })
+  @ApiErrorCodes([ErrorCode.VALIDATION_FAILED, ErrorCode.RATE_LIMITED, ErrorCode.INTERNAL])
+  @ApiNoContentResponse()
+  async requestPasswordReset(@Body() body: PasswordResetRequestDto): Promise<void> {
+    try {
+      if (!this.passwordResetJobs.isEnabled()) {
+        throw new AuthError({
+          status: 500,
+          code: ErrorCode.INTERNAL,
+          message: 'Password reset email is not configured',
+        });
+      }
+
+      await this.passwordResetRateLimiter.assertRequestAllowed({ email: body.email });
+
+      const target = await this.auth.requestPasswordReset({ email: body.email });
+      if (!target) return;
+
+      try {
+        await this.passwordResetJobs.enqueueSendPasswordResetEmail(target.userId);
+      } catch (err: unknown) {
+        this.logger.error(
+          { err, userId: target.userId },
+          'Failed to enqueue password reset email job',
+        );
+      }
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
+  @Post('password/reset/confirm')
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: 'auth.password.reset.confirm',
+    summary: 'Confirm password reset',
+    description: 'Resets the user password using a one-time token and revokes all sessions.',
+  })
+  @ApiErrorCodes([
+    ErrorCode.VALIDATION_FAILED,
+    AuthErrorCode.AUTH_PASSWORD_RESET_TOKEN_INVALID,
+    AuthErrorCode.AUTH_PASSWORD_RESET_TOKEN_EXPIRED,
+    ErrorCode.INTERNAL,
+  ])
+  @ApiNoContentResponse()
+  async confirmPasswordReset(@Body() body: PasswordResetConfirmRequestDto): Promise<void> {
+    try {
+      await this.auth.confirmPasswordReset({ token: body.token, newPassword: body.newPassword });
     } catch (err: unknown) {
       throw this.mapAuthError(err);
     }
