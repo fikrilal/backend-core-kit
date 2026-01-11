@@ -31,6 +31,8 @@ The docs are the source of truth for architecture, standards, and workflows. Cod
   - `docs/guide/adding-a-feature.md`
   - `docs/guide/adding-an-endpoint.md`
   - `docs/guide/adding-a-job.md`
+- Engineering (implementation notes)
+  - `docs/engineering/README.md`
 - ADRs (decision log)
   - `docs/adr/README.md`
   - `docs/adr/template.md`

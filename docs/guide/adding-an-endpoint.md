@@ -68,6 +68,39 @@ Escape hatches (when needed):
 - `@Public()` marks an endpoint as unauthenticated (skips access-token guard and RBAC when present).
 - `@SkipRbac()` skips RBAC checks (rare; use for migrations/internal endpoints).
 
+## Write Safety (Idempotency-Key)
+
+If a **write** endpoint (`POST`/`PUT`/`PATCH`/`DELETE`) may be retried by clients (mobile, web, proxies), protect it with an **idempotency key** so retries don’t create duplicate side effects.
+
+Backend supports this via Redis-backed idempotency:
+
+1. Add `@Idempotent({ scopeKey: '<stable-operation-key>' })` on the handler (recommended: reuse your `operationId`).
+2. Document the header with `@ApiIdempotencyKeyHeader({ required: false })` (optional by default).
+3. Include `IDEMPOTENCY_IN_PROGRESS` and `CONFLICT` in `@ApiErrorCodes([...])`.
+4. Clients should send `Idempotency-Key: <uuid>` and reuse the same key on retries.
+
+Example (controller method):
+
+```ts
+@UseGuards(AccessTokenGuard)
+@ApiBearerAuth('access-token')
+@ApiIdempotencyKeyHeader({ required: false })
+@Idempotent({ scopeKey: 'users.me.patch' })
+@ApiErrorCodes([
+  ErrorCode.VALIDATION_FAILED,
+  ErrorCode.UNAUTHORIZED,
+  ErrorCode.IDEMPOTENCY_IN_PROGRESS,
+  ErrorCode.CONFLICT,
+  ErrorCode.INTERNAL,
+])
+@Patch('me')
+patchMe(@CurrentPrincipal() principal: AuthPrincipal, @Body() body: PatchMeRequestDto) {
+  return this.users.updateMeProfile(principal.userId, body.profile);
+}
+```
+
+See `docs/engineering/auth/token-refresh-and-request-retry.md` for client retry guidance.
+
 ## Common Pitfalls
 
 - Returning “raw” objects without the envelope
