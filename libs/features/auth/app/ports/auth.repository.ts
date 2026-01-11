@@ -1,3 +1,4 @@
+import type { ListQuery } from '../../../../shared/list-query';
 import type { Email } from '../../domain/email';
 import type { AuthUserRecord } from '../auth.types';
 
@@ -34,6 +35,24 @@ export type RefreshTokenWithSession = Readonly<{
   user: AuthUserRecord;
 }>;
 
+export type UserSessionsSortField = 'createdAt' | 'id';
+
+export type UserSessionListItem = Readonly<{
+  id: string;
+  deviceId: string | null;
+  deviceName: string | null;
+  createdAt: Date;
+  expiresAt: Date;
+  revokedAt: Date | null;
+}>;
+
+export type ListUserSessionsResult = Readonly<{
+  items: ReadonlyArray<UserSessionListItem>;
+  limit: number;
+  hasMore: boolean;
+  nextCursor?: string;
+}>;
+
 export type RefreshRotationResult =
   | Readonly<{ kind: 'not_found' }>
   | Readonly<{ kind: 'revoked_or_reused'; sessionId: string; userId: string }>
@@ -46,9 +65,53 @@ export type RefreshRotationResult =
       sessionExpiresAt: Date;
     }>;
 
+export type ChangePasswordResult =
+  | Readonly<{ kind: 'ok' }>
+  | Readonly<{ kind: 'not_found' }>
+  | Readonly<{ kind: 'password_not_set' }>
+  | Readonly<{ kind: 'current_password_mismatch' }>;
+
+export type VerifyEmailResult =
+  | Readonly<{ kind: 'ok' }>
+  | Readonly<{ kind: 'already_verified' }>
+  | Readonly<{ kind: 'token_invalid' }>
+  | Readonly<{ kind: 'token_expired' }>;
+
+export type ResetPasswordByTokenHashResult =
+  | Readonly<{ kind: 'ok'; userId: string }>
+  | Readonly<{ kind: 'token_invalid' }>
+  | Readonly<{ kind: 'token_expired' }>;
+
 export interface AuthRepository {
   createUserWithPassword(email: Email, passwordHash: string): Promise<AuthUserRecord>;
+  findUserIdByEmail(email: Email): Promise<string | null>;
   findUserForLogin(email: Email): Promise<{ user: AuthUserRecord; passwordHash: string } | null>;
+  findUserById(userId: string): Promise<AuthUserRecord | null>;
+
+  listUserSessions(
+    userId: string,
+    query: ListQuery<UserSessionsSortField, never>,
+  ): Promise<ListUserSessionsResult>;
+
+  revokeSessionById(userId: string, sessionId: string, now: Date): Promise<boolean>;
+
+  findPasswordCredential(userId: string): Promise<Readonly<{ passwordHash: string }> | null>;
+
+  verifyEmailByTokenHash(tokenHash: string, now: Date): Promise<VerifyEmailResult>;
+
+  resetPasswordByTokenHash(
+    tokenHash: string,
+    newPasswordHash: string,
+    now: Date,
+  ): Promise<ResetPasswordByTokenHashResult>;
+
+  changePasswordAndRevokeOtherSessions(input: {
+    userId: string;
+    sessionId: string;
+    expectedCurrentPasswordHash: string;
+    newPasswordHash: string;
+    now: Date;
+  }): Promise<ChangePasswordResult>;
 
   findRefreshTokenWithSession(tokenHash: string): Promise<RefreshTokenWithSession | null>;
 

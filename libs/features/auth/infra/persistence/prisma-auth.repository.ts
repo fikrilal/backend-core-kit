@@ -1,14 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type RefreshToken, type User } from '@prisma/client';
+import { encodeCursorV1, type ListQuery, type SortSpec } from '../../../../shared/list-query';
 import type { Email } from '../../domain/email';
 import type { AuthRole, AuthUserRecord } from '../../app/auth.types';
 import type {
   AuthRepository,
+  ChangePasswordResult,
   CreateSessionInput,
+  ListUserSessionsResult,
   RefreshRotationResult,
   RefreshTokenRecord,
   RefreshTokenWithSession,
+  UserSessionListItem,
+  UserSessionsSortField,
+  ResetPasswordByTokenHashResult,
   SessionRecord,
+  VerifyEmailResult,
 } from '../../app/ports/auth.repository';
 import { EmailAlreadyExistsError } from '../../app/auth.errors';
 import { PrismaService } from '../../../../platform/db/prisma.service';
@@ -64,6 +71,89 @@ class RefreshTokenAlreadyUsedError extends Error {
   }
 }
 
+function sortSessionFieldOrderBy(
+  field: UserSessionsSortField,
+  direction: 'asc' | 'desc',
+): Prisma.SessionOrderByWithRelationInput {
+  switch (field) {
+    case 'createdAt':
+      return { createdAt: direction };
+    case 'id':
+      return { id: direction };
+  }
+}
+
+function equalsSessionForCursor(
+  field: UserSessionsSortField,
+  value: string | number | boolean,
+): Prisma.SessionWhereInput {
+  switch (field) {
+    case 'createdAt': {
+      if (typeof value !== 'string') {
+        throw new Error('Cursor value for createdAt must be an ISO datetime string');
+      }
+      return { createdAt: { equals: new Date(value) } };
+    }
+    case 'id': {
+      if (typeof value !== 'string') throw new Error('Cursor value for id must be a string');
+      return { id: { equals: value } };
+    }
+  }
+}
+
+function compareSessionForCursor(
+  field: UserSessionsSortField,
+  direction: 'asc' | 'desc',
+  value: string | number | boolean,
+): Prisma.SessionWhereInput {
+  switch (field) {
+    case 'createdAt': {
+      if (typeof value !== 'string') {
+        throw new Error('Cursor value for createdAt must be an ISO datetime string');
+      }
+      const date = new Date(value);
+      return direction === 'asc' ? { createdAt: { gt: date } } : { createdAt: { lt: date } };
+    }
+    case 'id': {
+      if (typeof value !== 'string') throw new Error('Cursor value for id must be a string');
+      return direction === 'asc' ? { id: { gt: value } } : { id: { lt: value } };
+    }
+  }
+}
+
+function buildAfterSessionCursorWhere(
+  sort: ReadonlyArray<SortSpec<UserSessionsSortField>>,
+  after: Readonly<Partial<Record<UserSessionsSortField, string | number | boolean>>>,
+): Prisma.SessionWhereInput {
+  if (sort.length === 0) return {};
+
+  const clauses: Prisma.SessionWhereInput[] = [];
+
+  for (let i = 0; i < sort.length; i += 1) {
+    const and: Prisma.SessionWhereInput[] = [];
+
+    for (let j = 0; j < i; j += 1) {
+      const field = sort[j].field;
+      const value = after[field];
+      if (value === undefined) {
+        throw new Error(`Cursor missing value for sort field "${String(field)}"`);
+      }
+      and.push(equalsSessionForCursor(field, value));
+    }
+
+    const field = sort[i].field;
+    const value = after[field];
+    if (value === undefined) {
+      throw new Error(`Cursor missing value for sort field "${String(field)}"`);
+    }
+    and.push(compareSessionForCursor(field, sort[i].direction, value));
+
+    clauses.push({ AND: and });
+  }
+
+  return { OR: clauses };
+}
+
 @Injectable()
 export class PrismaAuthRepository implements AuthRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -89,6 +179,123 @@ export class PrismaAuthRepository implements AuthRepository {
     }
   }
 
+  async findUserIdByEmail(email: Email): Promise<string | null> {
+    const client = this.prisma.getClient();
+    const user = await client.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    return user?.id ?? null;
+  }
+
+  async findUserById(userId: string): Promise<AuthUserRecord | null> {
+    const client = this.prisma.getClient();
+    const user = await client.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, emailVerifiedAt: true, role: true },
+    });
+    return user ? toAuthUserRecord(user) : null;
+  }
+
+  async listUserSessions(
+    userId: string,
+    query: ListQuery<UserSessionsSortField, never>,
+  ): Promise<ListUserSessionsResult> {
+    const client = this.prisma.getClient();
+
+    const afterWhere =
+      query.cursor && query.cursor.after
+        ? buildAfterSessionCursorWhere(query.sort, query.cursor.after)
+        : {};
+
+    const where =
+      query.cursor && query.cursor.after ? { AND: [{ userId }, afterWhere] } : { userId };
+
+    const orderBy = query.sort.map((s) => sortSessionFieldOrderBy(s.field, s.direction));
+
+    const take = query.limit + 1;
+    const sessions = await client.session.findMany({
+      where,
+      orderBy,
+      take,
+      select: {
+        id: true,
+        deviceId: true,
+        deviceName: true,
+        createdAt: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    });
+
+    const hasMore = sessions.length > query.limit;
+    const page = hasMore ? sessions.slice(0, query.limit) : sessions;
+
+    const items: UserSessionListItem[] = page.map((s) => ({
+      id: s.id,
+      deviceId: s.deviceId,
+      deviceName: s.deviceName,
+      createdAt: s.createdAt,
+      expiresAt: s.expiresAt,
+      revokedAt: s.revokedAt,
+    }));
+
+    const nextCursor = (() => {
+      if (!hasMore) return undefined;
+      const last = page.at(-1);
+      if (!last) return undefined;
+
+      const after: Partial<Record<UserSessionsSortField, string | number | boolean>> = {};
+      for (const s of query.sort) {
+        if (s.field === 'createdAt') after.createdAt = last.createdAt.toISOString();
+        else if (s.field === 'id') after.id = last.id;
+      }
+
+      return encodeCursorV1({
+        v: 1,
+        sort: query.normalizedSort,
+        after,
+      });
+    })();
+
+    return {
+      items,
+      limit: query.limit,
+      hasMore,
+      ...(nextCursor ? { nextCursor } : {}),
+    };
+  }
+
+  async revokeSessionById(userId: string, sessionId: string, now: Date): Promise<boolean> {
+    return await this.prisma.transaction(async (tx) => {
+      const session = await tx.session.findUnique({
+        where: { id: sessionId },
+        select: { id: true, userId: true, revokedAt: true },
+      });
+      if (!session || session.userId !== userId) return false;
+
+      if (session.revokedAt === null) {
+        await tx.session.update({
+          where: { id: sessionId },
+          data: { revokedAt: now, activeKey: null },
+          select: { id: true },
+        });
+      } else {
+        await tx.session.updateMany({
+          where: { id: sessionId, userId, activeKey: { not: null } },
+          data: { activeKey: null },
+        });
+      }
+
+      await tx.refreshToken.updateMany({
+        where: { sessionId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+
+      return true;
+    });
+  }
+
   async findUserForLogin(
     email: Email,
   ): Promise<{ user: AuthUserRecord; passwordHash: string } | null> {
@@ -109,6 +316,212 @@ export class PrismaAuthRepository implements AuthRepository {
       user: toAuthUserRecord(user),
       passwordHash: user.passwordCredential.passwordHash,
     };
+  }
+
+  async verifyEmailByTokenHash(tokenHash: string, now: Date): Promise<VerifyEmailResult> {
+    const client = this.prisma.getClient();
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await client.$transaction(
+          async (tx) => {
+            const token = await tx.emailVerificationToken.findUnique({
+              where: { tokenHash },
+              select: {
+                id: true,
+                userId: true,
+                expiresAt: true,
+                usedAt: true,
+                revokedAt: true,
+                user: { select: { emailVerifiedAt: true } },
+              },
+            });
+
+            if (!token) return { kind: 'token_invalid' };
+
+            // Idempotent success: if the user is already verified, treat as ok and mark the token as used.
+            if (token.user.emailVerifiedAt !== null) {
+              await tx.emailVerificationToken.updateMany({
+                where: { id: token.id, usedAt: null },
+                data: { usedAt: now },
+              });
+              return { kind: 'already_verified' };
+            }
+
+            if (token.revokedAt !== null || token.usedAt !== null) {
+              return { kind: 'token_invalid' };
+            }
+
+            if (token.expiresAt.getTime() <= now.getTime()) {
+              return { kind: 'token_expired' };
+            }
+
+            const userUpdated = await tx.user.updateMany({
+              where: { id: token.userId, emailVerifiedAt: null },
+              data: { emailVerifiedAt: now },
+            });
+
+            await tx.emailVerificationToken.updateMany({
+              where: { id: token.id, usedAt: null },
+              data: { usedAt: now },
+            });
+
+            if (userUpdated.count === 0) return { kind: 'already_verified' };
+            return { kind: 'ok' };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (err: unknown) {
+        if (attempt < maxAttempts && isRetryableTransactionError(err)) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw new Error('Unexpected: exhausted transaction retries');
+  }
+
+  async findPasswordCredential(userId: string): Promise<Readonly<{ passwordHash: string }> | null> {
+    const client = this.prisma.getClient();
+    const found = await client.passwordCredential.findUnique({
+      where: { userId },
+      select: { passwordHash: true },
+    });
+    if (!found) return null;
+    return { passwordHash: found.passwordHash };
+  }
+
+  async resetPasswordByTokenHash(
+    tokenHash: string,
+    newPasswordHash: string,
+    now: Date,
+  ): Promise<ResetPasswordByTokenHashResult> {
+    const client = this.prisma.getClient();
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await client.$transaction(
+          async (tx) => {
+            const token = await tx.passwordResetToken.findUnique({
+              where: { tokenHash },
+              select: { id: true, userId: true, expiresAt: true, usedAt: true, revokedAt: true },
+            });
+
+            if (!token) return { kind: 'token_invalid' };
+            if (token.revokedAt !== null || token.usedAt !== null) return { kind: 'token_invalid' };
+            if (token.expiresAt.getTime() <= now.getTime()) return { kind: 'token_expired' };
+
+            const markedUsed = await tx.passwordResetToken.updateMany({
+              where: { id: token.id, usedAt: null, revokedAt: null },
+              data: { usedAt: now },
+            });
+            if (markedUsed.count !== 1) return { kind: 'token_invalid' };
+
+            await tx.passwordCredential.upsert({
+              where: { userId: token.userId },
+              create: { userId: token.userId, passwordHash: newPasswordHash },
+              update: { passwordHash: newPasswordHash },
+            });
+
+            await tx.session.updateMany({
+              where: { userId: token.userId, revokedAt: null },
+              data: { revokedAt: now, activeKey: null },
+            });
+
+            await tx.refreshToken.updateMany({
+              where: { revokedAt: null, session: { userId: token.userId } },
+              data: { revokedAt: now },
+            });
+
+            await tx.passwordResetToken.updateMany({
+              where: { userId: token.userId, usedAt: null, revokedAt: null },
+              data: { revokedAt: now },
+            });
+
+            return { kind: 'ok', userId: token.userId };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (err: unknown) {
+        if (attempt < maxAttempts && isRetryableTransactionError(err)) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw new Error('Unexpected: exhausted transaction retries');
+  }
+
+  async changePasswordAndRevokeOtherSessions(input: {
+    userId: string;
+    sessionId: string;
+    expectedCurrentPasswordHash: string;
+    newPasswordHash: string;
+    now: Date;
+  }): Promise<ChangePasswordResult> {
+    const client = this.prisma.getClient();
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await client.$transaction(
+          async (tx) => {
+            const user = await tx.user.findUnique({
+              where: { id: input.userId },
+              select: { id: true },
+            });
+            if (!user) return { kind: 'not_found' };
+
+            const credential = await tx.passwordCredential.findUnique({
+              where: { userId: input.userId },
+              select: { passwordHash: true },
+            });
+            if (!credential) return { kind: 'password_not_set' };
+
+            if (credential.passwordHash !== input.expectedCurrentPasswordHash) {
+              return { kind: 'current_password_mismatch' };
+            }
+
+            await tx.passwordCredential.update({
+              where: { userId: input.userId },
+              data: { passwordHash: input.newPasswordHash },
+            });
+
+            const otherSessions = await tx.session.findMany({
+              where: { userId: input.userId, id: { not: input.sessionId }, revokedAt: null },
+              select: { id: true },
+            });
+            const otherSessionIds = otherSessions.map((s) => s.id);
+
+            if (otherSessionIds.length === 0) return { kind: 'ok' };
+
+            await tx.session.updateMany({
+              where: { id: { in: otherSessionIds } },
+              data: { revokedAt: input.now, activeKey: null },
+            });
+
+            await tx.refreshToken.updateMany({
+              where: { sessionId: { in: otherSessionIds }, revokedAt: null },
+              data: { revokedAt: input.now },
+            });
+
+            return { kind: 'ok' };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (err: unknown) {
+        if (attempt < maxAttempts && isRetryableTransactionError(err)) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw new Error('Unexpected: exhausted transaction retries');
   }
 
   async findRefreshTokenWithSession(tokenHash: string): Promise<RefreshTokenWithSession | null> {
@@ -313,4 +726,9 @@ export class PrismaAuthRepository implements AuthRepository {
       });
     });
   }
+}
+
+function isRetryableTransactionError(err: unknown): boolean {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  return err.code === 'P2034';
 }

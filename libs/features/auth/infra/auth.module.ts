@@ -3,23 +3,40 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaModule } from '../../../platform/db/prisma.module';
 import { RedisModule } from '../../../platform/redis/redis.module';
 import { PlatformAuthModule } from '../../../platform/auth/auth.module';
+import { PlatformEmailModule } from '../../../platform/email/email.module';
+import { QueueModule } from '../../../platform/queue/queue.module';
 import { AuthService } from '../app/auth.service';
 import { SystemClock } from '../app/time';
+import { AuthSessionsService } from '../app/auth-sessions.service';
 import { AuthController } from './http/auth.controller';
 import { JwksController } from './http/jwks.controller';
+import { MeSessionsController } from './http/me-sessions.controller';
 import { PrismaAuthRepository } from './persistence/prisma-auth.repository';
+import { AuthEmailVerificationJobs } from './jobs/auth-email-verification.jobs';
+import { AuthPasswordResetJobs } from './jobs/auth-password-reset.jobs';
+import { RedisEmailVerificationRateLimiter } from './rate-limit/redis-email-verification-rate-limiter';
 import { RedisLoginRateLimiter } from './rate-limit/redis-login-rate-limiter';
+import { RedisPasswordResetRateLimiter } from './rate-limit/redis-password-reset-rate-limiter';
 import { Argon2PasswordHasher } from './security/argon2.password-hasher';
 import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
 
 @Module({
-  imports: [PrismaModule, RedisModule, PlatformAuthModule],
-  controllers: [AuthController, JwksController],
+  imports: [PrismaModule, RedisModule, PlatformAuthModule, PlatformEmailModule, QueueModule],
+  controllers: [AuthController, JwksController, MeSessionsController],
   providers: [
     PrismaAuthRepository,
+    AuthEmailVerificationJobs,
+    AuthPasswordResetJobs,
     Argon2PasswordHasher,
     CryptoAccessTokenIssuer,
+    RedisEmailVerificationRateLimiter,
     RedisLoginRateLimiter,
+    RedisPasswordResetRateLimiter,
+    {
+      provide: AuthSessionsService,
+      inject: [PrismaAuthRepository],
+      useFactory: (repo: PrismaAuthRepository) => new AuthSessionsService(repo),
+    },
     {
       provide: AuthService,
       inject: [

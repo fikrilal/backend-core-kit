@@ -1,24 +1,53 @@
-import { Body, Controller, HttpCode, Post, Req } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
-import { ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { PinoLogger } from 'nestjs-pino';
 import { AuthService } from '../../app/auth.service';
 import { AuthError } from '../../app/auth.errors';
 import { AuthErrorCode } from '../../app/auth.error-codes';
+import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
+import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
+import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { ProblemException } from '../../../../platform/http/errors/problem.exception';
+import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
+import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
+import { AuthEmailVerificationJobs } from '../jobs/auth-email-verification.jobs';
+import { AuthPasswordResetJobs } from '../jobs/auth-password-reset.jobs';
+import { RedisEmailVerificationRateLimiter } from '../rate-limit/redis-email-verification-rate-limiter';
+import { RedisPasswordResetRateLimiter } from '../rate-limit/redis-password-reset-rate-limiter';
 import {
   AuthResultEnvelopeDto,
+  ChangePasswordRequestDto,
   LogoutRequestDto,
+  PasswordResetConfirmRequestDto,
   PasswordLoginRequestDto,
   PasswordRegisterRequestDto,
+  PasswordResetRequestDto,
   RefreshRequestDto,
+  VerifyEmailRequestDto,
 } from './dtos/auth.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly emailVerificationJobs: AuthEmailVerificationJobs,
+    private readonly emailVerificationRateLimiter: RedisEmailVerificationRateLimiter,
+    private readonly passwordResetJobs: AuthPasswordResetJobs,
+    private readonly passwordResetRateLimiter: RedisPasswordResetRateLimiter,
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(AuthController.name);
+  }
 
   @Post('password/register')
   @HttpCode(200)
@@ -35,13 +64,147 @@ export class AuthController {
   @ApiOkResponse({ type: AuthResultEnvelopeDto })
   async register(@Body() body: PasswordRegisterRequestDto, @Req() req: FastifyRequest) {
     try {
-      return await this.auth.registerWithPassword({
+      const result = await this.auth.registerWithPassword({
         email: body.email,
         password: body.password,
         deviceId: body.deviceId,
         deviceName: body.deviceName,
         ip: req.ip,
       });
+
+      try {
+        await this.emailVerificationJobs.enqueueSendVerificationEmail(result.user.id);
+      } catch (err: unknown) {
+        this.logger.error(
+          { err, userId: result.user.id },
+          'Failed to enqueue verification email job',
+        );
+      }
+
+      return result;
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
+  @Post('email/verify')
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: 'auth.email.verify',
+    summary: 'Verify email',
+    description: 'Verifies a user email using a token sent via email.',
+  })
+  @ApiErrorCodes([
+    ErrorCode.VALIDATION_FAILED,
+    AuthErrorCode.AUTH_EMAIL_VERIFICATION_TOKEN_INVALID,
+    AuthErrorCode.AUTH_EMAIL_VERIFICATION_TOKEN_EXPIRED,
+    ErrorCode.INTERNAL,
+  ])
+  @ApiNoContentResponse()
+  async verifyEmail(@Body() body: VerifyEmailRequestDto): Promise<void> {
+    try {
+      await this.auth.verifyEmail({ token: body.token });
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
+  @Post('email/verification/resend')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: 'auth.email.verification.resend',
+    summary: 'Resend verification email (current user)',
+    description: 'Enqueues a new verification email for the authenticated user (rate limited).',
+  })
+  @ApiErrorCodes([ErrorCode.UNAUTHORIZED, ErrorCode.RATE_LIMITED, ErrorCode.INTERNAL])
+  @ApiNoContentResponse()
+  async resendVerificationEmail(@CurrentPrincipal() principal: AuthPrincipal): Promise<void> {
+    try {
+      if (!this.emailVerificationJobs.isEnabled()) {
+        throw new AuthError({
+          status: 500,
+          code: ErrorCode.INTERNAL,
+          message: 'Email is not configured',
+        });
+      }
+
+      const status = await this.auth.getEmailVerificationStatus(principal.userId);
+      if (status === 'verified') return;
+
+      await this.emailVerificationRateLimiter.assertResendAllowed(principal.userId);
+
+      const enqueued = await this.emailVerificationJobs.enqueueSendVerificationEmail(
+        principal.userId,
+      );
+      if (!enqueued) {
+        throw new AuthError({
+          status: 500,
+          code: ErrorCode.INTERNAL,
+          message: 'Email is not configured',
+        });
+      }
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
+  @Post('password/reset/request')
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: 'auth.password.reset.request',
+    summary: 'Request password reset',
+    description:
+      'Enqueues a password reset email for an existing user. Returns 204 even if the email is unknown to avoid account enumeration.',
+  })
+  @ApiErrorCodes([ErrorCode.VALIDATION_FAILED, ErrorCode.RATE_LIMITED, ErrorCode.INTERNAL])
+  @ApiNoContentResponse()
+  async requestPasswordReset(@Body() body: PasswordResetRequestDto): Promise<void> {
+    try {
+      if (!this.passwordResetJobs.isEnabled()) {
+        throw new AuthError({
+          status: 500,
+          code: ErrorCode.INTERNAL,
+          message: 'Password reset email is not configured',
+        });
+      }
+
+      await this.passwordResetRateLimiter.assertRequestAllowed({ email: body.email });
+
+      const target = await this.auth.requestPasswordReset({ email: body.email });
+      if (!target) return;
+
+      try {
+        await this.passwordResetJobs.enqueueSendPasswordResetEmail(target.userId);
+      } catch (err: unknown) {
+        this.logger.error(
+          { err, userId: target.userId },
+          'Failed to enqueue password reset email job',
+        );
+      }
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
+  @Post('password/reset/confirm')
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: 'auth.password.reset.confirm',
+    summary: 'Confirm password reset',
+    description: 'Resets the user password using a one-time token and revokes all sessions.',
+  })
+  @ApiErrorCodes([
+    ErrorCode.VALIDATION_FAILED,
+    AuthErrorCode.AUTH_PASSWORD_RESET_TOKEN_INVALID,
+    AuthErrorCode.AUTH_PASSWORD_RESET_TOKEN_EXPIRED,
+    ErrorCode.INTERNAL,
+  ])
+  @ApiNoContentResponse()
+  async confirmPasswordReset(@Body() body: PasswordResetConfirmRequestDto): Promise<void> {
+    try {
+      await this.auth.confirmPasswordReset({ token: body.token, newPassword: body.newPassword });
     } catch (err: unknown) {
       throw this.mapAuthError(err);
     }
@@ -69,6 +232,44 @@ export class AuthController {
         deviceId: body.deviceId,
         deviceName: body.deviceName,
         ip: req.ip,
+      });
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
+  @Post('password/change')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: 'auth.password.change',
+    summary: 'Change password (current user)',
+    description:
+      'Changes the authenticated user password. Revokes other sessions (and their refresh tokens) but keeps the current session active.',
+  })
+  @ApiErrorCodes([
+    ErrorCode.VALIDATION_FAILED,
+    ErrorCode.UNAUTHORIZED,
+    ErrorCode.IDEMPOTENCY_IN_PROGRESS,
+    ErrorCode.CONFLICT,
+    AuthErrorCode.AUTH_PASSWORD_NOT_SET,
+    AuthErrorCode.AUTH_CURRENT_PASSWORD_INVALID,
+    ErrorCode.INTERNAL,
+  ])
+  @ApiIdempotencyKeyHeader({ required: false })
+  @Idempotent({ scopeKey: 'auth.password.change' })
+  @ApiNoContentResponse()
+  async changePassword(
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Body() body: ChangePasswordRequestDto,
+  ): Promise<void> {
+    try {
+      await this.auth.changePassword({
+        userId: principal.userId,
+        sessionId: principal.sessionId,
+        currentPassword: body.currentPassword,
+        newPassword: body.newPassword,
       });
     } catch (err: unknown) {
       throw this.mapAuthError(err);

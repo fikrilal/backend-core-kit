@@ -6,6 +6,8 @@ import type { AccessTokenIssuer } from './ports/access-token-issuer';
 import type { LoginRateLimiter } from './ports/login-rate-limiter';
 import type { PasswordHasher } from './ports/password-hasher';
 import { generateRefreshToken, hashRefreshToken } from './refresh-token';
+import { hashEmailVerificationToken } from './email-verification-token';
+import { hashPasswordResetToken } from './password-reset-token';
 import type { Clock } from './time';
 import type { AuthResult, AuthUserRecord, AuthUserView } from './auth.types';
 
@@ -118,6 +120,77 @@ export class AuthService {
     return { user: this.toUserView(found.user), accessToken, refreshToken };
   }
 
+  async changePassword(input: {
+    userId: string;
+    sessionId: string;
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<void> {
+    this.assertPasswordPolicy(input.newPassword);
+
+    if (input.currentPassword === input.newPassword) {
+      throw new AuthError({
+        status: 400,
+        code: 'VALIDATION_FAILED',
+        issues: [{ field: 'newPassword', message: 'New password must be different' }],
+      });
+    }
+
+    const existing = await this.repo.findPasswordCredential(input.userId);
+    if (!existing) {
+      throw new AuthError({
+        status: 409,
+        code: AuthErrorCode.AUTH_PASSWORD_NOT_SET,
+        message: 'Password is not set for this account',
+      });
+    }
+
+    const ok = await this.passwordHasher.verify(existing.passwordHash, input.currentPassword);
+    if (!ok) {
+      throw new AuthError({
+        status: 400,
+        code: AuthErrorCode.AUTH_CURRENT_PASSWORD_INVALID,
+        message: 'Current password is invalid',
+      });
+    }
+
+    const now = this.clock.now();
+    const newHash = await this.passwordHasher.hash(input.newPassword);
+
+    const changed = await this.repo.changePasswordAndRevokeOtherSessions({
+      userId: input.userId,
+      sessionId: input.sessionId,
+      expectedCurrentPasswordHash: existing.passwordHash,
+      newPasswordHash: newHash,
+      now,
+    });
+
+    if (changed.kind === 'ok') return;
+
+    if (changed.kind === 'not_found') {
+      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+    }
+
+    if (changed.kind === 'password_not_set') {
+      throw new AuthError({
+        status: 409,
+        code: AuthErrorCode.AUTH_PASSWORD_NOT_SET,
+        message: 'Password is not set for this account',
+      });
+    }
+
+    if (changed.kind === 'current_password_mismatch') {
+      throw new AuthError({
+        status: 400,
+        code: AuthErrorCode.AUTH_CURRENT_PASSWORD_INVALID,
+        message: 'Current password is invalid',
+      });
+    }
+
+    // Exhaustiveness guard.
+    throw new Error('Unexpected changePassword result');
+  }
+
   async refresh(input: { refreshToken: string }): Promise<AuthResult> {
     const now = this.clock.now();
     const currentHash = hashRefreshToken(input.refreshToken);
@@ -220,6 +293,71 @@ export class AuthService {
         message: 'Invalid refresh token',
       });
     }
+  }
+
+  async verifyEmail(input: { token: string }): Promise<void> {
+    const now = this.clock.now();
+    const tokenHash = hashEmailVerificationToken(input.token);
+
+    const result = await this.repo.verifyEmailByTokenHash(tokenHash, now);
+    if (result.kind === 'ok' || result.kind === 'already_verified') return;
+
+    if (result.kind === 'token_expired') {
+      throw new AuthError({
+        status: 400,
+        code: AuthErrorCode.AUTH_EMAIL_VERIFICATION_TOKEN_EXPIRED,
+        message: 'Email verification token expired',
+      });
+    }
+
+    throw new AuthError({
+      status: 400,
+      code: AuthErrorCode.AUTH_EMAIL_VERIFICATION_TOKEN_INVALID,
+      message: 'Email verification token is invalid',
+    });
+  }
+
+  async getEmailVerificationStatus(userId: string): Promise<'verified' | 'unverified'> {
+    const user = await this.repo.findUserById(userId);
+    if (!user) {
+      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+    }
+
+    return user.emailVerifiedAt !== null ? 'verified' : 'unverified';
+  }
+
+  async requestPasswordReset(input: {
+    email: string;
+  }): Promise<Readonly<{ userId: string }> | null> {
+    const email = normalizeEmail(input.email);
+    const userId = await this.repo.findUserIdByEmail(email);
+    if (!userId) return null;
+    return { userId };
+  }
+
+  async confirmPasswordReset(input: { token: string; newPassword: string }): Promise<void> {
+    this.assertPasswordPolicy(input.newPassword);
+
+    const now = this.clock.now();
+    const tokenHash = hashPasswordResetToken(input.token);
+    const newPasswordHash = await this.passwordHasher.hash(input.newPassword);
+
+    const result = await this.repo.resetPasswordByTokenHash(tokenHash, newPasswordHash, now);
+    if (result.kind === 'ok') return;
+
+    if (result.kind === 'token_expired') {
+      throw new AuthError({
+        status: 400,
+        code: AuthErrorCode.AUTH_PASSWORD_RESET_TOKEN_EXPIRED,
+        message: 'Password reset token expired',
+      });
+    }
+
+    throw new AuthError({
+      status: 400,
+      code: AuthErrorCode.AUTH_PASSWORD_RESET_TOKEN_INVALID,
+      message: 'Password reset token is invalid',
+    });
   }
 
   async getPublicJwks(): Promise<unknown> {

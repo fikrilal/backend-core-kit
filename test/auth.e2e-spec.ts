@@ -3,15 +3,63 @@ import request from 'supertest';
 import { createApiApp } from '../apps/api/src/bootstrap';
 import { PrismaClient, UserRole } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { Queue } from 'bullmq';
+import {
+  AUTH_SEND_VERIFICATION_EMAIL_JOB,
+  EMAIL_QUEUE,
+  type AuthSendVerificationEmailJobData,
+} from '../libs/features/auth/infra/jobs/auth-email-verification.job';
+import {
+  AUTH_SEND_PASSWORD_RESET_EMAIL_JOB,
+  type AuthSendPasswordResetEmailJobData,
+} from '../libs/features/auth/infra/jobs/auth-password-reset.job';
+import {
+  generateEmailVerificationToken,
+  hashEmailVerificationToken,
+} from '../libs/features/auth/app/email-verification-token';
+import {
+  generatePasswordResetToken,
+  hashPasswordResetToken,
+} from '../libs/features/auth/app/password-reset-token';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
 const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getSessionIdFromAccessToken(token: string): string {
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    throw new Error('Access token is not a JWT');
+  }
+
+  const payloadSegment = parts[1];
+  if (!payloadSegment) {
+    throw new Error('Access token payload segment is missing');
+  }
+
+  const payloadJson = Buffer.from(payloadSegment, 'base64url').toString('utf8');
+  const parsed: unknown = JSON.parse(payloadJson) as unknown;
+  if (!isObject(parsed)) {
+    throw new Error('Access token payload is not an object');
+  }
+
+  const sid = parsed.sid;
+  if (typeof sid !== 'string' || sid.trim() === '') {
+    throw new Error('Access token session id (sid) is missing');
+  }
+
+  return sid;
+}
+
 (skipDepsTests ? describe.skip : describe)('Auth (e2e)', () => {
   let app: Awaited<ReturnType<typeof createApiApp>>;
   let baseUrl: string;
   let prisma: PrismaClient;
+  let emailQueue: Queue<AuthSendVerificationEmailJobData | AuthSendPasswordResetEmailJobData>;
 
   beforeAll(async () => {
     if (!databaseUrl) {
@@ -25,16 +73,34 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
       );
     }
 
+    process.env.RESEND_API_KEY ??= 're_test_dummy';
+    process.env.EMAIL_FROM ??= 'no-reply@example.com';
+    process.env.PUBLIC_APP_URL ??= 'http://localhost:3000';
+
     const adapter = new PrismaPg({ connectionString: databaseUrl });
     prisma = new PrismaClient({ adapter });
     await prisma.$connect();
+
+    emailQueue = new Queue<AuthSendVerificationEmailJobData | AuthSendPasswordResetEmailJobData>(
+      EMAIL_QUEUE,
+      {
+        connection: { url: redisUrl },
+      },
+    );
+    await emailQueue.drain(true);
 
     app = await createApiApp();
     await app.listen({ port: 0, host: '127.0.0.1' });
     baseUrl = await app.getUrl();
   });
 
+  afterEach(async () => {
+    await emailQueue.drain(true);
+  });
+
   afterAll(async () => {
+    await emailQueue.drain(true);
+    await emailQueue.close();
     await prisma.$disconnect();
     await app.close();
   });
@@ -93,8 +159,341 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
     expect(afterLogout.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });
   });
 
+  it('register enqueues auth.sendVerificationEmail job when email is configured', async () => {
+    const email = `verify-email+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string };
+    };
+
+    const jobs = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
+    const jobForUser = jobs.find(
+      (job) => job.name === AUTH_SEND_VERIFICATION_EMAIL_JOB && job.data.userId === reg.user.id,
+    );
+
+    expect(jobForUser).toBeDefined();
+  });
+
+  it('POST /v1/auth/email/verify verifies email and is idempotent', async () => {
+    const email = `verify+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string };
+      accessToken: string;
+    };
+
+    const token = generateEmailVerificationToken();
+    const tokenHash = hashEmailVerificationToken(token);
+    const expiresAt = new Date(Date.now() + 60_000);
+
+    await prisma.emailVerificationToken.create({
+      data: { userId: reg.user.id, tokenHash, expiresAt },
+      select: { id: true },
+    });
+
+    await request(baseUrl).post('/v1/auth/email/verify').send({ token }).expect(204);
+
+    const meRes = await request(baseUrl)
+      .get('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
+
+    expect(meRes.body.data).toMatchObject({ id: reg.user.id, emailVerified: true });
+
+    // Replay should be safe.
+    await request(baseUrl).post('/v1/auth/email/verify').send({ token }).expect(204);
+  });
+
+  it('POST /v1/auth/email/verify returns 400 for invalid token', async () => {
+    const res = await request(baseUrl)
+      .post('/v1/auth/email/verify')
+      .send({ token: 'nope' })
+      .expect(400);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'AUTH_EMAIL_VERIFICATION_TOKEN_INVALID', status: 400 });
+  });
+
+  it('POST /v1/auth/email/verify returns 400 for expired token', async () => {
+    const email = `verify-expired+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { user: { id: string } };
+
+    const token = generateEmailVerificationToken();
+    const tokenHash = hashEmailVerificationToken(token);
+
+    await prisma.emailVerificationToken.create({
+      data: { userId: reg.user.id, tokenHash, expiresAt: new Date(Date.now() - 60_000) },
+      select: { id: true },
+    });
+
+    const res = await request(baseUrl).post('/v1/auth/email/verify').send({ token }).expect(400);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'AUTH_EMAIL_VERIFICATION_TOKEN_EXPIRED', status: 400 });
+  });
+
+  it('POST /v1/auth/email/verification/resend enqueues a new verification email job and rate limits', async () => {
+    const email = `verify-resend+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { user: { id: string }; accessToken: string };
+
+    // Drop the register enqueue so the test only sees the resend enqueue.
+    await emailQueue.drain(true);
+
+    await request(baseUrl)
+      .post('/v1/auth/email/verification/resend')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(204);
+
+    const jobs = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
+    const jobForUser = jobs.find(
+      (job) => job.name === AUTH_SEND_VERIFICATION_EMAIL_JOB && job.data.userId === reg.user.id,
+    );
+    expect(jobForUser).toBeDefined();
+
+    const rateLimited = await request(baseUrl)
+      .post('/v1/auth/email/verification/resend')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(429);
+
+    expect(rateLimited.headers['content-type']).toContain('application/problem+json');
+    expect(rateLimited.body).toMatchObject({ code: 'RATE_LIMITED', status: 429 });
+  });
+
+  it('POST /v1/auth/password/reset/request enqueues auth.sendPasswordResetEmail job for existing user', async () => {
+    const email = `pw-reset-request+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { user: { id: string } };
+
+    // Drop the register enqueue so the test only sees the reset enqueue.
+    await emailQueue.drain(true);
+
+    await request(baseUrl)
+      .post('/v1/auth/password/reset/request')
+      .send({ email: email.toUpperCase() })
+      .expect(204);
+
+    const jobs = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
+    const jobForUser = jobs.find(
+      (job) => job.name === AUTH_SEND_PASSWORD_RESET_EMAIL_JOB && job.data.userId === reg.user.id,
+    );
+
+    expect(jobForUser).toBeDefined();
+  });
+
+  it('POST /v1/auth/password/reset/request returns 204 for unknown email (no enumeration)', async () => {
+    await emailQueue.drain(true);
+
+    await request(baseUrl)
+      .post('/v1/auth/password/reset/request')
+      .send({ email: `nope+${Date.now()}@example.com` })
+      .expect(204);
+
+    const jobs = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
+    const hasResetJob = jobs.some((job) => job.name === AUTH_SEND_PASSWORD_RESET_EMAIL_JOB);
+    expect(hasResetJob).toBe(false);
+  });
+
+  it('register -> password reset confirm resets password and revokes sessions', async () => {
+    const email = `pw-reset-confirm+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+    const newPassword = 'new-correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string };
+      refreshToken: string;
+    };
+
+    const token = generatePasswordResetToken();
+    const tokenHash = hashPasswordResetToken(token);
+    const expiresAt = new Date(Date.now() + 60_000);
+
+    await prisma.passwordResetToken.create({
+      data: { userId: reg.user.id, tokenHash, expiresAt },
+      select: { id: true },
+    });
+
+    await request(baseUrl)
+      .post('/v1/auth/password/reset/confirm')
+      .send({ token, newPassword })
+      .expect(204);
+
+    const oldRefresh = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: reg.refreshToken })
+      .expect(401);
+
+    expect(oldRefresh.headers['content-type']).toContain('application/problem+json');
+    expect(oldRefresh.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });
+
+    await request(baseUrl).post('/v1/auth/password/login').send({ email, password }).expect(401);
+    await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password: newPassword })
+      .expect(200);
+
+    const reuse = await request(baseUrl)
+      .post('/v1/auth/password/reset/confirm')
+      .send({ token, newPassword: 'another-new-password' })
+      .expect(400);
+
+    expect(reuse.headers['content-type']).toContain('application/problem+json');
+    expect(reuse.body).toMatchObject({ code: 'AUTH_PASSWORD_RESET_TOKEN_INVALID', status: 400 });
+  });
+
+  it('POST /v1/auth/password/reset/confirm returns 400 for invalid token', async () => {
+    const res = await request(baseUrl)
+      .post('/v1/auth/password/reset/confirm')
+      .send({ token: 'nope', newPassword: 'correct-horse-battery-staple' })
+      .expect(400);
+
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'AUTH_PASSWORD_RESET_TOKEN_INVALID', status: 400 });
+  });
+
+  it('POST /v1/auth/password/reset/confirm returns 400 for expired token', async () => {
+    const email = `pw-reset-expired+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { user: { id: string } };
+
+    const token = generatePasswordResetToken();
+    const tokenHash = hashPasswordResetToken(token);
+
+    await prisma.passwordResetToken.create({
+      data: { userId: reg.user.id, tokenHash, expiresAt: new Date(Date.now() - 60_000) },
+      select: { id: true },
+    });
+
+    const res = await request(baseUrl)
+      .post('/v1/auth/password/reset/confirm')
+      .send({ token, newPassword: 'new-correct-horse-battery-staple' })
+      .expect(400);
+
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'AUTH_PASSWORD_RESET_TOKEN_EXPIRED', status: 400 });
+  });
+
+  it('POST /v1/auth/password/change requires an access token', async () => {
+    const res = await request(baseUrl)
+      .post('/v1/auth/password/change')
+      .send({ currentPassword: 'x', newPassword: 'y' })
+      .expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
+  it('register -> password change revokes other sessions and supports Idempotency-Key replay', async () => {
+    const email = `pw-change+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+    const newPassword = 'new-correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password, deviceId: 'device-a' })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const loginRes = await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password, deviceId: 'device-b' })
+      .expect(200);
+
+    const loggedIn = loginRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const idemKey = randomUUID();
+    await request(baseUrl)
+      .post('/v1/auth/password/change')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Idempotency-Key', idemKey)
+      .send({ currentPassword: password, newPassword })
+      .expect(204);
+
+    const replayed = await request(baseUrl)
+      .post('/v1/auth/password/change')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Idempotency-Key', idemKey)
+      .send({ currentPassword: password, newPassword })
+      .expect(204);
+
+    expect(replayed.headers['idempotency-replayed']).toBe('true');
+
+    const otherSessionRefresh = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: loggedIn.refreshToken })
+      .expect(401);
+
+    expect(otherSessionRefresh.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });
+
+    const oldLogin = await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password })
+      .expect(401);
+
+    expect(oldLogin.body).toMatchObject({ code: 'AUTH_INVALID_CREDENTIALS', status: 401 });
+
+    await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password: newPassword })
+      .expect(200);
+  });
+
   it('GET /v1/me requires an access token', async () => {
     const res = await request(baseUrl).get('/v1/me').expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
+  it('GET /v1/me/sessions requires an access token', async () => {
+    const res = await request(baseUrl).get('/v1/me/sessions').expect(401);
     expect(res.headers['content-type']).toContain('application/problem+json');
     expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
   });
@@ -104,6 +503,12 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
       .patch('/v1/me')
       .send({ profile: { displayName: 'Dante' } })
       .expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
+  it('POST /v1/me/sessions/:sessionId/revoke requires an access token', async () => {
+    const res = await request(baseUrl).post(`/v1/me/sessions/${randomUUID()}/revoke`).expect(401);
     expect(res.headers['content-type']).toContain('application/problem+json');
     expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
   });
@@ -135,6 +540,102 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
       roles: ['USER'],
       profile: { displayName: null, givenName: null, familyName: null },
     });
+  });
+
+  it('register -> login -> GET /v1/me/sessions returns sessions and marks current', async () => {
+    const email = `me-sessions+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password, deviceId: 'device-a', deviceName: 'Device A' })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const loginRes = await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password, deviceId: 'device-b', deviceName: 'Device B' })
+      .expect(200);
+
+    const loggedIn = loginRes.body.data as {
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    expect(typeof loggedIn.refreshToken).toBe('string');
+    expect(loggedIn.refreshToken).not.toBe(reg.refreshToken);
+
+    const currentSessionId = getSessionIdFromAccessToken(reg.accessToken);
+
+    const sessionsRes = await request(baseUrl)
+      .get('/v1/me/sessions')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
+
+    const sessions = sessionsRes.body.data as Array<{
+      id: string;
+      current: boolean;
+      status: string;
+    }>;
+    expect(Array.isArray(sessions)).toBe(true);
+    expect(sessions.length).toBeGreaterThanOrEqual(2);
+
+    const current = sessions.find((s) => s.id === currentSessionId);
+    expect(current).toBeDefined();
+    expect(current?.current).toBe(true);
+  });
+
+  it('register -> login -> revoke session revokes refresh tokens and returns 404 for unknown session', async () => {
+    const email = `me-sessions-revoke+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password, deviceId: 'device-a' })
+      .expect(200);
+
+    const reg = registerRes.body.data as { accessToken: string };
+
+    const loginRes = await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password, deviceId: 'device-b' })
+      .expect(200);
+
+    const loggedIn = loginRes.body.data as { accessToken: string; refreshToken: string };
+
+    const sessionIdToRevoke = getSessionIdFromAccessToken(loggedIn.accessToken);
+
+    await request(baseUrl)
+      .post(`/v1/me/sessions/${sessionIdToRevoke}/revoke`)
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(204);
+
+    // Idempotent replay should be safe.
+    await request(baseUrl)
+      .post(`/v1/me/sessions/${sessionIdToRevoke}/revoke`)
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(204);
+
+    const oldRefresh = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: loggedIn.refreshToken })
+      .expect(401);
+
+    expect(oldRefresh.headers['content-type']).toContain('application/problem+json');
+    expect(oldRefresh.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });
+
+    const missing = await request(baseUrl)
+      .post(`/v1/me/sessions/${randomUUID()}/revoke`)
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(404);
+
+    expect(missing.headers['content-type']).toContain('application/problem+json');
+    expect(missing.body).toMatchObject({ code: 'NOT_FOUND', status: 404 });
   });
 
   it('register -> PATCH /v1/me updates profile', async () => {
@@ -518,16 +1019,17 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 
     await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
 
+    const promoteTraceId = randomUUID();
     const promoted = await request(baseUrl)
       .patch(`/v1/admin/users/${userReg.user.id}/role`)
       .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .set('X-Request-Id', promoteTraceId)
       .send({ role: 'ADMIN' })
       .expect(200);
 
     expect(promoted.body.data).toMatchObject({ id: userReg.user.id, roles: ['ADMIN'] });
 
-    const promoteTraceId = promoted.headers['x-request-id'];
-    expect(typeof promoteTraceId).toBe('string');
+    expect(promoted.headers['x-request-id']).toBe(promoteTraceId);
 
     const promoteAudit = await prisma.userRoleChangeAudit.findFirst({
       where: { traceId: promoteTraceId },
@@ -547,16 +1049,17 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
       .set('Authorization', `Bearer ${userReg.accessToken}`)
       .expect(200);
 
+    const selfDemoteTraceId = randomUUID();
     const selfDemoted = await request(baseUrl)
       .patch(`/v1/admin/users/${adminReg.user.id}/role`)
       .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .set('X-Request-Id', selfDemoteTraceId)
       .send({ role: 'USER' })
       .expect(200);
 
     expect(selfDemoted.body.data).toMatchObject({ id: adminReg.user.id, roles: ['USER'] });
 
-    const selfDemoteTraceId = selfDemoted.headers['x-request-id'];
-    expect(typeof selfDemoteTraceId).toBe('string');
+    expect(selfDemoted.headers['x-request-id']).toBe(selfDemoteTraceId);
 
     const selfDemoteAudit = await prisma.userRoleChangeAudit.findFirst({
       where: { traceId: selfDemoteTraceId },
@@ -589,9 +1092,11 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
       data: { role: UserRole.USER },
     });
 
+    const lastAdminTraceId = randomUUID();
     const lastAdminBlocked = await request(baseUrl)
       .patch(`/v1/admin/users/${userReg.user.id}/role`)
       .set('Authorization', `Bearer ${userReg.accessToken}`)
+      .set('X-Request-Id', lastAdminTraceId)
       .send({ role: 'USER' })
       .expect(409);
 
@@ -601,8 +1106,7 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
       status: 409,
     });
 
-    const lastAdminTraceId = lastAdminBlocked.headers['x-request-id'];
-    expect(typeof lastAdminTraceId).toBe('string');
+    expect(lastAdminBlocked.headers['x-request-id']).toBe(lastAdminTraceId);
 
     const lastAdminAudit = await prisma.userRoleChangeAudit.findFirst({
       where: { traceId: lastAdminTraceId },

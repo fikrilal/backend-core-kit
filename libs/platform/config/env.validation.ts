@@ -87,6 +87,30 @@ class EnvVars {
   @Min(1)
   AUTH_REFRESH_TOKEN_TTL_SECONDS: number = 60 * 60 * 24 * 30;
 
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 60 * 60 * 24))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: number = 60 * 60 * 24;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 60 * 30))
+  @IsOptional()
+  @IsInt()
+  @Min(60)
+  AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: number = 60 * 30;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 60))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS: number = 60;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 60))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS: number = 60;
+
   @Transform(({ value }) => (value !== undefined ? Number(value) : 10))
   @IsOptional()
   @IsInt()
@@ -119,6 +143,11 @@ class EnvVars {
   @IsString()
   AUTH_SIGNING_KEYS_JSON?: string;
 
+  // Public client URLs (frontend/mobile)
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  PUBLIC_APP_URL?: string;
+
   // Observability (Grafana Cloud via OTLP)
   @IsOptional()
   @IsString()
@@ -142,6 +171,19 @@ class EnvVars {
   @IsOptional()
   @IsBoolean()
   LOG_PRETTY?: boolean;
+
+  // Email (Resend)
+  @IsOptional()
+  @IsString()
+  RESEND_API_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  EMAIL_FROM?: string;
+
+  @IsOptional()
+  @IsString()
+  EMAIL_REPLY_TO?: string;
 }
 
 function formatValidationErrors(errors: unknown[]): string {
@@ -189,6 +231,26 @@ function requireInProductionLike(env: EnvVars) {
   }
 }
 
+function assertEmailConfigConsistency(env: EnvVars) {
+  const resendKey = env.RESEND_API_KEY?.trim();
+  const emailFrom = env.EMAIL_FROM?.trim();
+
+  const hasResendKey = typeof resendKey === 'string' && resendKey !== '';
+  const hasFrom = typeof emailFrom === 'string' && emailFrom !== '';
+
+  if (hasResendKey && !hasFrom) {
+    throw new Error(
+      'Missing required environment variables: EMAIL_FROM (required when RESEND_API_KEY is set)',
+    );
+  }
+
+  if (hasFrom && !hasResendKey) {
+    throw new Error(
+      'Missing required environment variables: RESEND_API_KEY (required when EMAIL_FROM is set)',
+    );
+  }
+}
+
 export function validateEnv(config: Record<string, unknown>): EnvVars {
   const validated = plainToInstance(EnvVars, config, { enableImplicitConversion: true });
   const errors = validateSync(validated, {
@@ -200,5 +262,6 @@ export function validateEnv(config: Record<string, unknown>): EnvVars {
   }
 
   requireInProductionLike(validated);
+  assertEmailConfigConsistency(validated);
   return validated;
 }

@@ -87,3 +87,40 @@ export class LogoutRequestDto {
   @MinLength(1)
   refreshToken!: string;
 }
+
+export class ChangePasswordRequestDto {
+  @ApiProperty({ minLength: 1 })
+  @IsString()
+  @MinLength(1)
+  currentPassword!: string;
+
+  @ApiProperty({ minLength: 1 })
+  @IsString()
+  @MinLength(1)
+  newPassword!: string;
+}
+
+export class VerifyEmailRequestDto {
+  @ApiProperty({ example: '<verification-token>' })
+  @IsString()
+  @MinLength(1)
+  token!: string;
+}
+
+export class PasswordResetRequestDto {
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  email!: string;
+}
+
+export class PasswordResetConfirmRequestDto {
+  @ApiProperty({ example: '<password-reset-token>' })
+  @IsString()
+  @MinLength(1)
+  token!: string;
+
+  @ApiProperty({ minLength: 1 })
+  @IsString()
+  @MinLength(1)
+  newPassword!: string;
+}
