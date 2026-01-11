@@ -163,6 +163,7 @@ This repo commonly lives on a Windows filesystem mount (`/mnt/c/...`). To avoid 
 - Convenience wrappers:
   - `bash tools/agent/npmw ...`
   - `bash tools/agent/dockw ...`
+  - `bash tools/agent/gitw ...`
 - Do not run `npm install/ci` in WSL for this repo.
 - Prefer `.env` for configuration; WSL environment variables do not reliably propagate into Windows processes.
 
