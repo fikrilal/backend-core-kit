@@ -27,6 +27,7 @@ import {
   AuthResultEnvelopeDto,
   ChangePasswordRequestDto,
   LogoutRequestDto,
+  OidcConnectRequestDto,
   OidcExchangeRequestDto,
   PasswordResetConfirmRequestDto,
   PasswordLoginRequestDto,
@@ -113,6 +114,46 @@ export class AuthController {
         deviceId: body.deviceId,
         deviceName: body.deviceName,
         ip: req.ip,
+      });
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
+  @Post('oidc/connect')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: 'auth.oidc.connect',
+    summary: 'Connect OIDC identity (current user)',
+    description:
+      'Links an OIDC identity (e.g., Google) to the authenticated user. If the OIDC email matches the user email, the user email is marked verified.',
+  })
+  @ApiErrorCodes([
+    ErrorCode.VALIDATION_FAILED,
+    ErrorCode.UNAUTHORIZED,
+    ErrorCode.IDEMPOTENCY_IN_PROGRESS,
+    ErrorCode.CONFLICT,
+    AuthErrorCode.AUTH_OIDC_NOT_CONFIGURED,
+    AuthErrorCode.AUTH_OIDC_TOKEN_INVALID,
+    AuthErrorCode.AUTH_OIDC_EMAIL_NOT_VERIFIED,
+    AuthErrorCode.AUTH_OIDC_IDENTITY_ALREADY_LINKED,
+    AuthErrorCode.AUTH_OIDC_PROVIDER_ALREADY_LINKED,
+    ErrorCode.INTERNAL,
+  ])
+  @ApiIdempotencyKeyHeader({ required: false })
+  @Idempotent({ scopeKey: 'auth.oidc.connect' })
+  @ApiNoContentResponse()
+  async connectOidc(
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Body() body: OidcConnectRequestDto,
+  ): Promise<void> {
+    try {
+      await this.auth.connectOidc({
+        userId: principal.userId,
+        provider: body.provider,
+        idToken: body.idToken,
       });
     } catch (err: unknown) {
       throw this.mapAuthError(err);

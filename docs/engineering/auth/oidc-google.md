@@ -1,4 +1,4 @@
-# OIDC (Google) — Token Exchange
+# OIDC (Google) — Exchange + Connect
 
 This core kit supports OIDC login via **token exchange**: the client obtains an IdP `id_token`, then exchanges it for **first-party** access + refresh tokens.
 
@@ -7,6 +7,7 @@ This document covers the Google implementation.
 ## Endpoint
 
 - `POST /v1/auth/oidc/exchange`
+- `POST /v1/auth/oidc/connect` (requires `Authorization: Bearer <access-token>`)
 
 Request body:
 
@@ -62,6 +63,33 @@ Conflict response:
 - `409 AUTH_OIDC_LINK_REQUIRED`
 - `detail` instructs the user to sign in with password to link Google sign-in.
 
+## Connect (Authenticated)
+
+When a user is already authenticated (e.g. from password login), the client can link Google to the current account:
+
+- `POST /v1/auth/oidc/connect`
+
+Request body:
+
+```json
+{
+  "provider": "GOOGLE",
+  "idToken": "<google-id-token>"
+}
+```
+
+Response:
+
+- `204` (idempotent success)
+
+Rules:
+
+- The backend verifies the `idToken` the same way as exchange.
+- If the identity is already linked to the current user, the endpoint returns `204`.
+- If the identity is linked to another user, the endpoint returns `409 AUTH_OIDC_IDENTITY_ALREADY_LINKED`.
+- If the current user already linked a different Google identity, the endpoint returns `409 AUTH_OIDC_PROVIDER_ALREADY_LINKED`.
+- If `email_verified=true` and the Google email matches `User.email`, the backend sets `User.emailVerifiedAt` (if not already set).
+
 ## Data Model
 
 Google login uses `ExternalIdentity`:
@@ -79,9 +107,3 @@ Environment variables:
 If not configured:
 
 - `500 AUTH_OIDC_NOT_CONFIGURED`
-
-## Future Work: “Connect Google”
-
-This core kit currently implements **exchange only**.
-
-Linking Google to an existing password account is intentionally deferred to a separate endpoint (e.g. “connect google”) so we can require explicit user confirmation via password auth.

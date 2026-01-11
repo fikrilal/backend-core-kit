@@ -28,84 +28,85 @@ function makeUser(partial?: Partial<AuthUserRecord>): AuthUserRecord {
   };
 }
 
+const dummyHasher: PasswordHasher = {
+  hash: async () => 'hash',
+  verify: async () => true,
+};
+
+const dummyRateLimiter: LoginRateLimiter = {
+  assertAllowed: async () => undefined,
+  recordFailure: async () => undefined,
+  recordSuccess: async () => undefined,
+};
+
+const accessTokens: AccessTokenIssuer = {
+  signAccessToken: async () => 'access-token',
+  getPublicJwks: async () => ({}),
+};
+
+const now = new Date('2026-01-11T14:00:00.000Z');
+const clock = fixedClock(now);
+
+function makeRepo(overrides: Partial<AuthRepository>): AuthRepository {
+  return {
+    createUserWithPassword: async () => unimplemented(),
+    findUserIdByEmail: async () => null,
+    findUserForLogin: async () => unimplemented(),
+    findUserById: async () => unimplemented(),
+    findUserByExternalIdentity: async () => null,
+    createUserWithExternalIdentity: async () => unimplemented(),
+    linkExternalIdentityToUser: async () => unimplemented(),
+    listUserSessions: async () => unimplemented(),
+    revokeSessionById: async () => unimplemented(),
+    findPasswordCredential: async () => unimplemented(),
+    verifyEmailByTokenHash: async () => unimplemented(),
+    resetPasswordByTokenHash: async () => unimplemented(),
+    changePasswordAndRevokeOtherSessions: async () => unimplemented(),
+    findRefreshTokenWithSession: async () => unimplemented(),
+    revokeActiveSessionForDevice: async () => undefined,
+    createSession: async (input): Promise<SessionRecord> => ({
+      id: 'session-1',
+      expiresAt: input.sessionExpiresAt,
+    }),
+    createRefreshToken: async (
+      sessionId: string,
+      tokenHash: string,
+      expiresAt: Date,
+    ): Promise<RefreshTokenRecord> => ({
+      id: 'refresh-1',
+      tokenHash,
+      expiresAt,
+      revokedAt: null,
+      sessionId,
+      replacedById: null,
+    }),
+    rotateRefreshToken: async () => unimplemented(),
+    revokeSessionByRefreshTokenHash: async () => unimplemented(),
+    ...overrides,
+  };
+}
+
+function makeService(params: {
+  repo: AuthRepository;
+  oidcVerifier: OidcIdTokenVerifier;
+}): AuthService {
+  return new AuthService(
+    params.repo,
+    dummyHasher,
+    accessTokens,
+    params.oidcVerifier,
+    dummyRateLimiter,
+    clock,
+    'dummy-password-hash',
+    {
+      accessTokenTtlSeconds: 900,
+      refreshTokenTtlSeconds: 60 * 60 * 24 * 30,
+      passwordMinLength: 10,
+    },
+  );
+}
+
 describe('AuthService.exchangeOidc', () => {
-  const dummyHasher: PasswordHasher = {
-    hash: async () => 'hash',
-    verify: async () => true,
-  };
-
-  const dummyRateLimiter: LoginRateLimiter = {
-    assertAllowed: async () => undefined,
-    recordFailure: async () => undefined,
-    recordSuccess: async () => undefined,
-  };
-
-  const accessTokens: AccessTokenIssuer = {
-    signAccessToken: async () => 'access-token',
-    getPublicJwks: async () => ({}),
-  };
-
-  const now = new Date('2026-01-11T14:00:00.000Z');
-  const clock = fixedClock(now);
-
-  function makeRepo(overrides: Partial<AuthRepository>): AuthRepository {
-    return {
-      createUserWithPassword: async () => unimplemented(),
-      findUserIdByEmail: async () => null,
-      findUserForLogin: async () => unimplemented(),
-      findUserById: async () => unimplemented(),
-      findUserByExternalIdentity: async () => null,
-      createUserWithExternalIdentity: async () => unimplemented(),
-      listUserSessions: async () => unimplemented(),
-      revokeSessionById: async () => unimplemented(),
-      findPasswordCredential: async () => unimplemented(),
-      verifyEmailByTokenHash: async () => unimplemented(),
-      resetPasswordByTokenHash: async () => unimplemented(),
-      changePasswordAndRevokeOtherSessions: async () => unimplemented(),
-      findRefreshTokenWithSession: async () => unimplemented(),
-      revokeActiveSessionForDevice: async () => undefined,
-      createSession: async (input): Promise<SessionRecord> => ({
-        id: 'session-1',
-        expiresAt: input.sessionExpiresAt,
-      }),
-      createRefreshToken: async (
-        sessionId: string,
-        tokenHash: string,
-        expiresAt: Date,
-      ): Promise<RefreshTokenRecord> => ({
-        id: 'refresh-1',
-        tokenHash,
-        expiresAt,
-        revokedAt: null,
-        sessionId,
-        replacedById: null,
-      }),
-      rotateRefreshToken: async () => unimplemented(),
-      revokeSessionByRefreshTokenHash: async () => unimplemented(),
-      ...overrides,
-    };
-  }
-
-  function makeService(params: {
-    repo: AuthRepository;
-    oidcVerifier: OidcIdTokenVerifier;
-  }): AuthService {
-    return new AuthService(
-      params.repo,
-      dummyHasher,
-      accessTokens,
-      params.oidcVerifier,
-      dummyRateLimiter,
-      clock,
-      'dummy-password-hash',
-      {
-        accessTokenTtlSeconds: 900,
-        refreshTokenTtlSeconds: 60 * 60 * 24 * 30,
-        passwordMinLength: 10,
-      },
-    );
-  }
-
   it('returns 500 AUTH_OIDC_NOT_CONFIGURED when provider is not configured', async () => {
     const repo = makeRepo({});
     const oidcVerifier: OidcIdTokenVerifier = {
@@ -309,5 +310,161 @@ describe('AuthService.exchangeOidc', () => {
       status: 409,
       code: AuthErrorCode.AUTH_OIDC_LINK_REQUIRED,
     });
+  });
+});
+
+describe('AuthService.connectOidc', () => {
+  it('returns 500 AUTH_OIDC_NOT_CONFIGURED when provider is not configured', async () => {
+    const repo = makeRepo({});
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({ kind: 'not_configured' }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).rejects.toMatchObject({
+      status: 500,
+      code: AuthErrorCode.AUTH_OIDC_NOT_CONFIGURED,
+    });
+  });
+
+  it('returns 401 AUTH_OIDC_TOKEN_INVALID when token is invalid', async () => {
+    const repo = makeRepo({});
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({ kind: 'invalid' }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).rejects.toMatchObject({
+      status: 401,
+      code: AuthErrorCode.AUTH_OIDC_TOKEN_INVALID,
+    });
+  });
+
+  it('returns 400 AUTH_OIDC_EMAIL_NOT_VERIFIED when email_verified is false', async () => {
+    const repo = makeRepo({});
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'User@Example.com',
+          emailVerified: false,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).rejects.toMatchObject({
+      status: 400,
+      code: AuthErrorCode.AUTH_OIDC_EMAIL_NOT_VERIFIED,
+    });
+  });
+
+  it('returns 409 AUTH_OIDC_IDENTITY_ALREADY_LINKED when identity is linked to another user', async () => {
+    const repo = makeRepo({
+      linkExternalIdentityToUser: async () => ({ kind: 'identity_linked_to_other_user' }),
+    });
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'User@Example.com',
+          emailVerified: true,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).rejects.toMatchObject({
+      status: 409,
+      code: AuthErrorCode.AUTH_OIDC_IDENTITY_ALREADY_LINKED,
+    });
+  });
+
+  it('returns 409 AUTH_OIDC_PROVIDER_ALREADY_LINKED when provider is already linked', async () => {
+    const repo = makeRepo({
+      linkExternalIdentityToUser: async () => ({ kind: 'provider_already_linked' }),
+    });
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'User@Example.com',
+          emailVerified: true,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).rejects.toMatchObject({
+      status: 409,
+      code: AuthErrorCode.AUTH_OIDC_PROVIDER_ALREADY_LINKED,
+    });
+  });
+
+  it('succeeds when linking is ok', async () => {
+    const repo = makeRepo({
+      linkExternalIdentityToUser: async () => ({ kind: 'ok' }),
+    });
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'User@Example.com',
+          emailVerified: true,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('succeeds when identity is already linked', async () => {
+    const repo = makeRepo({
+      linkExternalIdentityToUser: async () => ({ kind: 'already_linked' }),
+    });
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'User@Example.com',
+          emailVerified: true,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).resolves.toBeUndefined();
   });
 });

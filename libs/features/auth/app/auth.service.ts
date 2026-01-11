@@ -241,6 +241,77 @@ export class AuthService {
     return { user: this.toUserView(user), accessToken, refreshToken };
   }
 
+  async connectOidc(input: {
+    userId: string;
+    provider: OidcProvider;
+    idToken: string;
+  }): Promise<void> {
+    const verified = await this.oidcVerifier.verifyIdToken({
+      provider: input.provider,
+      idToken: input.idToken,
+    });
+
+    if (verified.kind === 'not_configured') {
+      throw new AuthError({
+        status: 500,
+        code: AuthErrorCode.AUTH_OIDC_NOT_CONFIGURED,
+        message: 'OIDC is not configured',
+      });
+    }
+
+    if (verified.kind === 'invalid') {
+      throw new AuthError({
+        status: 401,
+        code: AuthErrorCode.AUTH_OIDC_TOKEN_INVALID,
+        message: 'Invalid OIDC token',
+      });
+    }
+
+    if (!verified.identity.emailVerified) {
+      throw new AuthError({
+        status: 400,
+        code: AuthErrorCode.AUTH_OIDC_EMAIL_NOT_VERIFIED,
+        message: 'Email is not verified',
+      });
+    }
+
+    const now = this.clock.now();
+    const email = normalizeEmail(verified.identity.email);
+
+    const result = await this.repo.linkExternalIdentityToUser({
+      userId: input.userId,
+      provider: verified.identity.provider,
+      subject: verified.identity.subject,
+      email,
+      now,
+    });
+
+    if (result.kind === 'ok' || result.kind === 'already_linked') return;
+
+    if (result.kind === 'user_not_found') {
+      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+    }
+
+    if (result.kind === 'identity_linked_to_other_user') {
+      throw new AuthError({
+        status: 409,
+        code: AuthErrorCode.AUTH_OIDC_IDENTITY_ALREADY_LINKED,
+        message: 'This OIDC identity is already linked to another account',
+      });
+    }
+
+    if (result.kind === 'provider_already_linked') {
+      throw new AuthError({
+        status: 409,
+        code: AuthErrorCode.AUTH_OIDC_PROVIDER_ALREADY_LINKED,
+        message: 'This provider is already linked to your account',
+      });
+    }
+
+    // Exhaustiveness guard.
+    throw new Error('Unexpected connectOidc result');
+  }
+
   async changePassword(input: {
     userId: string;
     sessionId: string;

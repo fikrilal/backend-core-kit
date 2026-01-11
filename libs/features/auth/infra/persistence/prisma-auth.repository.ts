@@ -13,6 +13,7 @@ import type {
   AuthRepository,
   ChangePasswordResult,
   CreateSessionInput,
+  LinkExternalIdentityResult,
   ListUserSessionsResult,
   RefreshRotationResult,
   RefreshTokenRecord,
@@ -78,6 +79,22 @@ function toPrismaExternalIdentityProvider(provider: OidcProvider): PrismaExterna
     case 'GOOGLE':
       return PrismaExternalIdentityProvider.GOOGLE;
   }
+}
+
+async function verifyEmailIfMatching(input: {
+  tx: Prisma.TransactionClient;
+  user: Readonly<{ id: string; email: string; emailVerifiedAt: Date | null }>;
+  email?: string;
+  now: Date;
+}): Promise<void> {
+  if (!input.email) return;
+  if (input.user.emailVerifiedAt !== null) return;
+  if (input.email !== input.user.email) return;
+
+  await input.tx.user.updateMany({
+    where: { id: input.user.id, emailVerifiedAt: null },
+    data: { emailVerifiedAt: input.now },
+  });
 }
 
 function toRefreshTokenRecord(
@@ -280,6 +297,98 @@ export class PrismaAuthRepository implements AuthRepository {
       }
       throw err;
     }
+  }
+
+  async linkExternalIdentityToUser(input: {
+    userId: string;
+    provider: OidcProvider;
+    subject: string;
+    email?: Email;
+    now: Date;
+  }): Promise<LinkExternalIdentityResult> {
+    const provider = toPrismaExternalIdentityProvider(input.provider);
+
+    return await this.prisma.transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: input.userId },
+        select: { id: true, email: true, emailVerifiedAt: true },
+      });
+      if (!user) return { kind: 'user_not_found' };
+
+      const identity = await tx.externalIdentity.findFirst({
+        where: { provider, subject: input.subject },
+        select: { userId: true },
+      });
+
+      if (identity) {
+        if (identity.userId !== input.userId) return { kind: 'identity_linked_to_other_user' };
+
+        await verifyEmailIfMatching({
+          tx,
+          user,
+          email: input.email,
+          now: input.now,
+        });
+
+        return { kind: 'already_linked' };
+      }
+
+      const existingProvider = await tx.externalIdentity.findFirst({
+        where: { userId: input.userId, provider },
+        select: { id: true },
+      });
+      if (existingProvider) return { kind: 'provider_already_linked' };
+
+      try {
+        await tx.externalIdentity.create({
+          data: {
+            provider,
+            subject: input.subject,
+            ...(input.email ? { email: input.email } : {}),
+            userId: input.userId,
+          },
+          select: { id: true },
+        });
+      } catch (err: unknown) {
+        if (!isUniqueConstraintError(err)) throw err;
+
+        const racedIdentity = await tx.externalIdentity.findFirst({
+          where: { provider, subject: input.subject },
+          select: { userId: true },
+        });
+        if (racedIdentity) {
+          if (racedIdentity.userId !== input.userId) {
+            return { kind: 'identity_linked_to_other_user' };
+          }
+
+          await verifyEmailIfMatching({
+            tx,
+            user,
+            email: input.email,
+            now: input.now,
+          });
+
+          return { kind: 'already_linked' };
+        }
+
+        const racedProvider = await tx.externalIdentity.findFirst({
+          where: { userId: input.userId, provider },
+          select: { id: true },
+        });
+        if (racedProvider) return { kind: 'provider_already_linked' };
+
+        throw err;
+      }
+
+      await verifyEmailIfMatching({
+        tx,
+        user,
+        email: input.email,
+        now: input.now,
+      });
+
+      return { kind: 'ok' };
+    });
   }
 
   async listUserSessions(

@@ -101,6 +101,45 @@ paths:
         - AUTH_OIDC_EMAIL_NOT_VERIFIED
         - AUTH_OIDC_LINK_REQUIRED
         - INTERNAL
+  /v1/auth/oidc/connect:
+    post:
+      description: Links an OIDC identity (e.g., Google) to the authenticated user. If
+        the OIDC email matches the user email, the user email is marked
+        verified.
+      operationId: auth.oidc.connect
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: "Idempotency key for safe retries of write requests. Replays return
+            `Idempotency-Replayed: true`."
+          required: false
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OidcConnectRequestDto"
+      responses:
+        "204":
+          description: ""
+      security:
+        - access-token: []
+      summary: Connect OIDC identity (current user)
+      tags: *a1
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - IDEMPOTENCY_IN_PROGRESS
+        - CONFLICT
+        - AUTH_OIDC_NOT_CONFIGURED
+        - AUTH_OIDC_TOKEN_INVALID
+        - AUTH_OIDC_EMAIL_NOT_VERIFIED
+        - AUTH_OIDC_IDENTITY_ALREADY_LINKED
+        - AUTH_OIDC_PROVIDER_ALREADY_LINKED
+        - INTERNAL
   /v1/auth/email/verify:
     post:
       description: Verifies a user email using a token sent via email.
@@ -680,7 +719,7 @@ components:
       properties:
         provider:
           type: string
-          enum:
+          enum: &a6
             - GOOGLE
           example: GOOGLE
         idToken:
@@ -692,6 +731,19 @@ components:
         deviceName:
           type: string
           description: Human-friendly device name (optional).
+      required:
+        - provider
+        - idToken
+    OidcConnectRequestDto:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: *a6
+          example: GOOGLE
+        idToken:
+          type: string
+          example: <oidc-id-token>
       required:
         - provider
         - idToken

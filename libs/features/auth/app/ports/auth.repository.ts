@@ -78,6 +78,13 @@ export type VerifyEmailResult =
   | Readonly<{ kind: 'token_invalid' }>
   | Readonly<{ kind: 'token_expired' }>;
 
+export type LinkExternalIdentityResult =
+  | Readonly<{ kind: 'ok' }>
+  | Readonly<{ kind: 'already_linked' }>
+  | Readonly<{ kind: 'user_not_found' }>
+  | Readonly<{ kind: 'identity_linked_to_other_user' }>
+  | Readonly<{ kind: 'provider_already_linked' }>;
+
 export type ResetPasswordByTokenHashResult =
   | Readonly<{ kind: 'ok'; userId: string }>
   | Readonly<{ kind: 'token_invalid' }>
@@ -106,6 +113,14 @@ export interface AuthRepository {
       email?: string;
     }>;
   }): Promise<AuthUserRecord>;
+
+  linkExternalIdentityToUser(input: {
+    userId: string;
+    provider: OidcProvider;
+    subject: string;
+    email?: Email;
+    now: Date;
+  }): Promise<LinkExternalIdentityResult>;
 
   listUserSessions(
     userId: string,

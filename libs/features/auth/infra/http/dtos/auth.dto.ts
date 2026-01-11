@@ -98,6 +98,18 @@ export class OidcExchangeRequestDto {
   deviceName?: string;
 }
 
+export class OidcConnectRequestDto {
+  @ApiProperty({ enum: OIDC_PROVIDER_VALUES, example: 'GOOGLE' })
+  @IsString()
+  @IsIn(OIDC_PROVIDER_VALUES)
+  provider!: (typeof OIDC_PROVIDER_VALUES)[number];
+
+  @ApiProperty({ example: '<oidc-id-token>' })
+  @IsString()
+  @MinLength(1)
+  idToken!: string;
+}
+
 export class RefreshRequestDto {
   @ApiProperty({ example: '<refresh-token>' })
   @IsString()
