@@ -118,6 +118,77 @@ export class AuthService {
     return { user: this.toUserView(found.user), accessToken, refreshToken };
   }
 
+  async changePassword(input: {
+    userId: string;
+    sessionId: string;
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<void> {
+    this.assertPasswordPolicy(input.newPassword);
+
+    if (input.currentPassword === input.newPassword) {
+      throw new AuthError({
+        status: 400,
+        code: 'VALIDATION_FAILED',
+        issues: [{ field: 'newPassword', message: 'New password must be different' }],
+      });
+    }
+
+    const existing = await this.repo.findPasswordCredential(input.userId);
+    if (!existing) {
+      throw new AuthError({
+        status: 409,
+        code: AuthErrorCode.AUTH_PASSWORD_NOT_SET,
+        message: 'Password is not set for this account',
+      });
+    }
+
+    const ok = await this.passwordHasher.verify(existing.passwordHash, input.currentPassword);
+    if (!ok) {
+      throw new AuthError({
+        status: 400,
+        code: AuthErrorCode.AUTH_CURRENT_PASSWORD_INVALID,
+        message: 'Current password is invalid',
+      });
+    }
+
+    const now = this.clock.now();
+    const newHash = await this.passwordHasher.hash(input.newPassword);
+
+    const changed = await this.repo.changePasswordAndRevokeOtherSessions({
+      userId: input.userId,
+      sessionId: input.sessionId,
+      expectedCurrentPasswordHash: existing.passwordHash,
+      newPasswordHash: newHash,
+      now,
+    });
+
+    if (changed.kind === 'ok') return;
+
+    if (changed.kind === 'not_found') {
+      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+    }
+
+    if (changed.kind === 'password_not_set') {
+      throw new AuthError({
+        status: 409,
+        code: AuthErrorCode.AUTH_PASSWORD_NOT_SET,
+        message: 'Password is not set for this account',
+      });
+    }
+
+    if (changed.kind === 'current_password_mismatch') {
+      throw new AuthError({
+        status: 400,
+        code: AuthErrorCode.AUTH_CURRENT_PASSWORD_INVALID,
+        message: 'Current password is invalid',
+      });
+    }
+
+    // Exhaustiveness guard.
+    throw new Error('Unexpected changePassword result');
+  }
+
   async refresh(input: { refreshToken: string }): Promise<AuthResult> {
     const now = this.clock.now();
     const currentHash = hashRefreshToken(input.refreshToken);

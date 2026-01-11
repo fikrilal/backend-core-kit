@@ -46,9 +46,25 @@ export type RefreshRotationResult =
       sessionExpiresAt: Date;
     }>;
 
+export type ChangePasswordResult =
+  | Readonly<{ kind: 'ok' }>
+  | Readonly<{ kind: 'not_found' }>
+  | Readonly<{ kind: 'password_not_set' }>
+  | Readonly<{ kind: 'current_password_mismatch' }>;
+
 export interface AuthRepository {
   createUserWithPassword(email: Email, passwordHash: string): Promise<AuthUserRecord>;
   findUserForLogin(email: Email): Promise<{ user: AuthUserRecord; passwordHash: string } | null>;
+
+  findPasswordCredential(userId: string): Promise<Readonly<{ passwordHash: string }> | null>;
+
+  changePasswordAndRevokeOtherSessions(input: {
+    userId: string;
+    sessionId: string;
+    expectedCurrentPasswordHash: string;
+    newPasswordHash: string;
+    now: Date;
+  }): Promise<ChangePasswordResult>;
 
   findRefreshTokenWithSession(tokenHash: string): Promise<RefreshTokenWithSession | null>;
 

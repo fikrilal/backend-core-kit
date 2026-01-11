@@ -4,6 +4,7 @@ import type { Email } from '../../domain/email';
 import type { AuthRole, AuthUserRecord } from '../../app/auth.types';
 import type {
   AuthRepository,
+  ChangePasswordResult,
   CreateSessionInput,
   RefreshRotationResult,
   RefreshTokenRecord,
@@ -109,6 +110,84 @@ export class PrismaAuthRepository implements AuthRepository {
       user: toAuthUserRecord(user),
       passwordHash: user.passwordCredential.passwordHash,
     };
+  }
+
+  async findPasswordCredential(userId: string): Promise<Readonly<{ passwordHash: string }> | null> {
+    const client = this.prisma.getClient();
+    const found = await client.passwordCredential.findUnique({
+      where: { userId },
+      select: { passwordHash: true },
+    });
+    if (!found) return null;
+    return { passwordHash: found.passwordHash };
+  }
+
+  async changePasswordAndRevokeOtherSessions(input: {
+    userId: string;
+    sessionId: string;
+    expectedCurrentPasswordHash: string;
+    newPasswordHash: string;
+    now: Date;
+  }): Promise<ChangePasswordResult> {
+    const client = this.prisma.getClient();
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await client.$transaction(
+          async (tx) => {
+            const user = await tx.user.findUnique({
+              where: { id: input.userId },
+              select: { id: true },
+            });
+            if (!user) return { kind: 'not_found' };
+
+            const credential = await tx.passwordCredential.findUnique({
+              where: { userId: input.userId },
+              select: { passwordHash: true },
+            });
+            if (!credential) return { kind: 'password_not_set' };
+
+            if (credential.passwordHash !== input.expectedCurrentPasswordHash) {
+              return { kind: 'current_password_mismatch' };
+            }
+
+            await tx.passwordCredential.update({
+              where: { userId: input.userId },
+              data: { passwordHash: input.newPasswordHash },
+            });
+
+            const otherSessions = await tx.session.findMany({
+              where: { userId: input.userId, id: { not: input.sessionId }, revokedAt: null },
+              select: { id: true },
+            });
+            const otherSessionIds = otherSessions.map((s) => s.id);
+
+            if (otherSessionIds.length === 0) return { kind: 'ok' };
+
+            await tx.session.updateMany({
+              where: { id: { in: otherSessionIds } },
+              data: { revokedAt: input.now, activeKey: null },
+            });
+
+            await tx.refreshToken.updateMany({
+              where: { sessionId: { in: otherSessionIds }, revokedAt: null },
+              data: { revokedAt: input.now },
+            });
+
+            return { kind: 'ok' };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (err: unknown) {
+        if (attempt < maxAttempts && isRetryableTransactionError(err)) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw new Error('Unexpected: exhausted transaction retries');
   }
 
   async findRefreshTokenWithSession(tokenHash: string): Promise<RefreshTokenWithSession | null> {
@@ -313,4 +392,9 @@ export class PrismaAuthRepository implements AuthRepository {
       });
     });
   }
+}
+
+function isRetryableTransactionError(err: unknown): boolean {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  return err.code === 'P2034';
 }

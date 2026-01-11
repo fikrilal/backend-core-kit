@@ -1,14 +1,26 @@
-import { Body, Controller, HttpCode, Post, Req } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
-import { ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AuthService } from '../../app/auth.service';
 import { AuthError } from '../../app/auth.errors';
 import { AuthErrorCode } from '../../app/auth.error-codes';
+import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
+import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
+import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { ProblemException } from '../../../../platform/http/errors/problem.exception';
+import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
+import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import {
   AuthResultEnvelopeDto,
+  ChangePasswordRequestDto,
   LogoutRequestDto,
   PasswordLoginRequestDto,
   PasswordRegisterRequestDto,
@@ -69,6 +81,44 @@ export class AuthController {
         deviceId: body.deviceId,
         deviceName: body.deviceName,
         ip: req.ip,
+      });
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
+  @Post('password/change')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: 'auth.password.change',
+    summary: 'Change password (current user)',
+    description:
+      'Changes the authenticated user password. Revokes other sessions (and their refresh tokens) but keeps the current session active.',
+  })
+  @ApiErrorCodes([
+    ErrorCode.VALIDATION_FAILED,
+    ErrorCode.UNAUTHORIZED,
+    ErrorCode.IDEMPOTENCY_IN_PROGRESS,
+    ErrorCode.CONFLICT,
+    AuthErrorCode.AUTH_PASSWORD_NOT_SET,
+    AuthErrorCode.AUTH_CURRENT_PASSWORD_INVALID,
+    ErrorCode.INTERNAL,
+  ])
+  @ApiIdempotencyKeyHeader({ required: false })
+  @Idempotent({ scopeKey: 'auth.password.change' })
+  @ApiNoContentResponse()
+  async changePassword(
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Body() body: ChangePasswordRequestDto,
+  ): Promise<void> {
+    try {
+      await this.auth.changePassword({
+        userId: principal.userId,
+        sessionId: principal.sessionId,
+        currentPassword: body.currentPassword,
+        newPassword: body.newPassword,
       });
     } catch (err: unknown) {
       throw this.mapAuthError(err);

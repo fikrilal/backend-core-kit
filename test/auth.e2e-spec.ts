@@ -93,6 +93,79 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
     expect(afterLogout.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });
   });
 
+  it('POST /v1/auth/password/change requires an access token', async () => {
+    const res = await request(baseUrl)
+      .post('/v1/auth/password/change')
+      .send({ currentPassword: 'x', newPassword: 'y' })
+      .expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
+  it('register -> password change revokes other sessions and supports Idempotency-Key replay', async () => {
+    const email = `pw-change+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+    const newPassword = 'new-correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password, deviceId: 'device-a' })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const loginRes = await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password, deviceId: 'device-b' })
+      .expect(200);
+
+    const loggedIn = loginRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const idemKey = randomUUID();
+    await request(baseUrl)
+      .post('/v1/auth/password/change')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Idempotency-Key', idemKey)
+      .send({ currentPassword: password, newPassword })
+      .expect(204);
+
+    const replayed = await request(baseUrl)
+      .post('/v1/auth/password/change')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Idempotency-Key', idemKey)
+      .send({ currentPassword: password, newPassword })
+      .expect(204);
+
+    expect(replayed.headers['idempotency-replayed']).toBe('true');
+
+    const otherSessionRefresh = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: loggedIn.refreshToken })
+      .expect(401);
+
+    expect(otherSessionRefresh.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });
+
+    const oldLogin = await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password })
+      .expect(401);
+
+    expect(oldLogin.body).toMatchObject({ code: 'AUTH_INVALID_CREDENTIALS', status: 401 });
+
+    await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password: newPassword })
+      .expect(200);
+  });
+
   it('GET /v1/me requires an access token', async () => {
     const res = await request(baseUrl).get('/v1/me').expect(401);
     expect(res.headers['content-type']).toContain('application/problem+json');

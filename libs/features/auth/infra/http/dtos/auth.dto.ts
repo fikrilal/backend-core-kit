@@ -87,3 +87,15 @@ export class LogoutRequestDto {
   @MinLength(1)
   refreshToken!: string;
 }
+
+export class ChangePasswordRequestDto {
+  @ApiProperty({ minLength: 1 })
+  @IsString()
+  @MinLength(1)
+  currentPassword!: string;
+
+  @ApiProperty({ minLength: 1 })
+  @IsString()
+  @MinLength(1)
+  newPassword!: string;
+}

@@ -97,6 +97,41 @@ paths:
         - AUTH_INVALID_CREDENTIALS
         - RATE_LIMITED
         - INTERNAL
+  /v1/auth/password/change:
+    post:
+      description: Changes the authenticated user password. Revokes other sessions
+        (and their refresh tokens) but keeps the current session active.
+      operationId: auth.password.change
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: "Idempotency key for safe retries of write requests. Replays return
+            `Idempotency-Replayed: true`."
+          required: false
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequestDto"
+      responses:
+        "204":
+          description: ""
+      security:
+        - access-token: []
+      summary: Change password (current user)
+      tags: *a1
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - IDEMPOTENCY_IN_PROGRESS
+        - CONFLICT
+        - AUTH_PASSWORD_NOT_SET
+        - AUTH_CURRENT_PASSWORD_INVALID
+        - INTERNAL
   /v1/auth/refresh:
     post:
       description: Rotates the refresh token and returns a new access + refresh token.
@@ -480,6 +515,18 @@ components:
       required:
         - email
         - password
+    ChangePasswordRequestDto:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+        newPassword:
+          type: string
+          minLength: 1
+      required:
+        - currentPassword
+        - newPassword
     RefreshRequestDto:
       type: object
       properties:
