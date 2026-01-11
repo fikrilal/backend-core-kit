@@ -2,7 +2,9 @@
 
 This kit uses the official Resend Node SDK for outbound transactional email.
 
-This document focuses on the **platform email infrastructure** (not the auth “verify email” feature wiring yet).
+This document focuses on the **platform email infrastructure**.
+
+For verify-email wiring (register → queue → worker), see `docs/engineering/auth/email-verification.md`.
 
 ## Configuration
 

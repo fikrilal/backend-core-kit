@@ -7,6 +7,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { PinoLogger } from 'nestjs-pino';
 import { AuthService } from '../../app/auth.service';
 import { AuthError } from '../../app/auth.errors';
 import { AuthErrorCode } from '../../app/auth.error-codes';
@@ -18,6 +19,7 @@ import { ProblemException } from '../../../../platform/http/errors/problem.excep
 import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
+import { AuthEmailVerificationJobs } from '../jobs/auth-email-verification.jobs';
 import {
   AuthResultEnvelopeDto,
   ChangePasswordRequestDto,
@@ -30,7 +32,13 @@ import {
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly emailVerificationJobs: AuthEmailVerificationJobs,
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(AuthController.name);
+  }
 
   @Post('password/register')
   @HttpCode(200)
@@ -47,13 +55,24 @@ export class AuthController {
   @ApiOkResponse({ type: AuthResultEnvelopeDto })
   async register(@Body() body: PasswordRegisterRequestDto, @Req() req: FastifyRequest) {
     try {
-      return await this.auth.registerWithPassword({
+      const result = await this.auth.registerWithPassword({
         email: body.email,
         password: body.password,
         deviceId: body.deviceId,
         deviceName: body.deviceName,
         ip: req.ip,
       });
+
+      try {
+        await this.emailVerificationJobs.enqueueSendVerificationEmail(result.user.id);
+      } catch (err: unknown) {
+        this.logger.error(
+          { err, userId: result.user.id },
+          'Failed to enqueue verification email job',
+        );
+      }
+
+      return result;
     } catch (err: unknown) {
       throw this.mapAuthError(err);
     }

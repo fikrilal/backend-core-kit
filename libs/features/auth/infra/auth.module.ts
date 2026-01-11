@@ -3,20 +3,24 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaModule } from '../../../platform/db/prisma.module';
 import { RedisModule } from '../../../platform/redis/redis.module';
 import { PlatformAuthModule } from '../../../platform/auth/auth.module';
+import { PlatformEmailModule } from '../../../platform/email/email.module';
+import { QueueModule } from '../../../platform/queue/queue.module';
 import { AuthService } from '../app/auth.service';
 import { SystemClock } from '../app/time';
 import { AuthController } from './http/auth.controller';
 import { JwksController } from './http/jwks.controller';
 import { PrismaAuthRepository } from './persistence/prisma-auth.repository';
+import { AuthEmailVerificationJobs } from './jobs/auth-email-verification.jobs';
 import { RedisLoginRateLimiter } from './rate-limit/redis-login-rate-limiter';
 import { Argon2PasswordHasher } from './security/argon2.password-hasher';
 import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
 
 @Module({
-  imports: [PrismaModule, RedisModule, PlatformAuthModule],
+  imports: [PrismaModule, RedisModule, PlatformAuthModule, PlatformEmailModule, QueueModule],
   controllers: [AuthController, JwksController],
   providers: [
     PrismaAuthRepository,
+    AuthEmailVerificationJobs,
     Argon2PasswordHasher,
     CryptoAccessTokenIssuer,
     RedisLoginRateLimiter,

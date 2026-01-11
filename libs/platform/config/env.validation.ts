@@ -87,6 +87,12 @@ class EnvVars {
   @Min(1)
   AUTH_REFRESH_TOKEN_TTL_SECONDS: number = 60 * 60 * 24 * 30;
 
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 60 * 60 * 24))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: number = 60 * 60 * 24;
+
   @Transform(({ value }) => (value !== undefined ? Number(value) : 10))
   @IsOptional()
   @IsInt()

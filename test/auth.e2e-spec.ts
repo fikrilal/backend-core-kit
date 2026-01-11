@@ -3,6 +3,12 @@ import request from 'supertest';
 import { createApiApp } from '../apps/api/src/bootstrap';
 import { PrismaClient, UserRole } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { Queue } from 'bullmq';
+import {
+  AUTH_SEND_VERIFICATION_EMAIL_JOB,
+  EMAIL_QUEUE,
+  type AuthSendVerificationEmailJobData,
+} from '../libs/features/auth/infra/jobs/auth-email-verification.job';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
@@ -24,6 +30,9 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
         'REDIS_URL is required for Auth (e2e) tests (set DATABASE_URL/REDIS_URL or set SKIP_DEPS_TESTS=true to skip)',
       );
     }
+
+    process.env.RESEND_API_KEY ??= 're_test_dummy';
+    process.env.EMAIL_FROM ??= 'no-reply@example.com';
 
     const adapter = new PrismaPg({ connectionString: databaseUrl });
     prisma = new PrismaClient({ adapter });
@@ -91,6 +100,36 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 
     expect(afterLogout.headers['content-type']).toContain('application/problem+json');
     expect(afterLogout.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });
+  });
+
+  it('register enqueues auth.sendVerificationEmail job when email is configured', async () => {
+    const emailQueue = new Queue<AuthSendVerificationEmailJobData>(EMAIL_QUEUE, {
+      connection: { url: redisUrl },
+    });
+
+    try {
+      const email = `verify-email+${Date.now()}@example.com`;
+      const password = 'correct-horse-battery-staple';
+
+      const registerRes = await request(baseUrl)
+        .post('/v1/auth/password/register')
+        .send({ email, password })
+        .expect(200);
+
+      const reg = registerRes.body.data as {
+        user: { id: string };
+      };
+
+      const jobs = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
+      const jobForUser = jobs.find(
+        (job) => job.name === AUTH_SEND_VERIFICATION_EMAIL_JOB && job.data.userId === reg.user.id,
+      );
+
+      expect(jobForUser).toBeDefined();
+    } finally {
+      await emailQueue.drain(true);
+      await emailQueue.close();
+    }
   });
 
   it('POST /v1/auth/password/change requires an access token', async () => {

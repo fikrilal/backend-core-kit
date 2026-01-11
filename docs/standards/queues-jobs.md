@@ -29,6 +29,7 @@ Implementation (current):
 Jobs must include a clear name:
 
 - `user.sendVerificationEmail`
+- `auth.sendVerificationEmail`
 - `wallet.processTransfer`
 
 Implementation (current):
