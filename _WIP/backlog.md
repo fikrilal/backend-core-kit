@@ -6,6 +6,7 @@ This is a WIP tracker for near-term backlog items that improve production readin
 
 - Endpoint: `GET /v1/admin/audit/user-account-deletions`
 - Data source: `UserAccountDeletionAudit`
+- Design: `_WIP/admin-audit-user-account-deletions.md`
 - Capabilities:
   - Cursor pagination (consistent with existing list-query patterns)
   - Filters: `actorUserId`, `targetUserId`, `action`, `traceId`, `since`, `until`

@@ -12,6 +12,7 @@ const ROLE_PERMISSIONS: Readonly<Record<string, ReadonlyArray<Permission>>> = Ob
     'users:role:write',
     'users:status:write',
     'audit:user-role-changes:read',
+    'audit:user-account-deletions:read',
   ],
 });
 

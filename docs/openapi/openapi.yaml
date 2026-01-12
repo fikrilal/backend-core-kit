@@ -831,11 +831,101 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserRoleChangeAuditsListEnvelopeDto"
-      security:
+      security: &a7
         - access-token: []
       summary: List user role changes
-      tags:
+      tags: &a8
         - Admin
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - INTERNAL
+  /v1/admin/audit/user-account-deletions:
+    get:
+      description: Lists account deletion audit events (request/cancel/finalization).
+        ID-only; filter by traceId to locate the originating request/job.
+      operationId: admin.audit.userAccountDeletions.list
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          description: Max results to return (default 25, max 250).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+            default: 25
+        - name: cursor
+          required: false
+          in: query
+          description: Opaque cursor from the previous response meta.nextCursor.
+          schema:
+            type: string
+        - name: sort
+          required: false
+          in: query
+          description: 'Comma-separated fields; prefix "-" for descending. Max 3 fields.
+            Default: "-createdAt". Allowed: createdAt, id'
+          schema:
+            type: string
+            example: -createdAt
+        - name: filter[action]
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - REQUESTED
+              - CANCELED
+              - FINALIZED
+              - FINALIZE_BLOCKED_LAST_ADMIN
+        - name: filter[action][in]
+          required: false
+          in: query
+          description: Comma-separated list (no repeated params).
+          schema:
+            type: string
+            example: A,B,C
+        - name: filter[actorUserId]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: filter[createdAt][gte]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: filter[createdAt][lte]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: filter[targetUserId]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: filter[traceId]
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserAccountDeletionAuditsListEnvelopeDto"
+      security: *a7
+      summary: List user account deletion events
+      tags: *a8
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -904,7 +994,7 @@ components:
             refresh responses.
           items:
             type: string
-            enum: &a8
+            enum: &a10
               - PASSWORD
               - GOOGLE
       required:
@@ -938,7 +1028,7 @@ components:
       properties:
         provider:
           type: string
-          enum: &a7
+          enum: &a9
             - GOOGLE
           example: GOOGLE
         idToken:
@@ -958,7 +1048,7 @@ components:
       properties:
         provider:
           type: string
-          enum: *a7
+          enum: *a9
           example: GOOGLE
         idToken:
           type: string
@@ -1164,7 +1254,7 @@ components:
           description: Linked authentication methods on this account.
           items:
             type: string
-            enum: *a8
+            enum: *a10
         profile:
           $ref: "#/components/schemas/MeProfileDto"
         accountDeletion:
@@ -1354,13 +1444,13 @@ components:
           example: 9d8c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
         oldRole:
           type: string
-          enum: &a9
+          enum: &a11
             - USER
             - ADMIN
           example: USER
         newRole:
           type: string
-          enum: *a9
+          enum: *a11
           example: ADMIN
         traceId:
           type: string
@@ -1386,6 +1476,57 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminUserRoleChangeAuditDto"
+        meta:
+          $ref: "#/components/schemas/CursorPaginationMetaDto"
+      required:
+        - data
+        - meta
+    AdminUserAccountDeletionAuditDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        actorUserId:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        actorSessionId:
+          type: string
+          example: c1b6c1f7-5b2f-4e53-b33b-5af7f63a8c40
+        targetUserId:
+          type: string
+          example: 9d8c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        action:
+          type: string
+          enum:
+            - REQUESTED
+            - CANCELED
+            - FINALIZED
+            - FINALIZE_BLOCKED_LAST_ADMIN
+          example: REQUESTED
+        traceId:
+          type: string
+          example: 66b3b91d-7b52-4a4d-a71d-f2ea8db4a99c
+          description: Equals X-Request-Id from the originating request/job.
+        createdAt:
+          type: string
+          example: 2026-01-10T12:34:56.789Z
+          format: date-time
+      required:
+        - id
+        - actorUserId
+        - actorSessionId
+        - targetUserId
+        - action
+        - traceId
+        - createdAt
+    AdminUserAccountDeletionAuditsListEnvelopeDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUserAccountDeletionAuditDto"
         meta:
           $ref: "#/components/schemas/CursorPaginationMetaDto"
       required:
