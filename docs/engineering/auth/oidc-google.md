@@ -96,6 +96,10 @@ Google login uses `ExternalIdentity`:
 
 - unique per `(provider, subject)` (the IdP subject is the stable key)
 - unique per `(userId, provider)` (at most one Google identity per user)
+- `email` is an optional snapshot of the provider `email` claim at link time (PII):
+  - it is **not** used for authentication/authorization decisions (canonical email is `User.email`)
+  - it is **not** automatically synced if the user changes their email at the IdP
+  - it exists for operational debugging/support and can be dropped in stricter data-minimization environments
 
 ## Configuration
 

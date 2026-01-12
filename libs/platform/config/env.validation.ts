@@ -33,6 +33,15 @@ class EnvVars {
   @IsEnum(NodeEnv)
   NODE_ENV: NodeEnv = NodeEnv.Development;
 
+  // HTTP / proxies
+  // When true, Fastify will trust `X-Forwarded-*` headers and `req.ip` will reflect the client IP
+  // behind a reverse proxy/load balancer. Only enable when traffic is guaranteed to come through
+  // trusted proxies (otherwise clients can spoof these headers).
+  @Transform(({ value }) => parseEnvBoolean(value))
+  @IsOptional()
+  @IsBoolean()
+  HTTP_TRUST_PROXY?: boolean;
+
   @IsOptional()
   @IsString()
   HOST?: string;
@@ -257,6 +266,7 @@ function requireInProductionLike(env: EnvVars) {
   if (!productionLike) return;
 
   const missing: string[] = [];
+  if (env.HTTP_TRUST_PROXY === undefined) missing.push('HTTP_TRUST_PROXY');
   if (!env.DATABASE_URL) missing.push('DATABASE_URL');
   if (!env.REDIS_URL) missing.push('REDIS_URL');
   if (!env.AUTH_ISSUER) missing.push('AUTH_ISSUER');
