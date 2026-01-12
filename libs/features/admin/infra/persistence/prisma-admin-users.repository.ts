@@ -302,12 +302,22 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
 
             if (!found) return { kind: 'not_found' };
 
+            if (found.status === PrismaUserStatus.DELETED) {
+              return { kind: 'not_found' };
+            }
+
             if (found.role === nextRole) {
               return { kind: 'ok', user: toListItem(found) };
             }
 
-            if (found.role === PrismaUserRole.ADMIN && nextRole !== PrismaUserRole.ADMIN) {
-              const adminCount = await tx.user.count({ where: { role: PrismaUserRole.ADMIN } });
+            if (
+              found.role === PrismaUserRole.ADMIN &&
+              found.status === PrismaUserStatus.ACTIVE &&
+              nextRole !== PrismaUserRole.ADMIN
+            ) {
+              const adminCount = await tx.user.count({
+                where: { role: PrismaUserRole.ADMIN, status: PrismaUserStatus.ACTIVE },
+              });
               if (adminCount <= 1) return { kind: 'last_admin' };
             }
 
@@ -377,6 +387,10 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
             });
 
             if (!found) return { kind: 'not_found' };
+
+            if (found.status === PrismaUserStatus.DELETED) {
+              return { kind: 'not_found' };
+            }
 
             if (found.status === nextStatus) {
               return { kind: 'ok', user: toListItem(found) };

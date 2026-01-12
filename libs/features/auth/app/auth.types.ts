@@ -3,7 +3,7 @@ import type { AuthMethod } from '../../../shared/auth/auth-method';
 
 export type AuthRole = 'USER' | 'ADMIN';
 
-export type AuthUserStatus = 'ACTIVE' | 'SUSPENDED';
+export type AuthUserStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED';
 
 export type AuthUserRecord = Readonly<{
   id: string;

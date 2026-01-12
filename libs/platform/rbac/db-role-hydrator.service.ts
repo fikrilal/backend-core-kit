@@ -31,6 +31,10 @@ export class DbRoleHydrator {
         });
       }
 
+      if (user.status === 'DELETED') {
+        throw ProblemException.unauthorized();
+      }
+
       return { ...principal, roles: [user.role] };
     } catch (err: unknown) {
       if (err instanceof ProblemException) throw err;

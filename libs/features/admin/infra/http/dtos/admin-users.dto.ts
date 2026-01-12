@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
-const ADMIN_USER_STATUS_VALUES = ['ACTIVE', 'SUSPENDED'] as const;
+const ADMIN_USER_STATUS_VALUES = ['ACTIVE', 'SUSPENDED', 'DELETED'] as const;
 
 export class AdminUserDto {
   @ApiProperty({ example: '3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0' })
