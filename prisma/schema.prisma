@@ -98,9 +98,15 @@ model Session {
 
   deviceId   String?
   deviceName String?
+  // Best-effort client metadata; treat as PII.
+  ip        String? @db.Inet
+  userAgent String? @db.VarChar(512)
   // Enforces "one active session per (userId, deviceId)" when deviceId is provided.
   // Revoked sessions must clear this field.
   activeKey String? @unique
+
+  // Updated on successful refresh; used for sessions UI and incident response.
+  lastSeenAt DateTime @default(now())
 
   expiresAt DateTime
   revokedAt DateTime?

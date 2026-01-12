@@ -12,6 +12,9 @@ export type SessionView = Readonly<{
   id: string;
   deviceId: string | null;
   deviceName: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  lastSeenAt: string;
   createdAt: string;
   expiresAt: string;
   revokedAt: string | null;
@@ -55,6 +58,9 @@ export class AuthSessionsService {
       id: s.id,
       deviceId: s.deviceId,
       deviceName: s.deviceName,
+      ip: s.ip,
+      userAgent: s.userAgent,
+      lastSeenAt: s.lastSeenAt.toISOString(),
       createdAt: s.createdAt.toISOString(),
       expiresAt: s.expiresAt.toISOString(),
       revokedAt: s.revokedAt ? s.revokedAt.toISOString() : null,

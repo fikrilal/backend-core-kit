@@ -41,6 +41,7 @@ export class AuthService {
     deviceId?: string;
     deviceName?: string;
     ip?: string;
+    userAgent?: string;
   }): Promise<AuthResult> {
     const email = normalizeEmail(input.email);
     this.assertPasswordPolicy(input.password);
@@ -67,6 +68,8 @@ export class AuthService {
     const { sessionId, refreshToken } = await this.createSessionAndTokens(user.id, {
       deviceId: input.deviceId,
       deviceName: input.deviceName,
+      ip: input.ip,
+      userAgent: input.userAgent,
       sessionExpiresAt,
       now,
     });
@@ -88,6 +91,7 @@ export class AuthService {
     deviceId?: string;
     deviceName?: string;
     ip?: string;
+    userAgent?: string;
   }): Promise<AuthResult> {
     const email = normalizeEmail(input.email);
     const now = this.clock.now();
@@ -122,6 +126,8 @@ export class AuthService {
     const { sessionId, refreshToken } = await this.createSessionAndTokens(found.user.id, {
       deviceId: input.deviceId,
       deviceName: input.deviceName,
+      ip: input.ip,
+      userAgent: input.userAgent,
       sessionExpiresAt,
       now,
     });
@@ -144,6 +150,7 @@ export class AuthService {
     deviceId?: string;
     deviceName?: string;
     ip?: string;
+    userAgent?: string;
   }): Promise<AuthResult> {
     const verified = await this.oidcVerifier.verifyIdToken({
       provider: input.provider,
@@ -250,6 +257,8 @@ export class AuthService {
     const { sessionId, refreshToken } = await this.createSessionAndTokens(user.id, {
       deviceId: input.deviceId,
       deviceName: input.deviceName,
+      ip: input.ip,
+      userAgent: input.userAgent,
       sessionExpiresAt,
       now,
     });
@@ -407,7 +416,11 @@ export class AuthService {
     throw new Error('Unexpected changePassword result');
   }
 
-  async refresh(input: { refreshToken: string }): Promise<AuthResult> {
+  async refresh(input: {
+    refreshToken: string;
+    ip?: string;
+    userAgent?: string;
+  }): Promise<AuthResult> {
     const now = this.clock.now();
     const currentHash = hashRefreshToken(input.refreshToken);
 
@@ -470,7 +483,10 @@ export class AuthService {
     const nextRefreshToken = generateRefreshToken();
     const nextHash = hashRefreshToken(nextRefreshToken);
 
-    const rotation = await this.repo.rotateRefreshToken(currentHash, nextHash, now);
+    const rotation = await this.repo.rotateRefreshToken(currentHash, nextHash, now, {
+      ip: input.ip,
+      userAgent: input.userAgent,
+    });
     if (rotation.kind === 'not_found') {
       throw new AuthError({
         status: 401,
@@ -618,6 +634,8 @@ export class AuthService {
     input: {
       deviceId?: string;
       deviceName?: string;
+      ip?: string;
+      userAgent?: string;
       sessionExpiresAt: Date;
       now: Date;
     },
@@ -634,6 +652,9 @@ export class AuthService {
       userId,
       deviceId: input.deviceId,
       deviceName: input.deviceName,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      lastSeenAt: input.now,
       sessionExpiresAt: input.sessionExpiresAt,
       activeKey,
     });

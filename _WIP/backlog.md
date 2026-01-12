@@ -17,15 +17,22 @@ This is a WIP tracker for near-term backlog items that improve production readin
 
 ## 2) Session metadata hardening (security + UX)
 
+Why this matters (production):
+
+- Security: lets users spot suspicious sessions (“new device”, “unknown IP/UA”), and supports incident response (“which session was active when?”).
+- UX: better sessions UI (device name + last active), and safer “revoke other sessions” flows without guessing.
+- Ops: reduces support time when debugging auth complaints by correlating sessions to client context.
+
 - Schema (Session):
   - Add: `ip`, `userAgent`, `lastSeenAt`
 - Runtime:
   - Set `ip/userAgent` on session creation (login/register)
-  - Update `lastSeenAt` on refresh (and/or on authenticated requests)
+  - Update `lastSeenAt` on refresh (preferred) or throttled per-request (avoid DB hot writes)
 - API:
   - Extend `GET /v1/me/sessions` to return these fields (still lists active + revoked + expired)
 - Notes:
-  - Treat IP/user-agent as PII; minimize logging and avoid exposing more than needed
+  - Treat IP/user-agent as PII; minimize logging and only expose to the account owner/admin.
+  - IP correctness depends on `HTTP_TRUST_PROXY` when running behind a load balancer.
 
 ## 3) Worker trace propagation (HTTP → enqueue → worker)
 

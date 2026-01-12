@@ -8,8 +8,16 @@ export type CreateSessionInput = Readonly<{
   userId: string;
   deviceId?: string;
   deviceName?: string;
+  ip?: string;
+  userAgent?: string;
+  lastSeenAt: Date;
   sessionExpiresAt: Date;
   activeKey?: string;
+}>;
+
+export type SessionSeenMetadata = Readonly<{
+  ip?: string;
+  userAgent?: string;
 }>;
 
 export type SessionRecord = Readonly<{
@@ -43,6 +51,9 @@ export type UserSessionListItem = Readonly<{
   id: string;
   deviceId: string | null;
   deviceName: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  lastSeenAt: Date;
   createdAt: Date;
   expiresAt: Date;
   revokedAt: Date | null;
@@ -164,6 +175,7 @@ export interface AuthRepository {
     tokenHash: string,
     newTokenHash: string,
     now: Date,
+    session?: SessionSeenMetadata,
   ): Promise<RefreshRotationResult>;
 
   revokeSessionByRefreshTokenHash(tokenHash: string, now: Date): Promise<boolean>;

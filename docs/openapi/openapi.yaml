@@ -1144,6 +1144,20 @@ components:
           type: string
           example: iPhone 15
           nullable: true
+        ip:
+          type: string
+          example: 203.0.113.10
+          nullable: true
+        userAgent:
+          type: string
+          example: Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)
+            AppleWebKit/605.1.15
+          nullable: true
+          maxLength: 512
+        lastSeenAt:
+          type: string
+          example: 2026-01-10T12:34:56.789Z
+          format: date-time
         createdAt:
           type: string
           example: 2026-01-10T12:34:56.789Z
@@ -1169,6 +1183,7 @@ components:
           example: active
       required:
         - id
+        - lastSeenAt
         - createdAt
         - expiresAt
         - current
