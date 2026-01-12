@@ -58,6 +58,18 @@ When finalizing, the worker:
   - Deletes sessions (and cascades refresh tokens)
 - Clears profile name fields
 
+## Email notifications
+
+When email is configured (`RESEND_API_KEY` + `EMAIL_FROM`), the API schedules two emails on the `emails` queue:
+
+1. **Deletion requested** — sent immediately when the deletion is first requested.
+2. **Reminder** — sent ~24 hours before `deletionScheduledFor`.
+
+Notes:
+
+- These emails are **best-effort**. Failures to enqueue should not block the API response.
+- The email worker loads the user from the database at send-time and skips if deletion is canceled or already finalized.
+
 ## Email reuse (important invariant)
 
 Email reuse is safe **only if** feature data ownership is keyed by `userId` (never by email).

@@ -23,6 +23,12 @@ import {
   generatePasswordResetToken,
   hashPasswordResetToken,
 } from '../../../../libs/features/auth/app/password-reset-token';
+import {
+  USERS_SEND_ACCOUNT_DELETION_REMINDER_EMAIL_JOB,
+  USERS_SEND_ACCOUNT_DELETION_REQUESTED_EMAIL_JOB,
+  type UsersSendAccountDeletionReminderEmailJobData,
+  type UsersSendAccountDeletionRequestedEmailJobData,
+} from '../../../../libs/features/users/infra/jobs/user-account-deletion-email.job';
 
 type AuthSendVerificationEmailJobResult = Readonly<{
   ok: true;
@@ -31,6 +37,26 @@ type AuthSendVerificationEmailJobResult = Readonly<{
   reason?: 'user_not_found' | 'already_verified';
   emailId?: string;
   tokenExpiresAt?: string;
+}> &
+  JsonObject;
+
+type UsersSendAccountDeletionRequestedEmailJobResult = Readonly<{
+  ok: true;
+  userId: string;
+  outcome: 'sent' | 'skipped';
+  reason?: 'user_not_found' | 'not_scheduled' | 'already_deleted';
+  emailId?: string;
+  scheduledFor?: string;
+}> &
+  JsonObject;
+
+type UsersSendAccountDeletionReminderEmailJobResult = Readonly<{
+  ok: true;
+  userId: string;
+  outcome: 'sent' | 'skipped';
+  reason?: 'user_not_found' | 'not_scheduled' | 'already_deleted' | 'too_late';
+  emailId?: string;
+  scheduledFor?: string;
 }> &
   JsonObject;
 
@@ -45,9 +71,17 @@ type AuthSendPasswordResetEmailJobResult = Readonly<{
 }> &
   JsonObject;
 
-type AuthEmailsJobData = AuthSendVerificationEmailJobData | AuthSendPasswordResetEmailJobData;
+type AuthEmailsJobData =
+  | AuthSendVerificationEmailJobData
+  | AuthSendPasswordResetEmailJobData
+  | UsersSendAccountDeletionRequestedEmailJobData
+  | UsersSendAccountDeletionReminderEmailJobData;
 
-type AuthEmailsJobResult = AuthSendVerificationEmailJobResult | AuthSendPasswordResetEmailJobResult;
+type AuthEmailsJobResult =
+  | AuthSendVerificationEmailJobResult
+  | AuthSendPasswordResetEmailJobResult
+  | UsersSendAccountDeletionRequestedEmailJobResult
+  | UsersSendAccountDeletionReminderEmailJobResult;
 
 function asNonEmptyString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
@@ -87,6 +121,14 @@ export class AuthEmailsWorker implements OnModuleInit {
 
     if (job.name === AUTH_SEND_PASSWORD_RESET_EMAIL_JOB) {
       return await this.processPasswordResetEmail(job.data.userId);
+    }
+
+    if (job.name === USERS_SEND_ACCOUNT_DELETION_REQUESTED_EMAIL_JOB) {
+      return await this.processAccountDeletionRequestedEmail(job.data.userId);
+    }
+
+    if (job.name === USERS_SEND_ACCOUNT_DELETION_REMINDER_EMAIL_JOB) {
+      return await this.processAccountDeletionReminderEmail(job.data.userId);
     }
 
     throw new Error(`Unknown job name "${job.name}" on queue "${EMAIL_QUEUE}"`);
@@ -209,6 +251,120 @@ export class AuthEmailsWorker implements OnModuleInit {
       emailId: sent.id,
       tokenExpiresAt: expiresAt.toISOString(),
       resetLink: resetUrl.toString(),
+    };
+  }
+
+  private async processAccountDeletionRequestedEmail(
+    userId: string,
+  ): Promise<UsersSendAccountDeletionRequestedEmailJobResult> {
+    const client = this.prisma.getClient();
+    const user = await client.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, status: true, deletionScheduledFor: true },
+    });
+
+    if (!user) {
+      this.logger.warn({ userId }, 'Account deletion requested email skipped: user not found');
+      return { ok: true, userId, outcome: 'skipped', reason: 'user_not_found' };
+    }
+
+    if (user.status === 'DELETED') {
+      return { ok: true, userId: user.id, outcome: 'skipped', reason: 'already_deleted' };
+    }
+
+    if (!user.deletionScheduledFor) {
+      return { ok: true, userId: user.id, outcome: 'skipped', reason: 'not_scheduled' };
+    }
+
+    const scheduledFor = user.deletionScheduledFor.toISOString();
+
+    const publicAppUrl = asNonEmptyString(this.config.get<string>('PUBLIC_APP_URL'));
+    const link = publicAppUrl ? new URL('/', publicAppUrl).toString() : undefined;
+
+    const text = [
+      'Account deletion requested',
+      '',
+      `Your account is scheduled to be deleted on ${scheduledFor}.`,
+      'You can cancel before that time from within the app.',
+      '',
+      'If you did not request this, cancel the deletion request immediately and contact support.',
+      ...(link ? ['', `Open the app: ${link}`] : []),
+    ].join('\n');
+
+    const sent = await this.email.send({
+      to: user.email,
+      subject: 'Account deletion requested',
+      text,
+    });
+
+    this.logger.info(
+      { userId: user.id, emailId: sent.id },
+      'Sent account deletion requested email',
+    );
+
+    return {
+      ok: true,
+      userId: user.id,
+      outcome: 'sent',
+      emailId: sent.id,
+      scheduledFor,
+    };
+  }
+
+  private async processAccountDeletionReminderEmail(
+    userId: string,
+  ): Promise<UsersSendAccountDeletionReminderEmailJobResult> {
+    const now = new Date();
+    const client = this.prisma.getClient();
+    const user = await client.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, status: true, deletionScheduledFor: true },
+    });
+
+    if (!user) {
+      this.logger.warn({ userId }, 'Account deletion reminder email skipped: user not found');
+      return { ok: true, userId, outcome: 'skipped', reason: 'user_not_found' };
+    }
+
+    if (user.status === 'DELETED') {
+      return { ok: true, userId: user.id, outcome: 'skipped', reason: 'already_deleted' };
+    }
+
+    if (!user.deletionScheduledFor) {
+      return { ok: true, userId: user.id, outcome: 'skipped', reason: 'not_scheduled' };
+    }
+
+    if (user.deletionScheduledFor.getTime() <= now.getTime()) {
+      return { ok: true, userId: user.id, outcome: 'skipped', reason: 'too_late' };
+    }
+
+    const scheduledFor = user.deletionScheduledFor.toISOString();
+
+    const publicAppUrl = asNonEmptyString(this.config.get<string>('PUBLIC_APP_URL'));
+    const link = publicAppUrl ? new URL('/', publicAppUrl).toString() : undefined;
+
+    const text = [
+      'Account deletion reminder',
+      '',
+      `Your account is scheduled to be deleted on ${scheduledFor}.`,
+      'If you want to keep your account, cancel the deletion request before that time.',
+      ...(link ? ['', `Open the app: ${link}`] : []),
+    ].join('\n');
+
+    const sent = await this.email.send({
+      to: user.email,
+      subject: 'Account deletion reminder',
+      text,
+    });
+
+    this.logger.info({ userId: user.id, emailId: sent.id }, 'Sent account deletion reminder email');
+
+    return {
+      ok: true,
+      userId: user.id,
+      outcome: 'sent',
+      emailId: sent.id,
+      scheduledFor,
     };
   }
 }

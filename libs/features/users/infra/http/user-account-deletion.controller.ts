@@ -1,6 +1,7 @@
 import { Controller, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { FastifyRequest } from 'fastify';
+import { PinoLogger } from 'nestjs-pino';
 import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
@@ -12,11 +13,18 @@ import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes
 import { UsersErrorCode } from '../../app/users.error-codes';
 import { UserNotFoundError, UsersError } from '../../app/users.errors';
 import { UsersService } from '../../app/users.service';
+import { UserAccountDeletionEmailJobs } from '../jobs/user-account-deletion-email.jobs';
 
 @ApiTags('Users')
 @Controller()
 export class UserAccountDeletionController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly emails: UserAccountDeletionEmailJobs,
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(UserAccountDeletionController.name);
+  }
 
   @Post('me/account-deletion/request')
   @UseGuards(AccessTokenGuard)
@@ -43,11 +51,32 @@ export class UserAccountDeletionController {
     @Req() req: FastifyRequest,
   ): Promise<void> {
     try {
-      await this.users.requestAccountDeletion({
+      const result = await this.users.requestAccountDeletion({
         userId: principal.userId,
         sessionId: principal.sessionId,
         traceId: req.requestId ?? 'unknown',
       });
+
+      // Notifications are best-effort and must not affect the API result.
+      if (result.newlyRequested) {
+        try {
+          await this.emails.enqueueDeletionRequestedEmail(principal.userId, result.scheduledFor);
+        } catch (err: unknown) {
+          this.logger.error(
+            { err, userId: principal.userId },
+            'Failed to enqueue account deletion requested email job',
+          );
+        }
+      }
+
+      try {
+        await this.emails.scheduleDeletionReminderEmail(principal.userId, result.scheduledFor);
+      } catch (err: unknown) {
+        this.logger.error(
+          { err, userId: principal.userId },
+          'Failed to schedule account deletion reminder email job',
+        );
+      }
     } catch (err: unknown) {
       throw this.mapUsersError(err);
     }
@@ -76,6 +105,16 @@ export class UserAccountDeletionController {
         sessionId: principal.sessionId,
         traceId: req.requestId ?? 'unknown',
       });
+
+      // Best-effort cleanup.
+      try {
+        await this.emails.cancelDeletionReminderEmail(principal.userId);
+      } catch (err: unknown) {
+        this.logger.error(
+          { err, userId: principal.userId },
+          'Failed to cancel account deletion reminder email job',
+        );
+      }
     } catch (err: unknown) {
       throw this.mapUsersError(err);
     }

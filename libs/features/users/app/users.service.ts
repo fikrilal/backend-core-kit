@@ -35,7 +35,7 @@ export class UsersService {
     userId: string;
     sessionId: string;
     traceId: string;
-  }): Promise<void> {
+  }): Promise<Readonly<{ scheduledFor: Date; newlyRequested: boolean }>> {
     const now = new Date();
     const scheduledFor = new Date(
       now.getTime() + ACCOUNT_DELETION_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000,
@@ -63,6 +63,8 @@ export class UsersService {
 
     const due = res.user.deletionScheduledFor ?? scheduledFor;
     await this.accountDeletion.scheduleFinalize(input.userId, due);
+
+    return { scheduledFor: due, newlyRequested: res.kind === 'ok' };
   }
 
   async cancelAccountDeletion(input: {

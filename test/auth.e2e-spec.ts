@@ -15,6 +15,12 @@ import {
   type AuthSendPasswordResetEmailJobData,
 } from '../libs/features/auth/infra/jobs/auth-password-reset.job';
 import {
+  USERS_SEND_ACCOUNT_DELETION_REMINDER_EMAIL_JOB,
+  USERS_SEND_ACCOUNT_DELETION_REQUESTED_EMAIL_JOB,
+  type UsersSendAccountDeletionReminderEmailJobData,
+  type UsersSendAccountDeletionRequestedEmailJobData,
+} from '../libs/features/users/infra/jobs/user-account-deletion-email.job';
+import {
   generateEmailVerificationToken,
   hashEmailVerificationToken,
 } from '../libs/features/auth/app/email-verification-token';
@@ -80,7 +86,12 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
   let app: Awaited<ReturnType<typeof createApiApp>>;
   let baseUrl: string;
   let prisma: PrismaClient;
-  let emailQueue: Queue<AuthSendVerificationEmailJobData | AuthSendPasswordResetEmailJobData>;
+  let emailQueue: Queue<
+    | AuthSendVerificationEmailJobData
+    | AuthSendPasswordResetEmailJobData
+    | UsersSendAccountDeletionRequestedEmailJobData
+    | UsersSendAccountDeletionReminderEmailJobData
+  >;
   let redis: Redis;
 
   beforeAll(async () => {
@@ -106,12 +117,12 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
     redis = new Redis(redisUrl);
     await redis.ping();
 
-    emailQueue = new Queue<AuthSendVerificationEmailJobData | AuthSendPasswordResetEmailJobData>(
-      EMAIL_QUEUE,
-      {
-        connection: { url: redisUrl },
-      },
-    );
+    emailQueue = new Queue<
+      | AuthSendVerificationEmailJobData
+      | AuthSendPasswordResetEmailJobData
+      | UsersSendAccountDeletionRequestedEmailJobData
+      | UsersSendAccountDeletionReminderEmailJobData
+    >(EMAIL_QUEUE, { connection: { url: redisUrl } });
     await emailQueue.drain(true);
 
     app = await createApiApp();
@@ -1449,6 +1460,25 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       .set('Authorization', `Bearer ${reg.accessToken}`)
       .expect(200);
 
+    const userId = meAfterRequest.body.data.id as string;
+
+    const emailJobsAfterRequest = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
+    const deletionRequestedEmail = emailJobsAfterRequest.find(
+      (job) =>
+        job.name === USERS_SEND_ACCOUNT_DELETION_REQUESTED_EMAIL_JOB &&
+        isObject(job.data) &&
+        job.data.userId === userId,
+    );
+    const deletionReminderEmail = emailJobsAfterRequest.find(
+      (job) =>
+        job.name === USERS_SEND_ACCOUNT_DELETION_REMINDER_EMAIL_JOB &&
+        isObject(job.data) &&
+        job.data.userId === userId,
+    );
+
+    expect(deletionRequestedEmail).toBeDefined();
+    expect(deletionReminderEmail).toBeDefined();
+
     expect(meAfterRequest.body.data.accountDeletion).toBeDefined();
     expect(meAfterRequest.body.data.accountDeletion).toMatchObject({
       requestedAt: expect.any(String),
@@ -1467,6 +1497,15 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       .post('/v1/me/account-deletion/cancel')
       .set('Authorization', `Bearer ${reg.accessToken}`)
       .expect(204);
+
+    const emailJobsAfterCancel = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
+    const reminderStillPresent = emailJobsAfterCancel.some(
+      (job) =>
+        job.name === USERS_SEND_ACCOUNT_DELETION_REMINDER_EMAIL_JOB &&
+        isObject(job.data) &&
+        job.data.userId === userId,
+    );
+    expect(reminderStillPresent).toBe(false);
 
     const meAfterCancel = await request(baseUrl)
       .get('/v1/me')
