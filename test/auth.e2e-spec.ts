@@ -1167,6 +1167,88 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
     expect(lastAdminAudit).toBeNull();
   });
 
+  it('GET /v1/admin/audit/user-role-changes requires an access token', async () => {
+    const res = await request(baseUrl).get('/v1/admin/audit/user-role-changes').expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
+  it('GET /v1/admin/audit/user-role-changes is forbidden for non-admin', async () => {
+    const email = `audit-user+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { accessToken: string };
+
+    const res = await request(baseUrl)
+      .get('/v1/admin/audit/user-role-changes')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(403);
+
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'FORBIDDEN', status: 403 });
+  });
+
+  it('GET /v1/admin/audit/user-role-changes supports filtering by traceId', async () => {
+    const runId = Date.now();
+    const password = 'correct-horse-battery-staple';
+
+    const adminRegisterRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email: `admin-audit+${runId}@example.com`, password })
+      .expect(200);
+
+    const adminReg = adminRegisterRes.body.data as {
+      user: { id: string };
+      accessToken: string;
+    };
+
+    const userRegisterRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email: `user-audit+${runId}@example.com`, password })
+      .expect(200);
+
+    const userReg = userRegisterRes.body.data as {
+      user: { id: string };
+    };
+
+    await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
+
+    const traceId = randomUUID();
+    await request(baseUrl)
+      .patch(`/v1/admin/users/${userReg.user.id}/role`)
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .set('X-Request-Id', traceId)
+      .send({ role: 'ADMIN' })
+      .expect(200);
+
+    const listRes = await request(baseUrl)
+      .get(`/v1/admin/audit/user-role-changes?filter[traceId][eq]=${encodeURIComponent(traceId)}`)
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .expect(200);
+
+    expect(Array.isArray(listRes.body.data)).toBe(true);
+    expect(listRes.body.data).toHaveLength(1);
+    expect(listRes.body.meta).toMatchObject({ limit: 25, hasMore: false });
+    expect(listRes.body.meta.nextCursor).toBeUndefined();
+
+    const item = (listRes.body.data as Array<Record<string, unknown>>)[0];
+    expect(item).toMatchObject({
+      actorUserId: adminReg.user.id,
+      actorSessionId: getSessionIdFromAccessToken(adminReg.accessToken),
+      targetUserId: userReg.user.id,
+      oldRole: 'USER',
+      newRole: 'ADMIN',
+      traceId,
+    });
+    expect(typeof item.id).toBe('string');
+    expect(typeof item.createdAt).toBe('string');
+  });
+
   it('duplicate register returns AUTH_EMAIL_ALREADY_EXISTS', async () => {
     const email = `dupe+${Date.now()}@example.com`;
     const password = 'correct-horse-battery-staple';

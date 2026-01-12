@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
 import type {
   OidcIdTokenVerifier,
   OidcProvider,
@@ -8,7 +7,45 @@ import type {
 } from '../../app/ports/oidc-id-token-verifier';
 
 const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'] as const;
-const GOOGLE_JWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
+
+type JoseRemoteJwks = unknown;
+type JoseModule = Readonly<{
+  jwtVerify: (
+    jwt: string,
+    key: JoseRemoteJwks,
+    options: Readonly<{ issuer: ReadonlyArray<string>; audience: ReadonlyArray<string> }>,
+  ) => Promise<Readonly<{ payload: Record<string, unknown> }>>;
+  createRemoteJWKSet: (url: URL) => JoseRemoteJwks;
+}>;
+
+const importModule = new Function('specifier', 'return import(specifier)') as (
+  specifier: string,
+) => Promise<unknown>;
+
+let josePromise: Promise<JoseModule> | undefined;
+let googleJwks: JoseRemoteJwks | undefined;
+
+async function loadJose(): Promise<JoseModule> {
+  if (!josePromise) {
+    josePromise = importModule('jose').then((mod) => {
+      if (!mod || typeof mod !== 'object') {
+        throw new Error('Failed to load jose');
+      }
+
+      const record = mod as Record<string, unknown>;
+      if (
+        typeof record.jwtVerify !== 'function' ||
+        typeof record.createRemoteJWKSet !== 'function'
+      ) {
+        throw new Error('Invalid jose module');
+      }
+
+      return mod as JoseModule;
+    });
+  }
+
+  return josePromise;
+}
 
 function parseClientIds(raw: string | undefined): string[] {
   if (typeof raw !== 'string') return [];
@@ -45,7 +82,17 @@ export class GoogleOidcIdTokenVerifier implements OidcIdTokenVerifier {
     if (this.clientIds.length === 0) return { kind: 'not_configured' };
 
     try {
-      const { payload } = await jwtVerify(input.idToken, GOOGLE_JWKS, {
+      const jose = await loadJose();
+      const jwks =
+        googleJwks ??
+        (() => {
+          googleJwks = jose.createRemoteJWKSet(
+            new URL('https://www.googleapis.com/oauth2/v3/certs'),
+          );
+          return googleJwks;
+        })();
+
+      const { payload } = await jose.jwtVerify(input.idToken, jwks, {
         issuer: [...GOOGLE_ISSUERS],
         audience: this.clientIds,
       });

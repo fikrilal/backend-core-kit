@@ -634,6 +634,111 @@ paths:
         - CONFLICT
         - ADMIN_CANNOT_DEMOTE_LAST_ADMIN
         - INTERNAL
+  /v1/admin/audit/user-role-changes:
+    get:
+      description: Lists role change audit events. Filter by traceId to locate the
+        exact change request.
+      operationId: admin.audit.userRoleChanges.list
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          description: Max results to return (default 25, max 250).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+            default: 25
+        - name: cursor
+          required: false
+          in: query
+          description: Opaque cursor from the previous response meta.nextCursor.
+          schema:
+            type: string
+        - name: sort
+          required: false
+          in: query
+          description: 'Comma-separated fields; prefix "-" for descending. Max 3 fields.
+            Default: "-createdAt". Allowed: createdAt, id'
+          schema:
+            type: string
+            example: -createdAt
+        - name: filter[actorUserId]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: filter[createdAt][gte]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: filter[createdAt][lte]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: filter[newRole]
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - USER
+              - ADMIN
+        - name: filter[newRole][in]
+          required: false
+          in: query
+          description: Comma-separated list (no repeated params).
+          schema:
+            type: string
+            example: A,B,C
+        - name: filter[oldRole]
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - USER
+              - ADMIN
+        - name: filter[oldRole][in]
+          required: false
+          in: query
+          description: Comma-separated list (no repeated params).
+          schema:
+            type: string
+            example: A,B,C
+        - name: filter[targetUserId]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: filter[traceId]
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserRoleChangeAuditsListEnvelopeDto"
+      security:
+        - access-token: []
+      summary: List user role changes
+      tags:
+        - Admin
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - INTERNAL
 info:
   title: Backend Core Kit API
   description: Generated API contract (code-first).
@@ -1076,3 +1181,57 @@ components:
           $ref: "#/components/schemas/AdminUserDto"
       required:
         - data
+    AdminUserRoleChangeAuditDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        actorUserId:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        actorSessionId:
+          type: string
+          example: c1b6c1f7-5b2f-4e53-b33b-5af7f63a8c40
+        targetUserId:
+          type: string
+          example: 9d8c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        oldRole:
+          type: string
+          enum: &a8
+            - USER
+            - ADMIN
+          example: USER
+        newRole:
+          type: string
+          enum: *a8
+          example: ADMIN
+        traceId:
+          type: string
+          example: 66b3b91d-7b52-4a4d-a71d-f2ea8db4a99c
+          description: Equals X-Request-Id from the role change request.
+        createdAt:
+          type: string
+          example: 2026-01-10T12:34:56.789Z
+          format: date-time
+      required:
+        - id
+        - actorUserId
+        - actorSessionId
+        - targetUserId
+        - oldRole
+        - newRole
+        - traceId
+        - createdAt
+    AdminUserRoleChangeAuditsListEnvelopeDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUserRoleChangeAuditDto"
+        meta:
+          $ref: "#/components/schemas/CursorPaginationMetaDto"
+      required:
+        - data
+        - meta
