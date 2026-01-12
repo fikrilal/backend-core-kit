@@ -72,6 +72,74 @@ paths:
         - VALIDATION_FAILED
         - AUTH_EMAIL_ALREADY_EXISTS
         - INTERNAL
+  /v1/auth/oidc/exchange:
+    post:
+      description: Verifies an OIDC id_token (e.g., Google) and issues first-party
+        access + refresh tokens. Does not auto-link to an existing password
+        account purely by email.
+      operationId: auth.oidc.exchange
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OidcExchangeRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResultEnvelopeDto"
+      summary: Exchange OIDC id_token
+      tags: *a1
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_OIDC_NOT_CONFIGURED
+        - AUTH_OIDC_TOKEN_INVALID
+        - AUTH_OIDC_EMAIL_NOT_VERIFIED
+        - AUTH_OIDC_LINK_REQUIRED
+        - INTERNAL
+  /v1/auth/oidc/connect:
+    post:
+      description: Links an OIDC identity (e.g., Google) to the authenticated user. If
+        the OIDC email matches the user email, the user email is marked
+        verified.
+      operationId: auth.oidc.connect
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: "Idempotency key for safe retries of write requests. Replays return
+            `Idempotency-Replayed: true`."
+          required: false
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OidcConnectRequestDto"
+      responses:
+        "204":
+          description: ""
+      security:
+        - access-token: []
+      summary: Connect OIDC identity (current user)
+      tags: *a1
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - IDEMPOTENCY_IN_PROGRESS
+        - CONFLICT
+        - AUTH_OIDC_NOT_CONFIGURED
+        - AUTH_OIDC_TOKEN_INVALID
+        - AUTH_OIDC_EMAIL_NOT_VERIFIED
+        - AUTH_OIDC_IDENTITY_ALREADY_LINKED
+        - AUTH_OIDC_PROVIDER_ALREADY_LINKED
+        - INTERNAL
   /v1/auth/email/verify:
     post:
       description: Verifies a user email using a token sent via email.
@@ -566,6 +634,111 @@ paths:
         - CONFLICT
         - ADMIN_CANNOT_DEMOTE_LAST_ADMIN
         - INTERNAL
+  /v1/admin/audit/user-role-changes:
+    get:
+      description: Lists role change audit events. Filter by traceId to locate the
+        exact change request.
+      operationId: admin.audit.userRoleChanges.list
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          description: Max results to return (default 25, max 250).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+            default: 25
+        - name: cursor
+          required: false
+          in: query
+          description: Opaque cursor from the previous response meta.nextCursor.
+          schema:
+            type: string
+        - name: sort
+          required: false
+          in: query
+          description: 'Comma-separated fields; prefix "-" for descending. Max 3 fields.
+            Default: "-createdAt". Allowed: createdAt, id'
+          schema:
+            type: string
+            example: -createdAt
+        - name: filter[actorUserId]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: filter[createdAt][gte]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: filter[createdAt][lte]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: filter[newRole]
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - USER
+              - ADMIN
+        - name: filter[newRole][in]
+          required: false
+          in: query
+          description: Comma-separated list (no repeated params).
+          schema:
+            type: string
+            example: A,B,C
+        - name: filter[oldRole]
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - USER
+              - ADMIN
+        - name: filter[oldRole][in]
+          required: false
+          in: query
+          description: Comma-separated list (no repeated params).
+          schema:
+            type: string
+            example: A,B,C
+        - name: filter[targetUserId]
+          required: false
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: filter[traceId]
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserRoleChangeAuditsListEnvelopeDto"
+      security:
+        - access-token: []
+      summary: List user role changes
+      tags:
+        - Admin
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - INTERNAL
 info:
   title: Backend Core Kit API
   description: Generated API contract (code-first).
@@ -620,6 +793,18 @@ components:
         emailVerified:
           type: boolean
           example: false
+        authMethods:
+          type: array
+          example:
+            - PASSWORD
+            - GOOGLE
+          description: Linked authentication methods on this account. Omitted on token
+            refresh responses.
+          items:
+            type: string
+            enum: &a7
+              - PASSWORD
+              - GOOGLE
       required:
         - id
         - email
@@ -646,6 +831,39 @@ components:
           $ref: "#/components/schemas/AuthResultDto"
       required:
         - data
+    OidcExchangeRequestDto:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: &a6
+            - GOOGLE
+          example: GOOGLE
+        idToken:
+          type: string
+          example: <oidc-id-token>
+        deviceId:
+          type: string
+          description: Stable per-device identifier (recommended).
+        deviceName:
+          type: string
+          description: Human-friendly device name (optional).
+      required:
+        - provider
+        - idToken
+    OidcConnectRequestDto:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: *a6
+          example: GOOGLE
+        idToken:
+          type: string
+          example: <oidc-id-token>
+      required:
+        - provider
+        - idToken
     VerifyEmailRequestDto:
       type: object
       properties:
@@ -823,6 +1041,14 @@ components:
           type: array
           items:
             type: string
+        authMethods:
+          type: array
+          example:
+            - PASSWORD
+          description: Linked authentication methods on this account.
+          items:
+            type: string
+            enum: *a7
         profile:
           $ref: "#/components/schemas/MeProfileDto"
       required:
@@ -830,6 +1056,7 @@ components:
         - email
         - emailVerified
         - roles
+        - authMethods
         - profile
     MeEnvelopeDto:
       type: object
@@ -954,3 +1181,57 @@ components:
           $ref: "#/components/schemas/AdminUserDto"
       required:
         - data
+    AdminUserRoleChangeAuditDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        actorUserId:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        actorSessionId:
+          type: string
+          example: c1b6c1f7-5b2f-4e53-b33b-5af7f63a8c40
+        targetUserId:
+          type: string
+          example: 9d8c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        oldRole:
+          type: string
+          enum: &a8
+            - USER
+            - ADMIN
+          example: USER
+        newRole:
+          type: string
+          enum: *a8
+          example: ADMIN
+        traceId:
+          type: string
+          example: 66b3b91d-7b52-4a4d-a71d-f2ea8db4a99c
+          description: Equals X-Request-Id from the role change request.
+        createdAt:
+          type: string
+          example: 2026-01-10T12:34:56.789Z
+          format: date-time
+      required:
+        - id
+        - actorUserId
+        - actorSessionId
+        - targetUserId
+        - oldRole
+        - newRole
+        - traceId
+        - createdAt
+    AdminUserRoleChangeAuditsListEnvelopeDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUserRoleChangeAuditDto"
+        meta:
+          $ref: "#/components/schemas/CursorPaginationMetaDto"
+      required:
+        - data
+        - meta

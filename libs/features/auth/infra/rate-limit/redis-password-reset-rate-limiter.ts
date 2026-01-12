@@ -8,6 +8,7 @@ import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 
 type PasswordResetRateLimitContext = Readonly<{
   email: string;
+  ip?: string;
 }>;
 
 function hashKey(value: string): string {
@@ -20,9 +21,16 @@ function asPositiveInt(value: unknown, fallback: number): number {
   return n;
 }
 
+type IpRateLimitConfig = Readonly<{
+  maxAttempts: number;
+  windowSeconds: number;
+  blockSeconds: number;
+}>;
+
 @Injectable()
 export class RedisPasswordResetRateLimiter {
   private readonly cooldownSeconds: number;
+  private readonly ipConfig: IpRateLimitConfig;
 
   constructor(
     private readonly config: ConfigService,
@@ -32,6 +40,20 @@ export class RedisPasswordResetRateLimiter {
       this.config.get('AUTH_PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS'),
       60,
     );
+    this.ipConfig = {
+      maxAttempts: asPositiveInt(
+        this.config.get('AUTH_PASSWORD_RESET_REQUEST_IP_MAX_ATTEMPTS'),
+        20,
+      ),
+      windowSeconds: asPositiveInt(
+        this.config.get('AUTH_PASSWORD_RESET_REQUEST_IP_WINDOW_SECONDS'),
+        5 * 60,
+      ),
+      blockSeconds: asPositiveInt(
+        this.config.get('AUTH_PASSWORD_RESET_REQUEST_IP_BLOCK_SECONDS'),
+        15 * 60,
+      ),
+    };
   }
 
   async assertRequestAllowed(ctx: PasswordResetRateLimitContext): Promise<void> {
@@ -42,10 +64,43 @@ export class RedisPasswordResetRateLimiter {
 
     const client = this.redis.getClient();
 
+    const ip = typeof ctx.ip === 'string' && ctx.ip.trim() !== '' ? ctx.ip.trim() : undefined;
+    if (ip) {
+      const ipHash = hashKey(ip);
+      const ipCountKey = `auth:password-reset:request:ip:${ipHash}:requests`;
+      const ipBlockKey = `auth:password-reset:request:ip:${ipHash}:blocked`;
+
+      const blocked = await client.get(ipBlockKey);
+      if (blocked) throw this.rateLimited();
+
+      await this.bumpIp(client, ipCountKey, ipBlockKey);
+    }
+
     const emailOk = await client.set(emailKey, '1', 'EX', this.cooldownSeconds, 'NX');
     if (emailOk === 'OK') return;
 
-    throw new AuthError({
+    throw this.rateLimited();
+  }
+
+  private async bumpIp(
+    client: ReturnType<RedisService['getClient']>,
+    countKey: string,
+    blockKey: string,
+  ): Promise<void> {
+    const { maxAttempts, windowSeconds, blockSeconds } = this.ipConfig;
+
+    const count = await client.incr(countKey);
+    if (count === 1) {
+      await client.expire(countKey, windowSeconds);
+    }
+
+    if (count >= maxAttempts) {
+      await client.set(blockKey, '1', 'EX', blockSeconds);
+    }
+  }
+
+  private rateLimited(): AuthError {
+    return new AuthError({
       status: 429,
       code: ErrorCode.RATE_LIMITED,
       message: 'Too many password reset requests. Try again later.',

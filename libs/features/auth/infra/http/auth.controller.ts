@@ -27,6 +27,8 @@ import {
   AuthResultEnvelopeDto,
   ChangePasswordRequestDto,
   LogoutRequestDto,
+  OidcConnectRequestDto,
+  OidcExchangeRequestDto,
   PasswordResetConfirmRequestDto,
   PasswordLoginRequestDto,
   PasswordRegisterRequestDto,
@@ -87,6 +89,77 @@ export class AuthController {
     }
   }
 
+  @Post('oidc/exchange')
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: 'auth.oidc.exchange',
+    summary: 'Exchange OIDC id_token',
+    description:
+      'Verifies an OIDC id_token (e.g., Google) and issues first-party access + refresh tokens. Does not auto-link to an existing password account purely by email.',
+  })
+  @ApiErrorCodes([
+    ErrorCode.VALIDATION_FAILED,
+    AuthErrorCode.AUTH_OIDC_NOT_CONFIGURED,
+    AuthErrorCode.AUTH_OIDC_TOKEN_INVALID,
+    AuthErrorCode.AUTH_OIDC_EMAIL_NOT_VERIFIED,
+    AuthErrorCode.AUTH_OIDC_LINK_REQUIRED,
+    ErrorCode.INTERNAL,
+  ])
+  @ApiOkResponse({ type: AuthResultEnvelopeDto })
+  async exchangeOidc(@Body() body: OidcExchangeRequestDto, @Req() req: FastifyRequest) {
+    try {
+      return await this.auth.exchangeOidc({
+        provider: body.provider,
+        idToken: body.idToken,
+        deviceId: body.deviceId,
+        deviceName: body.deviceName,
+        ip: req.ip,
+      });
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
+  @Post('oidc/connect')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: 'auth.oidc.connect',
+    summary: 'Connect OIDC identity (current user)',
+    description:
+      'Links an OIDC identity (e.g., Google) to the authenticated user. If the OIDC email matches the user email, the user email is marked verified.',
+  })
+  @ApiErrorCodes([
+    ErrorCode.VALIDATION_FAILED,
+    ErrorCode.UNAUTHORIZED,
+    ErrorCode.IDEMPOTENCY_IN_PROGRESS,
+    ErrorCode.CONFLICT,
+    AuthErrorCode.AUTH_OIDC_NOT_CONFIGURED,
+    AuthErrorCode.AUTH_OIDC_TOKEN_INVALID,
+    AuthErrorCode.AUTH_OIDC_EMAIL_NOT_VERIFIED,
+    AuthErrorCode.AUTH_OIDC_IDENTITY_ALREADY_LINKED,
+    AuthErrorCode.AUTH_OIDC_PROVIDER_ALREADY_LINKED,
+    ErrorCode.INTERNAL,
+  ])
+  @ApiIdempotencyKeyHeader({ required: false })
+  @Idempotent({ scopeKey: 'auth.oidc.connect' })
+  @ApiNoContentResponse()
+  async connectOidc(
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Body() body: OidcConnectRequestDto,
+  ): Promise<void> {
+    try {
+      await this.auth.connectOidc({
+        userId: principal.userId,
+        provider: body.provider,
+        idToken: body.idToken,
+      });
+    } catch (err: unknown) {
+      throw this.mapAuthError(err);
+    }
+  }
+
   @Post('email/verify')
   @HttpCode(204)
   @ApiOperation({
@@ -120,7 +193,10 @@ export class AuthController {
   })
   @ApiErrorCodes([ErrorCode.UNAUTHORIZED, ErrorCode.RATE_LIMITED, ErrorCode.INTERNAL])
   @ApiNoContentResponse()
-  async resendVerificationEmail(@CurrentPrincipal() principal: AuthPrincipal): Promise<void> {
+  async resendVerificationEmail(
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Req() req: FastifyRequest,
+  ): Promise<void> {
     try {
       if (!this.emailVerificationJobs.isEnabled()) {
         throw new AuthError({
@@ -133,7 +209,10 @@ export class AuthController {
       const status = await this.auth.getEmailVerificationStatus(principal.userId);
       if (status === 'verified') return;
 
-      await this.emailVerificationRateLimiter.assertResendAllowed(principal.userId);
+      await this.emailVerificationRateLimiter.assertResendAllowed({
+        userId: principal.userId,
+        ip: req.ip,
+      });
 
       const enqueued = await this.emailVerificationJobs.enqueueSendVerificationEmail(
         principal.userId,
@@ -160,7 +239,10 @@ export class AuthController {
   })
   @ApiErrorCodes([ErrorCode.VALIDATION_FAILED, ErrorCode.RATE_LIMITED, ErrorCode.INTERNAL])
   @ApiNoContentResponse()
-  async requestPasswordReset(@Body() body: PasswordResetRequestDto): Promise<void> {
+  async requestPasswordReset(
+    @Body() body: PasswordResetRequestDto,
+    @Req() req: FastifyRequest,
+  ): Promise<void> {
     try {
       if (!this.passwordResetJobs.isEnabled()) {
         throw new AuthError({
@@ -170,7 +252,7 @@ export class AuthController {
         });
       }
 
-      await this.passwordResetRateLimiter.assertRequestAllowed({ email: body.email });
+      await this.passwordResetRateLimiter.assertRequestAllowed({ email: body.email, ip: req.ip });
 
       const target = await this.auth.requestPasswordReset({ email: body.email });
       if (!target) return;

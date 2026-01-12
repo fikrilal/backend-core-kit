@@ -1,5 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsArray, IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { AUTH_METHOD_VALUES } from '../../../../../shared/auth/auth-method';
+
+const OIDC_PROVIDER_VALUES = ['GOOGLE'] as const;
 
 export class AuthUserDto {
   @ApiProperty({ example: '3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0' })
@@ -12,6 +15,19 @@ export class AuthUserDto {
 
   @ApiProperty({ example: false })
   emailVerified!: boolean;
+
+  @ApiPropertyOptional({
+    isArray: true,
+    enum: AUTH_METHOD_VALUES,
+    example: ['PASSWORD', 'GOOGLE'],
+    description:
+      'Linked authentication methods on this account. Omitted on token refresh responses.',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @IsIn(AUTH_METHOD_VALUES, { each: true })
+  authMethods?: string[];
 }
 
 export class AuthResultDto {
@@ -72,6 +88,40 @@ export class PasswordLoginRequestDto {
   @IsOptional()
   @IsString()
   deviceName?: string;
+}
+
+export class OidcExchangeRequestDto {
+  @ApiProperty({ enum: OIDC_PROVIDER_VALUES, example: 'GOOGLE' })
+  @IsString()
+  @IsIn(OIDC_PROVIDER_VALUES)
+  provider!: (typeof OIDC_PROVIDER_VALUES)[number];
+
+  @ApiProperty({ example: '<oidc-id-token>' })
+  @IsString()
+  @MinLength(1)
+  idToken!: string;
+
+  @ApiProperty({ required: false, description: 'Stable per-device identifier (recommended).' })
+  @IsOptional()
+  @IsString()
+  deviceId?: string;
+
+  @ApiProperty({ required: false, description: 'Human-friendly device name (optional).' })
+  @IsOptional()
+  @IsString()
+  deviceName?: string;
+}
+
+export class OidcConnectRequestDto {
+  @ApiProperty({ enum: OIDC_PROVIDER_VALUES, example: 'GOOGLE' })
+  @IsString()
+  @IsIn(OIDC_PROVIDER_VALUES)
+  provider!: (typeof OIDC_PROVIDER_VALUES)[number];
+
+  @ApiProperty({ example: '<oidc-id-token>' })
+  @IsString()
+  @MinLength(1)
+  idToken!: string;
 }
 
 export class RefreshRequestDto {

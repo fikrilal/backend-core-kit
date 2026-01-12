@@ -1,12 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type RefreshToken, type User } from '@prisma/client';
+import {
+  ExternalIdentityProvider as PrismaExternalIdentityProvider,
+  Prisma,
+  type RefreshToken,
+  type User,
+} from '@prisma/client';
 import { encodeCursorV1, type ListQuery, type SortSpec } from '../../../../shared/list-query';
+import type { AuthMethod } from '../../../../shared/auth/auth-method';
 import type { Email } from '../../domain/email';
 import type { AuthRole, AuthUserRecord } from '../../app/auth.types';
+import type { OidcProvider } from '../../app/ports/oidc-id-token-verifier';
 import type {
   AuthRepository,
   ChangePasswordResult,
   CreateSessionInput,
+  LinkExternalIdentityResult,
   ListUserSessionsResult,
   RefreshRotationResult,
   RefreshTokenRecord,
@@ -17,7 +25,7 @@ import type {
   SessionRecord,
   VerifyEmailResult,
 } from '../../app/ports/auth.repository';
-import { EmailAlreadyExistsError } from '../../app/auth.errors';
+import { EmailAlreadyExistsError, ExternalIdentityAlreadyExistsError } from '../../app/auth.errors';
 import { PrismaService } from '../../../../platform/db/prisma.service';
 
 function isUniqueConstraintError(err: unknown, field?: string): boolean {
@@ -38,6 +46,24 @@ function isUniqueConstraintError(err: unknown, field?: string): boolean {
   return true;
 }
 
+function isUniqueConstraintErrorOnFields(err: unknown, fields: ReadonlyArray<string>): boolean {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (err.code !== 'P2002') return false;
+
+  const meta: unknown = err.meta;
+  if (!meta || typeof meta !== 'object') return false;
+
+  const target: unknown = (meta as { target?: unknown }).target;
+  if (Array.isArray(target)) {
+    const t = target.filter((v): v is string => typeof v === 'string');
+    return fields.every((f) => t.includes(f));
+  }
+  if (typeof target === 'string') {
+    return fields.every((f) => target.includes(f));
+  }
+  return false;
+}
+
 function toAuthUserRecord(
   user: Pick<User, 'id' | 'email' | 'emailVerifiedAt' | 'role'>,
 ): AuthUserRecord {
@@ -47,6 +73,29 @@ function toAuthUserRecord(
     emailVerifiedAt: user.emailVerifiedAt,
     role: user.role as AuthRole,
   };
+}
+
+function toPrismaExternalIdentityProvider(provider: OidcProvider): PrismaExternalIdentityProvider {
+  switch (provider) {
+    case 'GOOGLE':
+      return PrismaExternalIdentityProvider.GOOGLE;
+  }
+}
+
+async function verifyEmailIfMatching(input: {
+  tx: Prisma.TransactionClient;
+  user: Readonly<{ id: string; email: string; emailVerifiedAt: Date | null }>;
+  email?: string;
+  now: Date;
+}): Promise<void> {
+  if (!input.email) return;
+  if (input.user.emailVerifiedAt !== null) return;
+  if (input.email !== input.user.email) return;
+
+  await input.tx.user.updateMany({
+    where: { id: input.user.id, emailVerifiedAt: null },
+    data: { emailVerifiedAt: input.now },
+  });
 }
 
 function toRefreshTokenRecord(
@@ -195,6 +244,175 @@ export class PrismaAuthRepository implements AuthRepository {
       select: { id: true, email: true, emailVerifiedAt: true, role: true },
     });
     return user ? toAuthUserRecord(user) : null;
+  }
+
+  async getAuthMethods(userId: string): Promise<ReadonlyArray<AuthMethod>> {
+    const client = this.prisma.getClient();
+    const user = await client.user.findUnique({
+      where: { id: userId },
+      select: {
+        passwordCredential: { select: { userId: true } },
+        externalIdentities: { select: { provider: true } },
+      },
+    });
+    if (!user) throw new Error('User not found');
+
+    const methods: AuthMethod[] = [];
+
+    if (user.passwordCredential) methods.push('PASSWORD');
+
+    const hasGoogle = user.externalIdentities.some(
+      (i) => i.provider === PrismaExternalIdentityProvider.GOOGLE,
+    );
+    if (hasGoogle) methods.push('GOOGLE');
+
+    return methods;
+  }
+
+  async findUserByExternalIdentity(
+    provider: OidcProvider,
+    subject: string,
+  ): Promise<AuthUserRecord | null> {
+    const client = this.prisma.getClient();
+    const found = await client.externalIdentity.findFirst({
+      where: { provider: toPrismaExternalIdentityProvider(provider), subject },
+      select: { user: { select: { id: true, email: true, emailVerifiedAt: true, role: true } } },
+    });
+    return found ? toAuthUserRecord(found.user) : null;
+  }
+
+  async createUserWithExternalIdentity(input: {
+    email: Email;
+    emailVerifiedAt: Date;
+    profile?: Readonly<{ displayName?: string; givenName?: string; familyName?: string }>;
+    externalIdentity: Readonly<{ provider: OidcProvider; subject: string; email?: string }>;
+  }): Promise<AuthUserRecord> {
+    try {
+      const user = await this.prisma.transaction(async (tx) =>
+        tx.user.create({
+          data: {
+            email: input.email,
+            emailVerifiedAt: input.emailVerifiedAt,
+            profile: {
+              create: {
+                ...(input.profile?.displayName ? { displayName: input.profile.displayName } : {}),
+                ...(input.profile?.givenName ? { givenName: input.profile.givenName } : {}),
+                ...(input.profile?.familyName ? { familyName: input.profile.familyName } : {}),
+              },
+            },
+            externalIdentities: {
+              create: {
+                provider: toPrismaExternalIdentityProvider(input.externalIdentity.provider),
+                subject: input.externalIdentity.subject,
+                ...(input.externalIdentity.email ? { email: input.externalIdentity.email } : {}),
+              },
+            },
+          },
+          select: { id: true, email: true, emailVerifiedAt: true, role: true },
+        }),
+      );
+      return toAuthUserRecord(user);
+    } catch (err: unknown) {
+      if (isUniqueConstraintError(err, 'email')) {
+        throw new EmailAlreadyExistsError();
+      }
+      if (isUniqueConstraintErrorOnFields(err, ['provider', 'subject'])) {
+        throw new ExternalIdentityAlreadyExistsError();
+      }
+      throw err;
+    }
+  }
+
+  async linkExternalIdentityToUser(input: {
+    userId: string;
+    provider: OidcProvider;
+    subject: string;
+    email?: Email;
+    now: Date;
+  }): Promise<LinkExternalIdentityResult> {
+    const provider = toPrismaExternalIdentityProvider(input.provider);
+
+    return await this.prisma.transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: input.userId },
+        select: { id: true, email: true, emailVerifiedAt: true },
+      });
+      if (!user) return { kind: 'user_not_found' };
+
+      const identity = await tx.externalIdentity.findFirst({
+        where: { provider, subject: input.subject },
+        select: { userId: true },
+      });
+
+      if (identity) {
+        if (identity.userId !== input.userId) return { kind: 'identity_linked_to_other_user' };
+
+        await verifyEmailIfMatching({
+          tx,
+          user,
+          email: input.email,
+          now: input.now,
+        });
+
+        return { kind: 'already_linked' };
+      }
+
+      const existingProvider = await tx.externalIdentity.findFirst({
+        where: { userId: input.userId, provider },
+        select: { id: true },
+      });
+      if (existingProvider) return { kind: 'provider_already_linked' };
+
+      try {
+        await tx.externalIdentity.create({
+          data: {
+            provider,
+            subject: input.subject,
+            ...(input.email ? { email: input.email } : {}),
+            userId: input.userId,
+          },
+          select: { id: true },
+        });
+      } catch (err: unknown) {
+        if (!isUniqueConstraintError(err)) throw err;
+
+        const racedIdentity = await tx.externalIdentity.findFirst({
+          where: { provider, subject: input.subject },
+          select: { userId: true },
+        });
+        if (racedIdentity) {
+          if (racedIdentity.userId !== input.userId) {
+            return { kind: 'identity_linked_to_other_user' };
+          }
+
+          await verifyEmailIfMatching({
+            tx,
+            user,
+            email: input.email,
+            now: input.now,
+          });
+
+          return { kind: 'already_linked' };
+        }
+
+        const racedProvider = await tx.externalIdentity.findFirst({
+          where: { userId: input.userId, provider },
+          select: { id: true },
+        });
+        if (racedProvider) return { kind: 'provider_already_linked' };
+
+        throw err;
+      }
+
+      await verifyEmailIfMatching({
+        tx,
+        user,
+        email: input.email,
+        now: input.now,
+      });
+
+      return { kind: 'ok' };
+    });
   }
 
   async listUserSessions(

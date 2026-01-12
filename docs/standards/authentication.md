@@ -142,6 +142,7 @@ Password auth requirements:
 Typical endpoints (names may vary by project):
 
 - `POST /v1/auth/oidc/exchange`
+- `POST /v1/auth/oidc/connect`
 - `POST /v1/auth/password/register`
 - `POST /v1/auth/password/login`
 - `POST /v1/auth/refresh`

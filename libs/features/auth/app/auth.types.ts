@@ -1,4 +1,5 @@
 import type { Email } from '../domain/email';
+import type { AuthMethod } from '../../../shared/auth/auth-method';
 
 export type AuthRole = 'USER' | 'ADMIN';
 
@@ -13,6 +14,7 @@ export type AuthUserView = Readonly<{
   id: string;
   email: Email;
   emailVerified: boolean;
+  authMethods?: ReadonlyArray<AuthMethod>;
 }>;
 
 export type AuthTokens = Readonly<{

@@ -1,6 +1,8 @@
 import type { ListQuery } from '../../../../shared/list-query';
 import type { Email } from '../../domain/email';
 import type { AuthUserRecord } from '../auth.types';
+import type { AuthMethod } from '../../../../shared/auth/auth-method';
+import type { OidcProvider } from './oidc-id-token-verifier';
 
 export type CreateSessionInput = Readonly<{
   userId: string;
@@ -77,6 +79,13 @@ export type VerifyEmailResult =
   | Readonly<{ kind: 'token_invalid' }>
   | Readonly<{ kind: 'token_expired' }>;
 
+export type LinkExternalIdentityResult =
+  | Readonly<{ kind: 'ok' }>
+  | Readonly<{ kind: 'already_linked' }>
+  | Readonly<{ kind: 'user_not_found' }>
+  | Readonly<{ kind: 'identity_linked_to_other_user' }>
+  | Readonly<{ kind: 'provider_already_linked' }>;
+
 export type ResetPasswordByTokenHashResult =
   | Readonly<{ kind: 'ok'; userId: string }>
   | Readonly<{ kind: 'token_invalid' }>
@@ -87,6 +96,33 @@ export interface AuthRepository {
   findUserIdByEmail(email: Email): Promise<string | null>;
   findUserForLogin(email: Email): Promise<{ user: AuthUserRecord; passwordHash: string } | null>;
   findUserById(userId: string): Promise<AuthUserRecord | null>;
+  getAuthMethods(userId: string): Promise<ReadonlyArray<AuthMethod>>;
+  findUserByExternalIdentity(
+    provider: OidcProvider,
+    subject: string,
+  ): Promise<AuthUserRecord | null>;
+  createUserWithExternalIdentity(input: {
+    email: Email;
+    emailVerifiedAt: Date;
+    profile?: Readonly<{
+      displayName?: string;
+      givenName?: string;
+      familyName?: string;
+    }>;
+    externalIdentity: Readonly<{
+      provider: OidcProvider;
+      subject: string;
+      email?: string;
+    }>;
+  }): Promise<AuthUserRecord>;
+
+  linkExternalIdentityToUser(input: {
+    userId: string;
+    provider: OidcProvider;
+    subject: string;
+    email?: Email;
+    now: Date;
+  }): Promise<LinkExternalIdentityResult>;
 
   listUserSessions(
     userId: string,

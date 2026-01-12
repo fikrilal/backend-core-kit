@@ -9,6 +9,8 @@ These documents are not “standards”. Standards live under `docs/standards/`.
 - Auth
   - `docs/engineering/auth/README.md`
   - `docs/engineering/auth/token-refresh-and-request-retry.md`
+  - `docs/engineering/auth/oidc-google.md`
+  - `docs/engineering/auth/auth-abuse-protection.md`
   - `docs/engineering/auth/password-change.md`
   - `docs/engineering/auth/email-verification.md`
   - `docs/engineering/auth/password-reset.md`

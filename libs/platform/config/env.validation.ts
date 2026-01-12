@@ -105,11 +105,47 @@ class EnvVars {
   @Min(1)
   AUTH_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS: number = 60;
 
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 30))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_EMAIL_VERIFICATION_RESEND_IP_MAX_ATTEMPTS: number = 30;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 5 * 60))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_EMAIL_VERIFICATION_RESEND_IP_WINDOW_SECONDS: number = 5 * 60;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 15 * 60))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_EMAIL_VERIFICATION_RESEND_IP_BLOCK_SECONDS: number = 15 * 60;
+
   @Transform(({ value }) => (value !== undefined ? Number(value) : 60))
   @IsOptional()
   @IsInt()
   @Min(1)
   AUTH_PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS: number = 60;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 20))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_PASSWORD_RESET_REQUEST_IP_MAX_ATTEMPTS: number = 20;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 5 * 60))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_PASSWORD_RESET_REQUEST_IP_WINDOW_SECONDS: number = 5 * 60;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 15 * 60))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  AUTH_PASSWORD_RESET_REQUEST_IP_BLOCK_SECONDS: number = 15 * 60;
 
   @Transform(({ value }) => (value !== undefined ? Number(value) : 10))
   @IsOptional()
@@ -142,6 +178,10 @@ class EnvVars {
   @IsOptional()
   @IsString()
   AUTH_SIGNING_KEYS_JSON?: string;
+
+  @IsOptional()
+  @IsString()
+  AUTH_OIDC_GOOGLE_CLIENT_IDS?: string;
 
   // Public client URLs (frontend/mobile)
   @IsOptional()

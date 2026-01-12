@@ -19,6 +19,7 @@ import { RedisLoginRateLimiter } from './rate-limit/redis-login-rate-limiter';
 import { RedisPasswordResetRateLimiter } from './rate-limit/redis-password-reset-rate-limiter';
 import { Argon2PasswordHasher } from './security/argon2.password-hasher';
 import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
+import { GoogleOidcIdTokenVerifier } from './security/google-oidc-id-token-verifier';
 
 @Module({
   imports: [PrismaModule, RedisModule, PlatformAuthModule, PlatformEmailModule, QueueModule],
@@ -29,6 +30,7 @@ import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
     AuthPasswordResetJobs,
     Argon2PasswordHasher,
     CryptoAccessTokenIssuer,
+    GoogleOidcIdTokenVerifier,
     RedisEmailVerificationRateLimiter,
     RedisLoginRateLimiter,
     RedisPasswordResetRateLimiter,
@@ -43,22 +45,36 @@ import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
         PrismaAuthRepository,
         Argon2PasswordHasher,
         CryptoAccessTokenIssuer,
+        GoogleOidcIdTokenVerifier,
         RedisLoginRateLimiter,
         ConfigService,
       ],
-      useFactory: (
+      useFactory: async (
         repo: PrismaAuthRepository,
         passwordHasher: Argon2PasswordHasher,
         accessTokens: CryptoAccessTokenIssuer,
+        oidcVerifier: GoogleOidcIdTokenVerifier,
         loginRateLimiter: RedisLoginRateLimiter,
         config: ConfigService,
-      ) =>
-        new AuthService(repo, passwordHasher, accessTokens, loginRateLimiter, new SystemClock(), {
-          accessTokenTtlSeconds: config.get<number>('AUTH_ACCESS_TOKEN_TTL_SECONDS') ?? 900,
-          refreshTokenTtlSeconds:
-            config.get<number>('AUTH_REFRESH_TOKEN_TTL_SECONDS') ?? 60 * 60 * 24 * 30,
-          passwordMinLength: config.get<number>('AUTH_PASSWORD_MIN_LENGTH') ?? 10,
-        }),
+      ) => {
+        const dummyPasswordHash = await passwordHasher.hash('dummy-password-for-timing');
+
+        return new AuthService(
+          repo,
+          passwordHasher,
+          accessTokens,
+          oidcVerifier,
+          loginRateLimiter,
+          new SystemClock(),
+          dummyPasswordHash,
+          {
+            accessTokenTtlSeconds: config.get<number>('AUTH_ACCESS_TOKEN_TTL_SECONDS') ?? 900,
+            refreshTokenTtlSeconds:
+              config.get<number>('AUTH_REFRESH_TOKEN_TTL_SECONDS') ?? 60 * 60 * 24 * 30,
+            passwordMinLength: config.get<number>('AUTH_PASSWORD_MIN_LENGTH') ?? 10,
+          },
+        );
+      },
     },
   ],
   exports: [AuthService],

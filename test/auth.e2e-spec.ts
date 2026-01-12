@@ -3,6 +3,7 @@ import request from 'supertest';
 import { createApiApp } from '../apps/api/src/bootstrap';
 import { PrismaClient, UserRole } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import Redis from 'ioredis';
 import { Queue } from 'bullmq';
 import {
   AUTH_SEND_VERIFICATION_EMAIL_JOB,
@@ -55,11 +56,32 @@ function getSessionIdFromAccessToken(token: string): string {
   return sid;
 }
 
+async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void> {
+  let cursor = '0';
+  const keysToDelete: string[] = [];
+
+  do {
+    const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', '1000');
+    cursor = nextCursor;
+    if (keys.length > 0) keysToDelete.push(...keys);
+  } while (cursor !== '0');
+
+  if (keysToDelete.length === 0) return;
+
+  // Avoid large argv to DEL by batching.
+  const batchSize = 500;
+  for (let i = 0; i < keysToDelete.length; i += batchSize) {
+    const batch = keysToDelete.slice(i, i + batchSize);
+    await redis.del(...batch);
+  }
+}
+
 (skipDepsTests ? describe.skip : describe)('Auth (e2e)', () => {
   let app: Awaited<ReturnType<typeof createApiApp>>;
   let baseUrl: string;
   let prisma: PrismaClient;
   let emailQueue: Queue<AuthSendVerificationEmailJobData | AuthSendPasswordResetEmailJobData>;
+  let redis: Redis;
 
   beforeAll(async () => {
     if (!databaseUrl) {
@@ -81,6 +103,9 @@ function getSessionIdFromAccessToken(token: string): string {
     prisma = new PrismaClient({ adapter });
     await prisma.$connect();
 
+    redis = new Redis(redisUrl);
+    await redis.ping();
+
     emailQueue = new Queue<AuthSendVerificationEmailJobData | AuthSendPasswordResetEmailJobData>(
       EMAIL_QUEUE,
       {
@@ -96,11 +121,17 @@ function getSessionIdFromAccessToken(token: string): string {
 
   afterEach(async () => {
     await emailQueue.drain(true);
+    await Promise.all([
+      deleteKeysByPattern(redis, 'auth:login:*'),
+      deleteKeysByPattern(redis, 'auth:password-reset:request:*'),
+      deleteKeysByPattern(redis, 'auth:email-verification:resend:*'),
+    ]);
   });
 
   afterAll(async () => {
     await emailQueue.drain(true);
     await emailQueue.close();
+    await redis.quit();
     await prisma.$disconnect();
     await app.close();
   });
@@ -283,6 +314,20 @@ function getSessionIdFromAccessToken(token: string): string {
     expect(rateLimited.body).toMatchObject({ code: 'RATE_LIMITED', status: 429 });
   });
 
+  it('POST /v1/auth/password/reset/request returns 429 RATE_LIMITED when called too frequently', async () => {
+    const email = `pw-reset-rate-limit+${Date.now()}@example.com`;
+
+    await request(baseUrl).post('/v1/auth/password/reset/request').send({ email }).expect(204);
+
+    const rateLimited = await request(baseUrl)
+      .post('/v1/auth/password/reset/request')
+      .send({ email })
+      .expect(429);
+
+    expect(rateLimited.headers['content-type']).toContain('application/problem+json');
+    expect(rateLimited.body).toMatchObject({ code: 'RATE_LIMITED', status: 429 });
+  });
+
   it('POST /v1/auth/password/reset/request enqueues auth.sendPasswordResetEmail job for existing user', async () => {
     const email = `pw-reset-request+${Date.now()}@example.com`;
     const password = 'correct-horse-battery-staple';
@@ -413,6 +458,24 @@ function getSessionIdFromAccessToken(token: string): string {
     expect(res.body).toMatchObject({ code: 'AUTH_PASSWORD_RESET_TOKEN_EXPIRED', status: 400 });
   });
 
+  it('POST /v1/auth/password/login returns 429 RATE_LIMITED after too many failures', async () => {
+    const email = `login-rate-limit+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    // User does not need to exist; we only care about limiter behavior.
+    for (let i = 0; i < 10; i += 1) {
+      await request(baseUrl).post('/v1/auth/password/login').send({ email, password }).expect(401);
+    }
+
+    const rateLimited = await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password })
+      .expect(429);
+
+    expect(rateLimited.headers['content-type']).toContain('application/problem+json');
+    expect(rateLimited.body).toMatchObject({ code: 'RATE_LIMITED', status: 429 });
+  });
+
   it('POST /v1/auth/password/change requires an access token', async () => {
     const res = await request(baseUrl)
       .post('/v1/auth/password/change')
@@ -523,7 +586,7 @@ function getSessionIdFromAccessToken(token: string): string {
       .expect(200);
 
     const reg = registerRes.body.data as {
-      user: { id: string; email: string; emailVerified: boolean };
+      user: { id: string; email: string; emailVerified: boolean; authMethods: string[] };
       accessToken: string;
       refreshToken: string;
     };
@@ -533,11 +596,13 @@ function getSessionIdFromAccessToken(token: string): string {
       .set('Authorization', `Bearer ${reg.accessToken}`)
       .expect(200);
 
+    expect(reg.user.authMethods).toEqual(['PASSWORD']);
     expect(meRes.body.data).toMatchObject({
       id: reg.user.id,
       email: email.toLowerCase(),
       emailVerified: false,
       roles: ['USER'],
+      authMethods: ['PASSWORD'],
       profile: { displayName: null, givenName: null, familyName: null },
     });
   });
@@ -563,10 +628,12 @@ function getSessionIdFromAccessToken(token: string): string {
       .expect(200);
 
     const loggedIn = loginRes.body.data as {
+      user: { authMethods: string[] };
       accessToken: string;
       refreshToken: string;
     };
 
+    expect(loggedIn.user.authMethods).toEqual(['PASSWORD']);
     expect(typeof loggedIn.refreshToken).toBe('string');
     expect(loggedIn.refreshToken).not.toBe(reg.refreshToken);
 
@@ -1112,6 +1179,88 @@ function getSessionIdFromAccessToken(token: string): string {
       where: { traceId: lastAdminTraceId },
     });
     expect(lastAdminAudit).toBeNull();
+  });
+
+  it('GET /v1/admin/audit/user-role-changes requires an access token', async () => {
+    const res = await request(baseUrl).get('/v1/admin/audit/user-role-changes').expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
+  it('GET /v1/admin/audit/user-role-changes is forbidden for non-admin', async () => {
+    const email = `audit-user+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { accessToken: string };
+
+    const res = await request(baseUrl)
+      .get('/v1/admin/audit/user-role-changes')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(403);
+
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'FORBIDDEN', status: 403 });
+  });
+
+  it('GET /v1/admin/audit/user-role-changes supports filtering by traceId', async () => {
+    const runId = Date.now();
+    const password = 'correct-horse-battery-staple';
+
+    const adminRegisterRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email: `admin-audit+${runId}@example.com`, password })
+      .expect(200);
+
+    const adminReg = adminRegisterRes.body.data as {
+      user: { id: string };
+      accessToken: string;
+    };
+
+    const userRegisterRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email: `user-audit+${runId}@example.com`, password })
+      .expect(200);
+
+    const userReg = userRegisterRes.body.data as {
+      user: { id: string };
+    };
+
+    await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
+
+    const traceId = randomUUID();
+    await request(baseUrl)
+      .patch(`/v1/admin/users/${userReg.user.id}/role`)
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .set('X-Request-Id', traceId)
+      .send({ role: 'ADMIN' })
+      .expect(200);
+
+    const listRes = await request(baseUrl)
+      .get(`/v1/admin/audit/user-role-changes?filter[traceId][eq]=${encodeURIComponent(traceId)}`)
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .expect(200);
+
+    expect(Array.isArray(listRes.body.data)).toBe(true);
+    expect(listRes.body.data).toHaveLength(1);
+    expect(listRes.body.meta).toMatchObject({ limit: 25, hasMore: false });
+    expect(listRes.body.meta.nextCursor).toBeUndefined();
+
+    const item = (listRes.body.data as Array<Record<string, unknown>>)[0];
+    expect(item).toMatchObject({
+      actorUserId: adminReg.user.id,
+      actorSessionId: getSessionIdFromAccessToken(adminReg.accessToken),
+      targetUserId: userReg.user.id,
+      oldRole: 'USER',
+      newRole: 'ADMIN',
+      traceId,
+    });
+    expect(typeof item.id).toBe('string');
+    expect(typeof item.createdAt).toBe('string');
   });
 
   it('duplicate register returns AUTH_EMAIL_ALREADY_EXISTS', async () => {

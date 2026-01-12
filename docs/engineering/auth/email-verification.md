@@ -37,6 +37,9 @@ Optional:
 
 - `AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS` (default: `86400` / 24h)
 - `AUTH_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS` (default: `60`)
+- `AUTH_EMAIL_VERIFICATION_RESEND_IP_MAX_ATTEMPTS` (default: `30`)
+- `AUTH_EMAIL_VERIFICATION_RESEND_IP_WINDOW_SECONDS` (default: `300` / 5m)
+- `AUTH_EMAIL_VERIFICATION_RESEND_IP_BLOCK_SECONDS` (default: `900` / 15m)
 
 ## Job identifiers
 
@@ -63,7 +66,7 @@ refresh/login to get an access token with an updated `emailVerified` claim.
 - Requires `Authorization: Bearer <access-token>`
 - Responses:
   - `204` on success (also returned if the user is already verified)
-  - `429 RATE_LIMITED` when called too frequently (cooldown enforced in Redis)
+  - `429 RATE_LIMITED` when called too frequently (cooldown + IP throttling enforced in Redis)
 
 ## Reliability & semantics
 

@@ -36,6 +36,7 @@ export class UsersService {
       email: user.email,
       emailVerified: user.emailVerifiedAt !== null,
       roles: [user.role],
+      authMethods: [...user.authMethods],
       profile,
     };
   }
