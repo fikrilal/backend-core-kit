@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { createApiApp } from '../apps/api/src/bootstrap';
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, UserRole, UserStatus } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import Redis from 'ioredis';
 import { Queue } from 'bullmq';
@@ -1176,6 +1176,141 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
     expect(lastAdminBlocked.headers['x-request-id']).toBe(lastAdminTraceId);
 
     const lastAdminAudit = await prisma.userRoleChangeAudit.findFirst({
+      where: { traceId: lastAdminTraceId },
+    });
+    expect(lastAdminAudit).toBeNull();
+  });
+
+  it('PATCH /v1/admin/users/:userId/status suspends a user (403 AUTH_USER_SUSPENDED) and blocks last-admin suspension', async () => {
+    const runId = Date.now();
+    const password = 'correct-horse-battery-staple';
+
+    const adminRegisterRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email: `admin-status+${runId}@example.com`, password })
+      .expect(200);
+
+    const adminReg = adminRegisterRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const userRegisterRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email: `user-status+${runId}@example.com`, password })
+      .expect(200);
+
+    const userReg = userRegisterRes.body.data as {
+      user: { id: string; email: string; emailVerified: boolean };
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
+
+    await request(baseUrl)
+      .patch(`/v1/admin/users/${userReg.user.id}/role`)
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .send({ role: 'ADMIN' })
+      .expect(200);
+
+    await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${userReg.accessToken}`)
+      .expect(200);
+
+    const suspendTraceId = randomUUID();
+    const suspended = await request(baseUrl)
+      .patch(`/v1/admin/users/${userReg.user.id}/status`)
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .set('X-Request-Id', suspendTraceId)
+      .send({ status: 'SUSPENDED', reason: 'Abuse detected' })
+      .expect(200);
+
+    expect(suspended.body.data).toMatchObject({
+      id: userReg.user.id,
+      status: 'SUSPENDED',
+      suspendedReason: 'Abuse detected',
+    });
+
+    expect(suspended.headers['x-request-id']).toBe(suspendTraceId);
+
+    const suspendAudit = await prisma.userStatusChangeAudit.findFirst({
+      where: { traceId: suspendTraceId },
+    });
+
+    expect(suspendAudit).toMatchObject({
+      actorUserId: adminReg.user.id,
+      actorSessionId: expect.any(String),
+      targetUserId: userReg.user.id,
+      oldStatus: UserStatus.ACTIVE,
+      newStatus: UserStatus.SUSPENDED,
+      reason: 'Abuse detected',
+      traceId: suspendTraceId,
+    });
+
+    const refreshBlocked = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: userReg.refreshToken })
+      .expect(403);
+
+    expect(refreshBlocked.headers['content-type']).toContain('application/problem+json');
+    expect(refreshBlocked.body).toMatchObject({ code: 'AUTH_USER_SUSPENDED', status: 403 });
+
+    const loginBlocked = await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email: userReg.user.email, password })
+      .expect(403);
+
+    expect(loginBlocked.headers['content-type']).toContain('application/problem+json');
+    expect(loginBlocked.body).toMatchObject({ code: 'AUTH_USER_SUSPENDED', status: 403 });
+
+    const adminBlocked = await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${userReg.accessToken}`)
+      .expect(403);
+
+    expect(adminBlocked.headers['content-type']).toContain('application/problem+json');
+    expect(adminBlocked.body).toMatchObject({ code: 'AUTH_USER_SUSPENDED', status: 403 });
+
+    const unsuspendTraceId = randomUUID();
+    const unsuspended = await request(baseUrl)
+      .patch(`/v1/admin/users/${userReg.user.id}/status`)
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .set('X-Request-Id', unsuspendTraceId)
+      .send({ status: 'ACTIVE' })
+      .expect(200);
+
+    expect(unsuspended.body.data).toMatchObject({ id: userReg.user.id, status: 'ACTIVE' });
+
+    const backToAdmin = await request(baseUrl)
+      .get('/v1/admin/whoami')
+      .set('Authorization', `Bearer ${userReg.accessToken}`)
+      .expect(200);
+
+    expect(backToAdmin.body.data).toMatchObject({ userId: userReg.user.id });
+
+    await prisma.user.updateMany({
+      where: { role: UserRole.ADMIN, id: { not: adminReg.user.id } },
+      data: { role: UserRole.USER },
+    });
+
+    const lastAdminTraceId = randomUUID();
+    const lastAdminBlocked = await request(baseUrl)
+      .patch(`/v1/admin/users/${adminReg.user.id}/status`)
+      .set('Authorization', `Bearer ${adminReg.accessToken}`)
+      .set('X-Request-Id', lastAdminTraceId)
+      .send({ status: 'SUSPENDED' })
+      .expect(409);
+
+    expect(lastAdminBlocked.headers['content-type']).toContain('application/problem+json');
+    expect(lastAdminBlocked.body).toMatchObject({
+      code: 'ADMIN_CANNOT_SUSPEND_LAST_ADMIN',
+      status: 409,
+    });
+
+    const lastAdminAudit = await prisma.userStatusChangeAudit.findFirst({
       where: { traceId: lastAdminTraceId },
     });
     expect(lastAdminAudit).toBeNull();

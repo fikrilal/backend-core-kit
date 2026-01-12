@@ -15,6 +15,9 @@ These documents are not “standards”. Standards live under `docs/standards/`.
   - `docs/engineering/auth/email-verification.md`
   - `docs/engineering/auth/password-reset.md`
   - `docs/engineering/auth/session-management.md`
+- Admin
+  - `docs/engineering/admin/README.md`
+  - `docs/engineering/admin/user-suspension.md`
 - Email
   - `docs/engineering/email/README.md`
   - `docs/engineering/email/resend.md`

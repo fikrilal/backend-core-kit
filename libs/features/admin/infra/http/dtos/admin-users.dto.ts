@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
+const ADMIN_USER_STATUS_VALUES = ['ACTIVE', 'SUSPENDED'] as const;
+
 export class AdminUserDto {
   @ApiProperty({ example: '3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0' })
   @IsString()
@@ -18,6 +20,30 @@ export class AdminUserDto {
   @IsArray()
   @IsString({ each: true })
   roles!: string[];
+
+  @ApiProperty({ enum: ADMIN_USER_STATUS_VALUES, example: 'ACTIVE' })
+  @IsString()
+  status!: (typeof ADMIN_USER_STATUS_VALUES)[number];
+
+  @ApiPropertyOptional({
+    type: String,
+    example: '2026-01-10T12:34:56.789Z',
+    format: 'date-time',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  suspendedAt!: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    example: 'Abuse detected',
+    nullable: true,
+    description: 'Internal-only admin note for why the user is suspended.',
+  })
+  @IsOptional()
+  @IsString()
+  suspendedReason!: string | null;
 
   @ApiProperty({ example: '2026-01-10T12:34:56.789Z', format: 'date-time' })
   @IsString()

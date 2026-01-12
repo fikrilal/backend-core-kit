@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type UserRole } from '@prisma/client';
+import { Prisma, type UserRole, type UserStatus } from '@prisma/client';
 import { UserRole as PrismaUserRole } from '@prisma/client';
+import { UserStatus as PrismaUserStatus } from '@prisma/client';
 import {
   encodeCursorV1,
   type FilterExpr,
@@ -17,6 +18,8 @@ import type {
   AdminUsersRepository,
   SetUserRoleResult,
   SetUserRoleInput,
+  SetUserStatusInput,
+  SetUserStatusResult,
 } from '../../app/ports/admin-users.repository';
 import { PrismaService } from '../../../../platform/db/prisma.service';
 
@@ -188,6 +191,9 @@ function toListItem(user: {
   email: string;
   emailVerifiedAt: Date | null;
   role: UserRole;
+  status: UserStatus;
+  suspendedAt: Date | null;
+  suspendedReason: string | null;
   createdAt: Date;
 }): AdminUserListItem {
   return {
@@ -195,6 +201,9 @@ function toListItem(user: {
     email: user.email,
     emailVerified: user.emailVerifiedAt !== null,
     roles: [String(user.role)],
+    status: String(user.status) as AdminUserListItem['status'],
+    suspendedAt: user.suspendedAt ? user.suspendedAt.toISOString() : null,
+    suspendedReason: user.suspendedReason ?? null,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -224,7 +233,16 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
       where,
       orderBy,
       take,
-      select: { id: true, email: true, emailVerifiedAt: true, role: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        emailVerifiedAt: true,
+        role: true,
+        status: true,
+        suspendedAt: true,
+        suspendedReason: true,
+        createdAt: true,
+      },
     });
 
     const hasMore = users.length > query.limit;
@@ -270,7 +288,16 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
           async (tx) => {
             const found = await tx.user.findUnique({
               where: { id: input.targetUserId },
-              select: { id: true, email: true, emailVerifiedAt: true, role: true, createdAt: true },
+              select: {
+                id: true,
+                email: true,
+                emailVerifiedAt: true,
+                role: true,
+                status: true,
+                suspendedAt: true,
+                suspendedReason: true,
+                createdAt: true,
+              },
             });
 
             if (!found) return { kind: 'not_found' };
@@ -287,7 +314,16 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
             const updated = await tx.user.update({
               where: { id: input.targetUserId },
               data: { role: nextRole },
-              select: { id: true, email: true, emailVerifiedAt: true, role: true, createdAt: true },
+              select: {
+                id: true,
+                email: true,
+                emailVerifiedAt: true,
+                role: true,
+                status: true,
+                suspendedAt: true,
+                suspendedReason: true,
+                createdAt: true,
+              },
             });
 
             await tx.userRoleChangeAudit.create({
@@ -300,6 +336,114 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
                 traceId: input.traceId,
               },
             });
+
+            return { kind: 'ok', user: toListItem(updated) };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (err: unknown) {
+        if (attempt < maxAttempts && isRetryableTransactionError(err)) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw new Error('Unexpected: exhausted transaction retries');
+  }
+
+  async setUserStatus(input: SetUserStatusInput): Promise<SetUserStatusResult> {
+    const client = this.prisma.getClient();
+    const nextStatus =
+      input.status === 'SUSPENDED' ? PrismaUserStatus.SUSPENDED : PrismaUserStatus.ACTIVE;
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await client.$transaction(
+          async (tx) => {
+            const found = await tx.user.findUnique({
+              where: { id: input.targetUserId },
+              select: {
+                id: true,
+                email: true,
+                emailVerifiedAt: true,
+                role: true,
+                status: true,
+                suspendedAt: true,
+                suspendedReason: true,
+                createdAt: true,
+              },
+            });
+
+            if (!found) return { kind: 'not_found' };
+
+            if (found.status === nextStatus) {
+              return { kind: 'ok', user: toListItem(found) };
+            }
+
+            if (
+              found.role === PrismaUserRole.ADMIN &&
+              found.status === PrismaUserStatus.ACTIVE &&
+              nextStatus === PrismaUserStatus.SUSPENDED
+            ) {
+              const activeAdminCount = await tx.user.count({
+                where: { role: PrismaUserRole.ADMIN, status: PrismaUserStatus.ACTIVE },
+              });
+              if (activeAdminCount <= 1) return { kind: 'last_admin' };
+            }
+
+            const now = input.now;
+            const updated = await tx.user.update({
+              where: { id: input.targetUserId },
+              data:
+                nextStatus === PrismaUserStatus.SUSPENDED
+                  ? {
+                      status: nextStatus,
+                      suspendedAt: now,
+                      ...(input.reason !== undefined ? { suspendedReason: input.reason } : {}),
+                    }
+                  : {
+                      status: nextStatus,
+                      suspendedAt: null,
+                      suspendedReason: null,
+                    },
+              select: {
+                id: true,
+                email: true,
+                emailVerifiedAt: true,
+                role: true,
+                status: true,
+                suspendedAt: true,
+                suspendedReason: true,
+                createdAt: true,
+              },
+            });
+
+            await tx.userStatusChangeAudit.create({
+              data: {
+                actorUserId: input.actorUserId,
+                actorSessionId: input.actorSessionId,
+                targetUserId: input.targetUserId,
+                oldStatus: found.status,
+                newStatus: updated.status,
+                reason: nextStatus === PrismaUserStatus.SUSPENDED ? (input.reason ?? null) : null,
+                traceId: input.traceId,
+              },
+            });
+
+            if (nextStatus === PrismaUserStatus.SUSPENDED) {
+              // Reduce the risk window by revoking sessions (access tokens still expire on TTL).
+              await tx.session.updateMany({
+                where: { userId: input.targetUserId, revokedAt: null },
+                data: { revokedAt: now, activeKey: null },
+              });
+
+              await tx.refreshToken.updateMany({
+                where: { revokedAt: null, session: { userId: input.targetUserId } },
+                data: { revokedAt: now },
+              });
+            }
 
             return { kind: 'ok', user: toListItem(updated) };
           },

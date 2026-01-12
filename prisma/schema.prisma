@@ -11,6 +11,11 @@ enum UserRole {
   ADMIN
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 enum ExternalIdentityProvider {
   GOOGLE
 }
@@ -20,6 +25,9 @@ model User {
   email           String  @unique
   emailVerifiedAt DateTime?
   role            UserRole @default(USER)
+  status          UserStatus @default(ACTIVE)
+  suspendedAt     DateTime?
+  suspendedReason String?
 
   profile UserProfile?
   passwordCredential PasswordCredential?
@@ -160,6 +168,22 @@ model UserRoleChangeAudit {
   targetUserId   String   @db.Uuid
   oldRole        UserRole
   newRole        UserRole
+  traceId        String
+  createdAt      DateTime @default(now())
+
+  @@index([targetUserId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([traceId])
+}
+
+model UserStatusChangeAudit {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId    String   @db.Uuid
+  actorSessionId String   @db.Uuid
+  targetUserId   String   @db.Uuid
+  oldStatus      UserStatus
+  newStatus      UserStatus
+  reason         String?
   traceId        String
   createdAt      DateTime @default(now())
 

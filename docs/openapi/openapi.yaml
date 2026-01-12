@@ -100,6 +100,7 @@ paths:
         - AUTH_OIDC_TOKEN_INVALID
         - AUTH_OIDC_EMAIL_NOT_VERIFIED
         - AUTH_OIDC_LINK_REQUIRED
+        - AUTH_USER_SUSPENDED
         - INTERNAL
   /v1/auth/oidc/connect:
     post:
@@ -243,6 +244,7 @@ paths:
       x-error-codes:
         - VALIDATION_FAILED
         - AUTH_INVALID_CREDENTIALS
+        - AUTH_USER_SUSPENDED
         - RATE_LIMITED
         - INTERNAL
   /v1/auth/password/change:
@@ -306,6 +308,7 @@ paths:
         - AUTH_REFRESH_TOKEN_EXPIRED
         - AUTH_REFRESH_TOKEN_REUSED
         - AUTH_SESSION_REVOKED
+        - AUTH_USER_SUSPENDED
         - INTERNAL
   /v1/auth/logout:
     post:
@@ -633,6 +636,51 @@ paths:
         - IDEMPOTENCY_IN_PROGRESS
         - CONFLICT
         - ADMIN_CANNOT_DEMOTE_LAST_ADMIN
+        - INTERNAL
+  /v1/admin/users/{userId}/status:
+    patch:
+      description: Sets the user status (ACTIVE/SUSPENDED). Suspended users cannot
+        refresh tokens and are blocked from /v1/admin/* endpoints immediately.
+      operationId: admin.users.status.patch
+      parameters:
+        - name: userId
+          required: true
+          in: path
+          schema:
+            example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+            type: string
+        - name: Idempotency-Key
+          in: header
+          description: "Idempotency key for safe retries of write requests. Replays return
+            `Idempotency-Replayed: true`."
+          required: false
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetAdminUserStatusRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserEnvelopeDto"
+      security: *a4
+      summary: Set user status
+      tags: *a5
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - NOT_FOUND
+        - IDEMPOTENCY_IN_PROGRESS
+        - CONFLICT
+        - ADMIN_CANNOT_SUSPEND_LAST_ADMIN
         - INTERNAL
   /v1/admin/audit/user-role-changes:
     get:
@@ -1141,6 +1189,22 @@ components:
           type: array
           items:
             type: string
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - SUSPENDED
+          example: ACTIVE
+        suspendedAt:
+          type: string
+          example: 2026-01-10T12:34:56.789Z
+          format: date-time
+          nullable: true
+        suspendedReason:
+          type: string
+          example: Abuse detected
+          nullable: true
+          description: Internal-only admin note for why the user is suspended.
         createdAt:
           type: string
           example: 2026-01-10T12:34:56.789Z
@@ -1150,6 +1214,7 @@ components:
         - email
         - emailVerified
         - roles
+        - status
         - createdAt
     AdminUsersListEnvelopeDto:
       type: object
@@ -1181,6 +1246,22 @@ components:
           $ref: "#/components/schemas/AdminUserDto"
       required:
         - data
+    SetAdminUserStatusRequestDto:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - SUSPENDED
+          example: SUSPENDED
+        reason:
+          type: string
+          example: Abuse detected
+          nullable: true
+          description: Internal-only admin note for why the user is suspended.
+      required:
+        - status
     AdminUserRoleChangeAuditDto:
       type: object
       properties:

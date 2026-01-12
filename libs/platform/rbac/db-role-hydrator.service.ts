@@ -16,11 +16,19 @@ export class DbRoleHydrator {
       const client = this.prisma.getClient();
       const user = await client.user.findUnique({
         where: { id: principal.userId },
-        select: { role: true },
+        select: { role: true, status: true },
       });
 
       if (!user) {
         throw ProblemException.unauthorized();
+      }
+
+      if (user.status === 'SUSPENDED') {
+        throw new ProblemException(403, {
+          title: 'Forbidden',
+          code: 'AUTH_USER_SUSPENDED',
+          detail: 'User is suspended',
+        });
       }
 
       return { ...principal, roles: [user.role] };

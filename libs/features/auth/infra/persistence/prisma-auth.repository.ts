@@ -8,7 +8,7 @@ import {
 import { encodeCursorV1, type ListQuery, type SortSpec } from '../../../../shared/list-query';
 import type { AuthMethod } from '../../../../shared/auth/auth-method';
 import type { Email } from '../../domain/email';
-import type { AuthRole, AuthUserRecord } from '../../app/auth.types';
+import type { AuthRole, AuthUserRecord, AuthUserStatus } from '../../app/auth.types';
 import type { OidcProvider } from '../../app/ports/oidc-id-token-verifier';
 import type {
   AuthRepository,
@@ -65,13 +65,14 @@ function isUniqueConstraintErrorOnFields(err: unknown, fields: ReadonlyArray<str
 }
 
 function toAuthUserRecord(
-  user: Pick<User, 'id' | 'email' | 'emailVerifiedAt' | 'role'>,
+  user: Pick<User, 'id' | 'email' | 'emailVerifiedAt' | 'role' | 'status'>,
 ): AuthUserRecord {
   return {
     id: user.id,
     email: user.email as Email,
     emailVerifiedAt: user.emailVerifiedAt,
     role: user.role as AuthRole,
+    status: user.status as AuthUserStatus,
   };
 }
 
@@ -216,7 +217,7 @@ export class PrismaAuthRepository implements AuthRepository {
             passwordCredential: { create: { passwordHash } },
             profile: { create: {} },
           },
-          select: { id: true, email: true, emailVerifiedAt: true, role: true },
+          select: { id: true, email: true, emailVerifiedAt: true, role: true, status: true },
         }),
       );
       return toAuthUserRecord(user);
@@ -241,7 +242,7 @@ export class PrismaAuthRepository implements AuthRepository {
     const client = this.prisma.getClient();
     const user = await client.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, emailVerifiedAt: true, role: true },
+      select: { id: true, email: true, emailVerifiedAt: true, role: true, status: true },
     });
     return user ? toAuthUserRecord(user) : null;
   }
@@ -276,7 +277,11 @@ export class PrismaAuthRepository implements AuthRepository {
     const client = this.prisma.getClient();
     const found = await client.externalIdentity.findFirst({
       where: { provider: toPrismaExternalIdentityProvider(provider), subject },
-      select: { user: { select: { id: true, email: true, emailVerifiedAt: true, role: true } } },
+      select: {
+        user: {
+          select: { id: true, email: true, emailVerifiedAt: true, role: true, status: true },
+        },
+      },
     });
     return found ? toAuthUserRecord(found.user) : null;
   }
@@ -308,7 +313,7 @@ export class PrismaAuthRepository implements AuthRepository {
               },
             },
           },
-          select: { id: true, email: true, emailVerifiedAt: true, role: true },
+          select: { id: true, email: true, emailVerifiedAt: true, role: true, status: true },
         }),
       );
       return toAuthUserRecord(user);
@@ -525,6 +530,7 @@ export class PrismaAuthRepository implements AuthRepository {
         email: true,
         emailVerifiedAt: true,
         role: true,
+        status: true,
         passwordCredential: { select: { passwordHash: true } },
       },
     });
@@ -759,7 +765,9 @@ export class PrismaAuthRepository implements AuthRepository {
             userId: true,
             expiresAt: true,
             revokedAt: true,
-            user: { select: { id: true, email: true, emailVerifiedAt: true, role: true } },
+            user: {
+              select: { id: true, email: true, emailVerifiedAt: true, role: true, status: true },
+            },
           },
         },
       },
@@ -857,7 +865,9 @@ export class PrismaAuthRepository implements AuthRepository {
             expiresAt: true,
             revokedAt: true,
             activeKey: true,
-            user: { select: { id: true, email: true, emailVerifiedAt: true, role: true } },
+            user: {
+              select: { id: true, email: true, emailVerifiedAt: true, role: true, status: true },
+            },
           },
         },
       },

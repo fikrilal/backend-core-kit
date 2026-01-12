@@ -3,11 +3,14 @@ import type { AuthMethod } from '../../../shared/auth/auth-method';
 
 export type AuthRole = 'USER' | 'ADMIN';
 
+export type AuthUserStatus = 'ACTIVE' | 'SUSPENDED';
+
 export type AuthUserRecord = Readonly<{
   id: string;
   email: Email;
   emailVerifiedAt: Date | null;
   role: AuthRole;
+  status: AuthUserStatus;
 }>;
 
 export type AuthUserView = Readonly<{
