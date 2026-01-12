@@ -1,0 +1,3 @@
+export enum UsersErrorCode {
+  USERS_CANNOT_DELETE_LAST_ADMIN = 'USERS_CANNOT_DELETE_LAST_ADMIN',
+}

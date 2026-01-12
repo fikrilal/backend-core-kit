@@ -18,6 +18,9 @@ These documents are not “standards”. Standards live under `docs/standards/`.
 - Admin
   - `docs/engineering/admin/README.md`
   - `docs/engineering/admin/user-suspension.md`
+- Users
+  - `docs/engineering/users/README.md`
+  - `docs/engineering/users/account-deletion.md`
 - Email
   - `docs/engineering/email/README.md`
   - `docs/engineering/email/resend.md`
