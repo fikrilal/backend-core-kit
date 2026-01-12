@@ -479,6 +479,60 @@ paths:
         - IDEMPOTENCY_IN_PROGRESS
         - CONFLICT
         - INTERNAL
+  /v1/me/account-deletion/request:
+    post:
+      description: Schedules account deletion 30 days in the future. The account
+        remains usable during the grace period and the request can be canceled.
+        After the grace period, the account is de-identified (PII erased) and
+        the email becomes reusable.
+      operationId: users.me.accountDeletion.request
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: "Idempotency key for safe retries of write requests. Replays return
+            `Idempotency-Replayed: true`."
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: ""
+      security:
+        - access-token: []
+      summary: Request account deletion (30-day grace)
+      tags: &a4
+        - Users
+      x-error-codes:
+        - UNAUTHORIZED
+        - IDEMPOTENCY_IN_PROGRESS
+        - CONFLICT
+        - USERS_CANNOT_DELETE_LAST_ADMIN
+        - INTERNAL
+  /v1/me/account-deletion/cancel:
+    post:
+      description: Cancels a previously scheduled account deletion request.
+      operationId: users.me.accountDeletion.cancel
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: "Idempotency key for safe retries of write requests. Replays return
+            `Idempotency-Replayed: true`."
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: ""
+      security:
+        - access-token: []
+      summary: Cancel account deletion
+      tags: *a4
+      x-error-codes:
+        - UNAUTHORIZED
+        - IDEMPOTENCY_IN_PROGRESS
+        - INTERNAL
   /v1/admin/whoami:
     get:
       description: Returns the authenticated principal. For /v1/admin/* endpoints,
@@ -581,10 +635,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUsersListEnvelopeDto"
-      security: &a4
+      security: &a5
         - access-token: []
       summary: List users
-      tags: &a5
+      tags: &a6
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -625,9 +679,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a4
+      security: *a5
       summary: Set user role
-      tags: *a5
+      tags: *a6
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -670,9 +724,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a4
+      security: *a5
       summary: Set user status
-      tags: *a5
+      tags: *a6
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -850,7 +904,7 @@ components:
             refresh responses.
           items:
             type: string
-            enum: &a7
+            enum: &a8
               - PASSWORD
               - GOOGLE
       required:
@@ -884,7 +938,7 @@ components:
       properties:
         provider:
           type: string
-          enum: &a6
+          enum: &a7
             - GOOGLE
           example: GOOGLE
         idToken:
@@ -904,7 +958,7 @@ components:
       properties:
         provider:
           type: string
-          enum: *a6
+          enum: *a7
           example: GOOGLE
         idToken:
           type: string
@@ -1071,6 +1125,20 @@ components:
           type: string
           example: Alighieri
           nullable: true
+    AccountDeletionDto:
+      type: object
+      properties:
+        requestedAt:
+          type: string
+          example: 2026-01-10T12:34:56.789Z
+          format: date-time
+        scheduledFor:
+          type: string
+          example: 2026-02-09T12:34:56.789Z
+          format: date-time
+      required:
+        - requestedAt
+        - scheduledFor
     MeDto:
       type: object
       properties:
@@ -1096,9 +1164,15 @@ components:
           description: Linked authentication methods on this account.
           items:
             type: string
-            enum: *a7
+            enum: *a8
         profile:
           $ref: "#/components/schemas/MeProfileDto"
+        accountDeletion:
+          nullable: true
+          description: When set, the account is scheduled for deletion. The request can be
+            canceled until scheduledFor.
+          allOf:
+            - $ref: "#/components/schemas/AccountDeletionDto"
       required:
         - id
         - email
@@ -1194,6 +1268,7 @@ components:
           enum:
             - ACTIVE
             - SUSPENDED
+            - DELETED
           example: ACTIVE
         suspendedAt:
           type: string
@@ -1279,13 +1354,13 @@ components:
           example: 9d8c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
         oldRole:
           type: string
-          enum: &a8
+          enum: &a9
             - USER
             - ADMIN
           example: USER
         newRole:
           type: string
-          enum: *a8
+          enum: *a9
           example: ADMIN
         traceId:
           type: string
