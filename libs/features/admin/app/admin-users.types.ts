@@ -4,11 +4,16 @@ export type AdminUsersFilterField = 'role' | 'emailVerified' | 'createdAt' | 'em
 
 export type AdminUserRole = 'USER' | 'ADMIN';
 
+export type AdminUserStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED';
+
 export type AdminUserListItem = Readonly<{
   id: string;
   email: string;
   emailVerified: boolean;
   roles: ReadonlyArray<string>;
+  status: AdminUserStatus;
+  suspendedAt: string | null;
+  suspendedReason: string | null;
   createdAt: string;
 }>;
 

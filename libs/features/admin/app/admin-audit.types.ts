@@ -27,3 +27,35 @@ export type AdminUserRoleChangeAuditListResult = Readonly<{
   hasMore: boolean;
   nextCursor?: string;
 }>;
+
+export type AdminUserAccountDeletionAuditsSortField = 'createdAt' | 'id';
+
+export type AdminUserAccountDeletionAuditsFilterField =
+  | 'actorUserId'
+  | 'targetUserId'
+  | 'action'
+  | 'createdAt'
+  | 'traceId';
+
+export type AdminUserAccountDeletionAction =
+  | 'REQUESTED'
+  | 'CANCELED'
+  | 'FINALIZED'
+  | 'FINALIZE_BLOCKED_LAST_ADMIN';
+
+export type AdminUserAccountDeletionAuditListItem = Readonly<{
+  id: string;
+  actorUserId: string;
+  actorSessionId: string;
+  targetUserId: string;
+  action: AdminUserAccountDeletionAction;
+  traceId: string;
+  createdAt: string;
+}>;
+
+export type AdminUserAccountDeletionAuditListResult = Readonly<{
+  items: ReadonlyArray<AdminUserAccountDeletionAuditListItem>;
+  limit: number;
+  hasMore: boolean;
+  nextCursor?: string;
+}>;

@@ -25,7 +25,7 @@ Rationale: misconfiguration is a top source of production incidents; fail fast i
 Implementation (current):
 
 - Validation is implemented in `libs/platform/config/env.validation.ts`.
-- `NODE_ENV=staging|production` currently requires: `DATABASE_URL`, `REDIS_URL`, `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- `NODE_ENV=staging|production` currently requires: `HTTP_TRUST_PROXY`, `DATABASE_URL`, `REDIS_URL`, `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`.
 - Auth issuer/audience are required in staging/production: `AUTH_ISSUER`, `AUTH_AUDIENCE`.
 
 ## Secrets Handling
@@ -43,6 +43,7 @@ This is the typical minimal set (exact keys may evolve):
 
 - Runtime
   - `NODE_ENV`
+  - `HTTP_TRUST_PROXY`
   - `HOST`
   - `PORT`
   - `WORKER_HOST`

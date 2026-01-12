@@ -11,6 +11,12 @@ enum UserRole {
   ADMIN
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
 enum ExternalIdentityProvider {
   GOOGLE
 }
@@ -20,6 +26,15 @@ model User {
   email           String  @unique
   emailVerifiedAt DateTime?
   role            UserRole @default(USER)
+  status          UserStatus @default(ACTIVE)
+  suspendedAt     DateTime?
+  suspendedReason String?
+
+  deletionRequestedAt        DateTime?
+  deletionScheduledFor       DateTime?
+  deletionRequestedSessionId String? @db.Uuid
+  deletionRequestedTraceId   String?
+  deletedAt                  DateTime?
 
   profile UserProfile?
   passwordCredential PasswordCredential?
@@ -30,12 +45,17 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([deletionScheduledFor])
+  @@index([deletedAt])
 }
 
 model ExternalIdentity {
   id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   provider ExternalIdentityProvider
   subject  String
+  // Optional snapshot of the provider email claim at link time (PII).
+  // Not used for auth decisions; may drift if the user changes their email at the IdP.
   email    String?
 
   userId String @db.Uuid
@@ -160,6 +180,43 @@ model UserRoleChangeAudit {
   targetUserId   String   @db.Uuid
   oldRole        UserRole
   newRole        UserRole
+  traceId        String
+  createdAt      DateTime @default(now())
+
+  @@index([targetUserId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([traceId])
+}
+
+model UserStatusChangeAudit {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId    String   @db.Uuid
+  actorSessionId String   @db.Uuid
+  targetUserId   String   @db.Uuid
+  oldStatus      UserStatus
+  newStatus      UserStatus
+  reason         String?
+  traceId        String
+  createdAt      DateTime @default(now())
+
+  @@index([targetUserId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([traceId])
+}
+
+enum UserAccountDeletionAction {
+  REQUESTED
+  CANCELED
+  FINALIZED
+  FINALIZE_BLOCKED_LAST_ADMIN
+}
+
+model UserAccountDeletionAudit {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId    String   @db.Uuid
+  actorSessionId String   @db.Uuid
+  targetUserId   String   @db.Uuid
+  action         UserAccountDeletionAction
   traceId        String
   createdAt      DateTime @default(now())
 

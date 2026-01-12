@@ -15,6 +15,7 @@ Goals:
 - **No account enumeration**: do not reveal whether an email exists.
 - **No PII in Redis keys**: emails/IPs are hashed before being used as Redis keys.
 - **Redis is required in staging/production** (see `libs/platform/config/env.validation.ts`), so these limits are always active in production-like environments.
+- **Correct client IP is required for IP-based limits**: when deployed behind a proxy/load balancer, configure `HTTP_TRUST_PROXY=true` so `req.ip` is derived from `X-Forwarded-For` (only safe when the app is not directly reachable from the internet).
 
 ## Endpoints and policies
 

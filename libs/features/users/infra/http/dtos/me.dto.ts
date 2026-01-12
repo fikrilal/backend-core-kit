@@ -60,6 +60,16 @@ export class MeProfileDto {
   familyName!: string | null;
 }
 
+export class AccountDeletionDto {
+  @ApiProperty({ example: '2026-01-10T12:34:56.789Z', format: 'date-time' })
+  @IsString()
+  requestedAt!: string;
+
+  @ApiProperty({ example: '2026-02-09T12:34:56.789Z', format: 'date-time' })
+  @IsString()
+  scheduledFor!: string;
+}
+
 export class MeDto {
   @ApiProperty({ example: '3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0' })
   @IsString()
@@ -90,6 +100,14 @@ export class MeDto {
 
   @ApiProperty({ type: MeProfileDto })
   profile!: MeProfileDto;
+
+  @ApiPropertyOptional({
+    type: AccountDeletionDto,
+    nullable: true,
+    description:
+      'When set, the account is scheduled for deletion. The request can be canceled until scheduledFor.',
+  })
+  accountDeletion!: AccountDeletionDto | null;
 }
 
 export class MeEnvelopeDto {

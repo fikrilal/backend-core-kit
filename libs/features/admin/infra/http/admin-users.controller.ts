@@ -22,6 +22,7 @@ import type { AdminUsersFilterField, AdminUsersSortField } from '../../app/admin
 import { AdminUsersService } from '../../app/admin-users.service';
 import { AdminUserEnvelopeDto, AdminUsersListEnvelopeDto } from './dtos/admin-users.dto';
 import { AdminUserIdParamDto, SetAdminUserRoleRequestDto } from './dtos/admin-user-role.dto';
+import { SetAdminUserStatusRequestDto } from './dtos/admin-user-status.dto';
 
 const listUsersQueryOptions = {
   search: true,
@@ -70,7 +71,15 @@ export class AdminUsersController {
     @ListQueryParam(listUsersQueryOptions)
     query: ListQuery<AdminUsersSortField, AdminUsersFilterField>,
   ) {
-    return this.users.listUsers(query);
+    const res = await this.users.listUsers(query);
+    return {
+      data: [...res.items],
+      meta: {
+        limit: res.limit,
+        hasMore: res.hasMore,
+        ...(res.nextCursor ? { nextCursor: res.nextCursor } : {}),
+      },
+    };
   }
 
   @Patch('users/:userId/role')
@@ -101,13 +110,57 @@ export class AdminUsersController {
     @Body() body: SetAdminUserRoleRequestDto,
   ) {
     try {
-      return await this.users.setUserRole({
+      const user = await this.users.setUserRole({
         actorUserId: principal.userId,
         actorSessionId: principal.sessionId,
         traceId: req.requestId ?? 'unknown',
         targetUserId: params.userId,
         role: body.role,
       });
+      return { data: user };
+    } catch (err: unknown) {
+      throw this.mapAdminError(err);
+    }
+  }
+
+  @Patch('users/:userId/status')
+  @RequirePermissions('users:status:write')
+  @ApiOperation({
+    operationId: 'admin.users.status.patch',
+    summary: 'Set user status',
+    description:
+      'Sets the user status (ACTIVE/SUSPENDED). Suspended users cannot refresh tokens and are blocked from /v1/admin/* endpoints immediately.',
+  })
+  @ApiErrorCodes([
+    ErrorCode.VALIDATION_FAILED,
+    ErrorCode.UNAUTHORIZED,
+    ErrorCode.FORBIDDEN,
+    ErrorCode.NOT_FOUND,
+    ErrorCode.IDEMPOTENCY_IN_PROGRESS,
+    ErrorCode.CONFLICT,
+    AdminErrorCode.ADMIN_CANNOT_SUSPEND_LAST_ADMIN,
+    ErrorCode.INTERNAL,
+  ])
+  @ApiOkResponse({ type: AdminUserEnvelopeDto })
+  @ApiIdempotencyKeyHeader({ required: false })
+  @Idempotent({ scopeKey: 'admin.users.status.patch' })
+  async setUserStatus(
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Req() req: FastifyRequest,
+    @Param() params: AdminUserIdParamDto,
+    @Body() body: SetAdminUserStatusRequestDto,
+  ) {
+    try {
+      const user = await this.users.setUserStatus({
+        actorUserId: principal.userId,
+        actorSessionId: principal.sessionId,
+        traceId: req.requestId ?? 'unknown',
+        targetUserId: params.userId,
+        status: body.status,
+        reason: body.reason,
+        now: new Date(),
+      });
+      return { data: user };
     } catch (err: unknown) {
       throw this.mapAdminError(err);
     }

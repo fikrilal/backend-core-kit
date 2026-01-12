@@ -2,32 +2,20 @@
 
 This is a WIP tracker for near-term backlog items that improve production readiness and enterprise alignment.
 
-## 1) Admin audit log read API
+## 1) Admin audit log: account deletion events (read API)
 
-- Endpoint: `GET /v1/admin/audit/user-role-changes`
-- Data source: `UserRoleChangeAudit`
+- Endpoint: `GET /v1/admin/audit/user-account-deletions`
+- Data source: `UserAccountDeletionAudit`
+- Design: `_WIP/admin-audit-user-account-deletions.md`
 - Capabilities:
   - Cursor pagination (consistent with existing list-query patterns)
-  - Filters: `actorUserId`, `targetUserId`, `oldRole`, `newRole`, `since`, `until`
+  - Filters: `actorUserId`, `targetUserId`, `action`, `traceId`, `since`, `until`
   - Sort: `createdAt desc` (tie-breaker `id desc`)
 - Notes:
   - Requires admin RBAC + DB-hydrated principal (no token-embedded roles)
   - Response envelope `{ data, meta }`, RFC7807 errors, OpenAPI snapshot + Spectral passing
 
-## 2) User suspension / disable (control-plane primitive)
-
-- Schema:
-  - Add `UserStatus` enum: `ACTIVE | SUSPENDED`
-  - Add `User.status` default `ACTIVE`
-- Admin API:
-  - `PATCH /v1/admin/users/:userId/status` (idempotent; optional `Idempotency-Key`)
-- Enforcement:
-  - Block auth/refresh for suspended users (deny before side effects)
-  - Revoke refresh tokens (and optionally sessions) on suspend to reduce risk window
-- Notes:
-  - Stable error code for suspended users (e.g. `AUTH_USER_SUSPENDED`)
-
-## 3) Session metadata hardening (security + UX)
+## 2) Session metadata hardening (security + UX)
 
 - Schema (Session):
   - Add: `ip`, `userAgent`, `lastSeenAt`
@@ -37,12 +25,23 @@ This is a WIP tracker for near-term backlog items that improve production readin
 - API:
   - Extend `GET /v1/me/sessions` to return these fields (still lists active + revoked + expired)
 - Notes:
-  - Enables “suspicious session” detection and better account security UX
+  - Treat IP/user-agent as PII; minimize logging and avoid exposing more than needed
 
-## 4) Observability for jobs + email (traceability end-to-end)
+## 3) Worker trace propagation (HTTP → enqueue → worker)
 
-- Goal: correlate `traceId` across HTTP → enqueue → worker → external calls (Resend).
-- Work:
-  - Add OTel spans around BullMQ job enqueue + processing
-  - Add spans/metrics for email send attempts + failures (with stable error codes)
-  - Ensure logs include `traceId`/`requestId` and avoid PII/secrets
+- Goal: correlate `traceId` across HTTP → enqueue → worker (and onward to Resend/email).
+- Notes:
+  - We already inject `traceparent`/`tracestate` into job payload on enqueue.
+  - Next: extract job trace context in workers so spans/logs link back to the originating request.
+
+## 4) Newline hygiene (Windows/WSL interop)
+
+- Add `.gitattributes` to enforce LF for repo files and stop CRLF churn/warnings.
+
+---
+
+## Recently completed (for context)
+
+- Admin audit log: `GET /v1/admin/audit/user-role-changes`
+- User suspension control-plane primitive (admin status patch + enforcement)
+- Self-service account deletion (30-day grace, finalization worker, audits)

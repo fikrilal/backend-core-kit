@@ -108,6 +108,14 @@ export class AuthService {
       });
     }
 
+    if (found.user.status === 'SUSPENDED') {
+      throw new AuthError({
+        status: 403,
+        code: AuthErrorCode.AUTH_USER_SUSPENDED,
+        message: 'User is suspended',
+      });
+    }
+
     await this.loginRateLimiter.recordSuccess({ email, ip: input.ip });
 
     const sessionExpiresAt = new Date(now.getTime() + this.config.refreshTokenTtlSeconds * 1000);
@@ -224,6 +232,14 @@ export class AuthService {
           throw err;
         }
       }
+    }
+
+    if (user.status === 'SUSPENDED') {
+      throw new AuthError({
+        status: 403,
+        code: AuthErrorCode.AUTH_USER_SUSPENDED,
+        message: 'User is suspended',
+      });
     }
 
     const authMethods: ReadonlyArray<AuthMethod> = createdNewUser
@@ -401,6 +417,14 @@ export class AuthService {
         status: 401,
         code: AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID,
         message: 'Invalid refresh token',
+      });
+    }
+
+    if (existing.user.status === 'SUSPENDED') {
+      throw new AuthError({
+        status: 403,
+        code: AuthErrorCode.AUTH_USER_SUSPENDED,
+        message: 'User is suspended',
       });
     }
 

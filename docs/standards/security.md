@@ -16,6 +16,7 @@ Security is not a “feature module”; it is a baseline constraint across confi
 - All production traffic must be served over TLS.
 - Prefer HSTS at the edge (gateway/load balancer).
 - Never trust `X-Forwarded-*` headers unless behind a trusted proxy with explicit configuration.
+- For Fastify, proxy trust is controlled by `HTTP_TRUST_PROXY` (required in `staging`/`production`); enabling it means the app must not be directly reachable.
 
 ## Input Validation & Payload Limits
 

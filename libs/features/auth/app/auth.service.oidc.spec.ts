@@ -24,6 +24,7 @@ function makeUser(partial?: Partial<AuthUserRecord>): AuthUserRecord {
     email: 'user@example.com' as Email,
     emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
     role: 'USER',
+    status: 'ACTIVE',
     ...partial,
   };
 }

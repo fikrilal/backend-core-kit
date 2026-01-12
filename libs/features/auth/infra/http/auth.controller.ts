@@ -103,6 +103,7 @@ export class AuthController {
     AuthErrorCode.AUTH_OIDC_TOKEN_INVALID,
     AuthErrorCode.AUTH_OIDC_EMAIL_NOT_VERIFIED,
     AuthErrorCode.AUTH_OIDC_LINK_REQUIRED,
+    AuthErrorCode.AUTH_USER_SUSPENDED,
     ErrorCode.INTERNAL,
   ])
   @ApiOkResponse({ type: AuthResultEnvelopeDto })
@@ -302,6 +303,7 @@ export class AuthController {
   @ApiErrorCodes([
     ErrorCode.VALIDATION_FAILED,
     AuthErrorCode.AUTH_INVALID_CREDENTIALS,
+    AuthErrorCode.AUTH_USER_SUSPENDED,
     ErrorCode.RATE_LIMITED,
     ErrorCode.INTERNAL,
   ])
@@ -371,6 +373,7 @@ export class AuthController {
     AuthErrorCode.AUTH_REFRESH_TOKEN_EXPIRED,
     AuthErrorCode.AUTH_REFRESH_TOKEN_REUSED,
     AuthErrorCode.AUTH_SESSION_REVOKED,
+    AuthErrorCode.AUTH_USER_SUSPENDED,
     ErrorCode.INTERNAL,
   ])
   @ApiOkResponse({ type: AuthResultEnvelopeDto })
