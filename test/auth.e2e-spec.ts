@@ -57,9 +57,23 @@ function getSessionIdFromAccessToken(token: string): string {
 }
 
 async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void> {
-  const keys = await redis.keys(pattern);
-  if (keys.length === 0) return;
-  await redis.del(...keys);
+  let cursor = '0';
+  const keysToDelete: string[] = [];
+
+  do {
+    const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', '1000');
+    cursor = nextCursor;
+    if (keys.length > 0) keysToDelete.push(...keys);
+  } while (cursor !== '0');
+
+  if (keysToDelete.length === 0) return;
+
+  // Avoid large argv to DEL by batching.
+  const batchSize = 500;
+  for (let i = 0; i < keysToDelete.length; i += batchSize) {
+    const batch = keysToDelete.slice(i, i + batchSize);
+    await redis.del(...batch);
+  }
 }
 
 (skipDepsTests ? describe.skip : describe)('Auth (e2e)', () => {

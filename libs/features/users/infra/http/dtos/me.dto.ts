@@ -4,6 +4,7 @@ import {
   IsArray,
   IsDefined,
   IsEmail,
+  IsIn,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -84,6 +85,7 @@ export class MeDto {
   })
   @IsArray()
   @IsString({ each: true })
+  @IsIn(AUTH_METHOD_VALUES, { each: true })
   authMethods!: string[];
 
   @ApiProperty({ type: MeProfileDto })
