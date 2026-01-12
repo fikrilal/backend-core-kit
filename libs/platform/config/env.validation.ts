@@ -233,6 +233,32 @@ class EnvVars {
   @IsOptional()
   @IsString()
   EMAIL_REPLY_TO?: string;
+
+  // Object storage (S3-compatible; e.g. Cloudflare R2)
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  STORAGE_S3_ENDPOINT?: string;
+
+  @IsOptional()
+  @IsString()
+  STORAGE_S3_REGION?: string;
+
+  @IsOptional()
+  @IsString()
+  STORAGE_S3_BUCKET?: string;
+
+  @IsOptional()
+  @IsString()
+  STORAGE_S3_ACCESS_KEY_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  STORAGE_S3_SECRET_ACCESS_KEY?: string;
+
+  @Transform(({ value }) => parseEnvBoolean(value))
+  @IsOptional()
+  @IsBoolean()
+  STORAGE_S3_FORCE_PATH_STYLE?: boolean;
 }
 
 function formatValidationErrors(errors: unknown[]): string {
@@ -301,6 +327,39 @@ function assertEmailConfigConsistency(env: EnvVars) {
   }
 }
 
+function assertStorageConfigConsistency(env: EnvVars) {
+  const endpoint = env.STORAGE_S3_ENDPOINT?.trim();
+  const region = env.STORAGE_S3_REGION?.trim();
+  const bucket = env.STORAGE_S3_BUCKET?.trim();
+  const accessKeyId = env.STORAGE_S3_ACCESS_KEY_ID?.trim();
+  const secretAccessKey = env.STORAGE_S3_SECRET_ACCESS_KEY?.trim();
+
+  const configured = Boolean(
+    endpoint ||
+    region ||
+    bucket ||
+    accessKeyId ||
+    secretAccessKey ||
+    env.STORAGE_S3_FORCE_PATH_STYLE,
+  );
+  if (!configured) return;
+
+  const missing: string[] = [];
+  if (!endpoint) missing.push('STORAGE_S3_ENDPOINT');
+  if (!region) missing.push('STORAGE_S3_REGION');
+  if (!bucket) missing.push('STORAGE_S3_BUCKET');
+  if (!accessKeyId) missing.push('STORAGE_S3_ACCESS_KEY_ID');
+  if (!secretAccessKey) missing.push('STORAGE_S3_SECRET_ACCESS_KEY');
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required environment variables: ${missing.join(
+        ', ',
+      )} (required when STORAGE_S3_* is set)`,
+    );
+  }
+}
+
 export function validateEnv(config: Record<string, unknown>): EnvVars {
   const validated = plainToInstance(EnvVars, config, { enableImplicitConversion: true });
   const errors = validateSync(validated, {
@@ -313,5 +372,6 @@ export function validateEnv(config: Record<string, unknown>): EnvVars {
 
   requireInProductionLike(validated);
   assertEmailConfigConsistency(validated);
+  assertStorageConfigConsistency(validated);
   return validated;
 }

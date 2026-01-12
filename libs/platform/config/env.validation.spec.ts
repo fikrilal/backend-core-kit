@@ -36,4 +36,8 @@ describe('validateEnv', () => {
   it('throws when EMAIL_FROM is set without RESEND_API_KEY', () => {
     expect(() => validateEnv({ EMAIL_FROM: 'no-reply@example.com' })).toThrow(/RESEND_API_KEY/i);
   });
+
+  it('throws when storage config is partial', () => {
+    expect(() => validateEnv({ STORAGE_S3_BUCKET: 'my-bucket' })).toThrow(/STORAGE_S3_ENDPOINT/i);
+  });
 });
