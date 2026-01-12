@@ -64,6 +64,12 @@ function asUrl(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() !== '' ? value : undefined;
 }
 
+function getActiveOtelContext(): { otelTraceId: string; otelSpanId: string } | undefined {
+  const spanContext = otelTrace.getSpan(otelContext.active())?.spanContext();
+  if (!spanContext) return undefined;
+  return { otelTraceId: spanContext.traceId, otelSpanId: spanContext.spanId };
+}
+
 @Global()
 @Module({})
 export class LoggingModule {
@@ -82,6 +88,7 @@ export class LoggingModule {
             const pinoHttp: Params['pinoHttp'] = {
               level,
               base: { service: serviceName, env: nodeEnv, role },
+              mixin: () => getActiveOtelContext() ?? {},
               ...(pretty
                 ? {
                     transport: {
