@@ -1425,4 +1425,92 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
 
     expect(res.body).toMatchObject({ code: 'AUTH_INVALID_CREDENTIALS', status: 401 });
   });
+
+  it('request account deletion schedules deletion and cancel clears it', async () => {
+    const email = `delete-me+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      accessToken: string;
+    };
+
+    await request(baseUrl)
+      .post('/v1/me/account-deletion/request')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(204);
+
+    const meAfterRequest = await request(baseUrl)
+      .get('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
+
+    expect(meAfterRequest.body.data.accountDeletion).toBeDefined();
+    expect(meAfterRequest.body.data.accountDeletion).toMatchObject({
+      requestedAt: expect.any(String),
+      scheduledFor: expect.any(String),
+    });
+
+    const requestedAt = new Date(meAfterRequest.body.data.accountDeletion.requestedAt as string);
+    const scheduledFor = new Date(meAfterRequest.body.data.accountDeletion.scheduledFor as string);
+
+    const msInDay = 24 * 60 * 60 * 1000;
+    const deltaDays = (scheduledFor.getTime() - requestedAt.getTime()) / msInDay;
+    expect(deltaDays).toBeGreaterThan(29.9);
+    expect(deltaDays).toBeLessThan(30.1);
+
+    await request(baseUrl)
+      .post('/v1/me/account-deletion/cancel')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(204);
+
+    const meAfterCancel = await request(baseUrl)
+      .get('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
+
+    expect(meAfterCancel.body.data.accountDeletion).toBeNull();
+  });
+
+  it('request account deletion returns USERS_CANNOT_DELETE_LAST_ADMIN for last active admin', async () => {
+    const email = `last-admin-delete+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as {
+      user: { id: string };
+      accessToken: string;
+    };
+
+    await prisma.user.update({
+      where: { id: reg.user.id },
+      data: { role: UserRole.ADMIN, status: UserStatus.ACTIVE },
+    });
+
+    // Ensure this user is the only active admin for a deterministic last-admin check.
+    await prisma.user.updateMany({
+      where: {
+        role: UserRole.ADMIN,
+        status: UserStatus.ACTIVE,
+        id: { not: reg.user.id },
+      },
+      data: { role: UserRole.USER },
+    });
+
+    const res = await request(baseUrl)
+      .post('/v1/me/account-deletion/request')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(409);
+
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'USERS_CANNOT_DELETE_LAST_ADMIN', status: 409 });
+  });
 });
