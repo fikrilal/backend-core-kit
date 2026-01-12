@@ -117,6 +117,12 @@ export class QueueProducer implements OnModuleDestroy {
     }
   }
 
+  async removeJob(queueName: QueueName, jobId: string): Promise<boolean> {
+    const queue = this.getQueue(queueName);
+    const code = await queue.remove(jobId);
+    return code === 1;
+  }
+
   async onModuleDestroy(): Promise<void> {
     await Promise.all([...this.queues.values()].map((q) => q.close()));
     this.queues.clear();
