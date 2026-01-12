@@ -14,6 +14,7 @@ enum UserRole {
 enum UserStatus {
   ACTIVE
   SUSPENDED
+  DELETED
 }
 
 enum ExternalIdentityProvider {
@@ -29,6 +30,12 @@ model User {
   suspendedAt     DateTime?
   suspendedReason String?
 
+  deletionRequestedAt        DateTime?
+  deletionScheduledFor       DateTime?
+  deletionRequestedSessionId String? @db.Uuid
+  deletionRequestedTraceId   String?
+  deletedAt                  DateTime?
+
   profile UserProfile?
   passwordCredential PasswordCredential?
   sessions           Session[]
@@ -38,6 +45,9 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([deletionScheduledFor])
+  @@index([deletedAt])
 }
 
 model ExternalIdentity {
@@ -186,6 +196,27 @@ model UserStatusChangeAudit {
   oldStatus      UserStatus
   newStatus      UserStatus
   reason         String?
+  traceId        String
+  createdAt      DateTime @default(now())
+
+  @@index([targetUserId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([traceId])
+}
+
+enum UserAccountDeletionAction {
+  REQUESTED
+  CANCELED
+  FINALIZED
+  FINALIZE_BLOCKED_LAST_ADMIN
+}
+
+model UserAccountDeletionAudit {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId    String   @db.Uuid
+  actorSessionId String   @db.Uuid
+  targetUserId   String   @db.Uuid
+  action         UserAccountDeletionAction
   traceId        String
   createdAt      DateTime @default(now())
 
