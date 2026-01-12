@@ -11,6 +11,7 @@ import { PlatformEmailModule } from '../../../libs/platform/email/email.module';
 import { QueueModule } from '../../../libs/platform/queue/queue.module';
 import { SystemSmokeWorker } from './jobs/system-smoke.worker';
 import { AuthEmailsWorker } from './jobs/auth-email-verification.worker';
+import { UsersAccountDeletionWorker } from './jobs/users-account-deletion.worker';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { AuthEmailsWorker } from './jobs/auth-email-verification.worker';
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },
     SystemSmokeWorker,
     AuthEmailsWorker,
+    UsersAccountDeletionWorker,
   ],
 })
 export class WorkerModule {}
