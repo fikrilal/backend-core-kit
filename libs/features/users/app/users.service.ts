@@ -89,6 +89,7 @@ export class UsersService {
 
   private toMeView(user: UserRecord): MeView {
     const profile: UserProfileRecord = user.profile ?? {
+      profileImageFileId: null,
       displayName: null,
       givenName: null,
       familyName: null,

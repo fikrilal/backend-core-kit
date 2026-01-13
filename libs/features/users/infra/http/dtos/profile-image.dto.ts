@@ -62,6 +62,19 @@ export class ProfileImageUploadPlanEnvelopeDto {
   data!: ProfileImageUploadPlanDto;
 }
 
+export class ProfileImageUrlDto {
+  @ApiProperty({ example: 'https://<r2-presigned-url>' })
+  url!: string;
+
+  @ApiProperty({ example: '2026-01-10T12:34:56.789Z', format: 'date-time' })
+  expiresAt!: string;
+}
+
+export class ProfileImageUrlEnvelopeDto {
+  @ApiProperty({ type: ProfileImageUrlDto })
+  data!: ProfileImageUrlDto;
+}
+
 export class CompleteProfileImageUploadRequestDto {
   @ApiProperty({ example: '3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0' })
   @IsUUID()

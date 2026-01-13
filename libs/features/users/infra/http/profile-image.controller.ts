@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiNoContentResponse,
@@ -6,7 +6,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import type { FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
@@ -23,6 +23,7 @@ import {
   CompleteProfileImageUploadRequestDto,
   CreateProfileImageUploadRequestDto,
   ProfileImageUploadPlanEnvelopeDto,
+  ProfileImageUrlEnvelopeDto,
 } from './dtos/profile-image.dto';
 
 @ApiTags('Users')
@@ -128,6 +129,44 @@ export class ProfileImageController {
         userId: principal.userId,
         traceId: req.requestId ?? 'unknown',
       });
+    } catch (err: unknown) {
+      throw this.mapUsersError(err);
+    }
+  }
+
+  @Get('me/profile-image/url')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    operationId: 'users.me.profileImage.url',
+    summary: 'Get current profile image URL',
+    description:
+      'Returns a short-lived presigned URL for rendering the current profile image. Returns 204 when no profile image is set.',
+  })
+  @ApiErrorCodes([
+    ErrorCode.UNAUTHORIZED,
+    UsersErrorCode.USERS_OBJECT_STORAGE_NOT_CONFIGURED,
+    ErrorCode.INTERNAL,
+  ])
+  @ApiOkResponse({ type: ProfileImageUrlEnvelopeDto })
+  @ApiNoContentResponse()
+  async getProfileImageUrl(
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<unknown> {
+    try {
+      const url = await this.images.getProfileImageUrl({
+        userId: principal.userId,
+        traceId: req.requestId ?? 'unknown',
+      });
+
+      if (!url) {
+        reply.status(204);
+        return undefined;
+      }
+
+      return url;
     } catch (err: unknown) {
       throw this.mapUsersError(err);
     }

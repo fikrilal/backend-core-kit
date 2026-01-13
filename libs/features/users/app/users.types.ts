@@ -5,6 +5,7 @@ export type UserRole = 'USER' | 'ADMIN';
 export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED';
 
 export type UserProfileRecord = Readonly<{
+  profileImageFileId: string | null;
   displayName: string | null;
   givenName: string | null;
   familyName: string | null;

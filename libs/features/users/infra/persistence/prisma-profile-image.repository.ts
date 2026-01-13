@@ -9,6 +9,7 @@ import type {
   AttachProfileImageResult,
   ClearProfileImageResult,
   CreateProfileImageFileResult,
+  CurrentProfileImageFileResult,
   ProfileImageRepository,
   StoredFileRecord,
 } from '../../app/ports/profile-image.repository';
@@ -189,6 +190,35 @@ export class PrismaProfileImageRepository implements ProfileImageRepository {
 
       return { kind: 'ok', clearedFile: file ? { id: file.id, objectKey: file.objectKey } : null };
     });
+  }
+
+  async getCurrentProfileImageFile(userId: string): Promise<CurrentProfileImageFileResult> {
+    const client = this.prisma.getClient();
+
+    const user = await client.user.findUnique({
+      where: { id: userId },
+      select: { status: true },
+    });
+    if (!user || user.status === PrismaUserStatus.DELETED) return { kind: 'not_found' };
+
+    const profile = await client.userProfile.findUnique({
+      where: { userId },
+      select: { profileImageFileId: true },
+    });
+    const fileId = profile?.profileImageFileId ?? null;
+    if (!fileId) return { kind: 'ok', file: null };
+
+    const file = await client.storedFile.findFirst({
+      where: {
+        id: fileId,
+        ownerUserId: userId,
+        purpose: PrismaFilePurpose.PROFILE_IMAGE,
+        status: PrismaFileStatus.ACTIVE,
+      },
+      select: { id: true, objectKey: true },
+    });
+
+    return { kind: 'ok', file: file ? { id: file.id, objectKey: file.objectKey } : null };
   }
 
   async markStoredFileDeleted(input: {

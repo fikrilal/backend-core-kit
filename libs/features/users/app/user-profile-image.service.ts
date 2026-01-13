@@ -8,12 +8,18 @@ import type { ProfileImageRepository, StoredFileRecord } from './ports/profile-i
 import {
   PROFILE_IMAGE_ALLOWED_CONTENT_TYPES,
   PROFILE_IMAGE_MAX_BYTES,
+  PROFILE_IMAGE_GET_URL_TTL_SECONDS,
   PROFILE_IMAGE_PRESIGN_TTL_SECONDS,
 } from './profile-image.policy';
 
 export type ProfileImageUploadPlan = Readonly<{
   fileId: string;
   upload: PresignedPutObject;
+  expiresAt: string;
+}>;
+
+export type ProfileImageUrlView = Readonly<{
+  url: string;
   expiresAt: string;
 }>;
 
@@ -194,6 +200,34 @@ export class UserProfileImageService {
     } catch {
       // best-effort; ignore
     }
+  }
+
+  async getProfileImageUrl(input: {
+    userId: string;
+    traceId: string;
+  }): Promise<ProfileImageUrlView | null> {
+    const current = await this.repo.getCurrentProfileImageFile(input.userId);
+    if (current.kind === 'not_found') {
+      throw new UserNotFoundError();
+    }
+    if (!current.file) return null;
+
+    if (!this.storage.isEnabled()) {
+      throw new UsersError({
+        status: 501,
+        code: UsersErrorCode.USERS_OBJECT_STORAGE_NOT_CONFIGURED,
+        message: 'Object storage is not configured',
+      });
+    }
+
+    const presigned = await this.storage.presignGetObject({
+      key: current.file.objectKey,
+      expiresInSeconds: PROFILE_IMAGE_GET_URL_TTL_SECONDS,
+    });
+
+    const expiresAt = new Date(Date.now() + PROFILE_IMAGE_GET_URL_TTL_SECONDS * 1000).toISOString();
+
+    return { url: presigned.url, expiresAt };
   }
 
   private async rejectUpload(file: StoredFileRecord, ownerUserId: string): Promise<void> {

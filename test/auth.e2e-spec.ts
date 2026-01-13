@@ -599,6 +599,12 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
     expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
   });
 
+  it('GET /v1/me/profile-image/url requires an access token', async () => {
+    const res = await request(baseUrl).get('/v1/me/profile-image/url').expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
   it('DELETE /v1/me/profile-image requires an access token', async () => {
     const res = await request(baseUrl).delete('/v1/me/profile-image').expect(401);
     expect(res.headers['content-type']).toContain('application/problem+json');
@@ -638,8 +644,25 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       emailVerified: false,
       roles: ['USER'],
       authMethods: ['PASSWORD'],
-      profile: { displayName: null, givenName: null, familyName: null },
+      profile: { profileImageFileId: null, displayName: null, givenName: null, familyName: null },
     });
+  });
+
+  it('GET /v1/me/profile-image/url returns 204 when no profile image is set', async () => {
+    const email = `me-profile-image-url+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { accessToken: string };
+
+    await request(baseUrl)
+      .get('/v1/me/profile-image/url')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(204);
   });
 
   it('register -> login -> GET /v1/me/sessions returns sessions and marks current', async () => {
@@ -772,7 +795,12 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       email: email.toLowerCase(),
       emailVerified: false,
       roles: ['USER'],
-      profile: { displayName: 'Dante', givenName: 'Dante', familyName: 'Alighieri' },
+      profile: {
+        profileImageFileId: null,
+        displayName: 'Dante',
+        givenName: 'Dante',
+        familyName: 'Alighieri',
+      },
     });
 
     const meRes = await request(baseUrl)
@@ -781,6 +809,7 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       .expect(200);
 
     expect(meRes.body.data.profile).toEqual({
+      profileImageFileId: null,
       displayName: 'Dante',
       givenName: 'Dante',
       familyName: 'Alighieri',
@@ -861,6 +890,7 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       .expect(200);
 
     expect(cleared.body.data.profile).toMatchObject({
+      profileImageFileId: null,
       displayName: null,
       givenName: null,
       familyName: null,

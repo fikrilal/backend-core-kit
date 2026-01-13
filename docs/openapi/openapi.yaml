@@ -561,6 +561,29 @@ paths:
       x-error-codes:
         - UNAUTHORIZED
         - INTERNAL
+  /v1/me/profile-image/url:
+    get:
+      description: Returns a short-lived presigned URL for rendering the current
+        profile image. Returns 204 when no profile image is set.
+      operationId: users.me.profileImage.url
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileImageUrlEnvelopeDto"
+        "204":
+          description: ""
+      security:
+        - access-token: []
+      summary: Get current profile image URL
+      tags: *a4
+      x-error-codes:
+        - UNAUTHORIZED
+        - USERS_OBJECT_STORAGE_NOT_CONFIGURED
+        - INTERNAL
   /v1/me/account-deletion/request:
     post:
       description: Schedules account deletion 30 days in the future. The account
@@ -1300,6 +1323,12 @@ components:
     MeProfileDto:
       type: object
       properties:
+        profileImageFileId:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+          nullable: true
+          description: Current profile image stored file ID. Use `GET
+            /v1/me/profile-image/url` to get a short-lived URL for rendering.
         displayName:
           type: string
           example: Dante
@@ -1475,6 +1504,26 @@ components:
           example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
       required:
         - fileId
+    ProfileImageUrlDto:
+      type: object
+      properties:
+        url:
+          type: string
+          example: https://<r2-presigned-url>
+        expiresAt:
+          type: string
+          example: 2026-01-10T12:34:56.789Z
+          format: date-time
+      required:
+        - url
+        - expiresAt
+    ProfileImageUrlEnvelopeDto:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/ProfileImageUrlDto"
+      required:
+        - data
     AdminWhoamiDto:
       type: object
       properties:
