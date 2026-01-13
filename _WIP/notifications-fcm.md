@@ -8,20 +8,25 @@ The intent is: provide a clean, reusable baseline that most products need, while
 
 ### Phase 1 — Infra (implemented)
 
-- Platform push port + FCM adapter using `firebase-admin` (no endpoints yet):
+- Platform push port + FCM adapter using `firebase-admin`:
   - `libs/platform/push/*`
-- Push queue + worker processor (no DB integration yet):
-  - `apps/worker/src/jobs/push.worker.ts`
 - Env validation for push config:
   - `libs/platform/config/env.validation.ts`
 - Unit tests for the FCM adapter:
   - `libs/platform/push/fcm-push.service.spec.ts`
 
-### Phase 2 — Token registration + delivery integration (not implemented)
+### Phase 2 — Token registration + session-scoped delivery (implemented)
 
-- Persist push token(s) against the current session/device.
-- Add user self-service endpoints to register/revoke tokens.
-- Add application-level use cases that enqueue `push.send` jobs.
+- Persist push token(s) against the current session/device (Prisma `Session` fields).
+- Add user self-service endpoints to register/revoke tokens:
+  - `PUT /v1/me/push-token`
+  - `DELETE /v1/me/push-token`
+- Push queue + worker processor resolves `sessionId -> token` and clears invalid tokens:
+  - `apps/worker/src/jobs/push.worker.ts`
+
+### Phase 3 — Application use cases (not implemented)
+
+- Feature-level use cases that enqueue `push.send` jobs (e.g. “notify user X”).
 
 ## Goals
 
@@ -68,17 +73,15 @@ Add:
 Add to `Session`:
 
 - `pushPlatform PushPlatform?`
-- `pushToken String? @db.VarChar(512)`
+- `pushToken String? @unique @db.VarChar(2048)`
 - `pushTokenUpdatedAt DateTime?`
 - `pushTokenRevokedAt DateTime?`
 
-Constraints / indexes:
+Constraints / indexes (chosen):
 
 - `@@index([userId])` already exists
 - `@@index([revokedAt])` already exists
-- Optional uniqueness:
-  - **Option A (recommended):** no DB `@unique` on `pushToken` (avoid edge cases where the same token re-registers under a new session while the old session record still exists).
-  - Enforce “one active token per session” at app level.
+- `pushToken` is unique so the same device/app-install token cannot be attached to multiple sessions (prevents duplicate deliveries).
 
 Revocation integration:
 
@@ -147,18 +150,21 @@ Rationale: keep `emails` and `users` queues focused; push sends often have diffe
 
 Data:
 
-- **Phase 1 (implemented):**
-  - `token: string`
-  - `notification?: { title?: string; body?: string }`
-  - `data?: Record<string, string>` (FCM “data messages” payload; values must be strings)
-  - `requestedAt: ISO datetime`
-- **Phase 2 (recommended):** switch the job payload to `sessionId` (and resolve token in worker) so revocations are enforced consistently.
+- `sessionId: uuid`
+- `notification?: { title?: string; body?: string }`
+- `data?: Record<string, string>` (FCM “data messages” payload; values must be strings)
+- `requestedAt: ISO datetime`
 
 Worker behavior:
 
-1. Send to token via provider.
-2. If provider returns “token unregistered/invalid”, treat as success (skip + no retries).
-3. (Phase 2) When token is stored in DB, revoke/clear the token fields on invalid token errors.
+1. Load session by `sessionId`:
+   - skip if session not found/revoked/expired
+   - skip if user is not `ACTIVE`
+   - skip if no `pushToken` is registered
+2. Send to token via provider.
+3. If provider returns “token unregistered/invalid”:
+   - clear token fields on the session (best-effort, guarded by `WHERE pushToken = <token>` to avoid clobbering a rotated token)
+   - treat as success (skip + no retries)
 
 Retries:
 
@@ -233,8 +239,7 @@ When any required key is missing:
 
 - Unit tests:
   - `PushService` disabled mode when config missing
-  - FCM adapter token minting + request shaping (mock HTTP)
-  - “unregistered token” handling triggers token revocation in DB
+  - “unregistered token” maps to a non-retryable `PushSendError`
 - Integration tests:
   - enqueue `push.send` job and validate worker reads session/token and attempts send (mock provider)
 

@@ -7,7 +7,7 @@ export { PUSH_QUEUE };
 export const PUSH_SEND_JOB = jobName('push.send');
 
 export type PushSendJobData = Readonly<{
-  token: string;
+  sessionId: string;
   notification?: Readonly<{ title?: string; body?: string }>;
   data?: Readonly<Record<string, string>>;
   requestedAt: string;

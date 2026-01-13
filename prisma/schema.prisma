@@ -21,6 +21,12 @@ enum ExternalIdentityProvider {
   GOOGLE
 }
 
+enum PushPlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
 enum FilePurpose {
   PROFILE_IMAGE
 }
@@ -140,6 +146,10 @@ model Session {
 
   deviceId   String?
   deviceName String?
+  pushPlatform PushPlatform?
+  pushToken String? @unique @db.VarChar(2048)
+  pushTokenUpdatedAt DateTime?
+  pushTokenRevokedAt DateTime?
   // Best-effort client metadata; treat as PII.
   ip        String? @db.Inet
   userAgent String? @db.VarChar(512)
@@ -161,6 +171,7 @@ model Session {
   @@index([userId])
   @@index([deviceId])
   @@index([revokedAt])
+  @@index([pushTokenRevokedAt])
 }
 
 model RefreshToken {

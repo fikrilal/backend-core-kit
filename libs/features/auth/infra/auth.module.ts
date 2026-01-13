@@ -4,13 +4,16 @@ import { PrismaModule } from '../../../platform/db/prisma.module';
 import { RedisModule } from '../../../platform/redis/redis.module';
 import { PlatformAuthModule } from '../../../platform/auth/auth.module';
 import { PlatformEmailModule } from '../../../platform/email/email.module';
+import { PlatformPushModule } from '../../../platform/push/push.module';
 import { QueueModule } from '../../../platform/queue/queue.module';
 import { AuthService } from '../app/auth.service';
 import { SystemClock } from '../app/time';
 import { AuthSessionsService } from '../app/auth-sessions.service';
+import { AuthPushTokensService } from '../app/auth-push-tokens.service';
 import { AuthController } from './http/auth.controller';
 import { JwksController } from './http/jwks.controller';
 import { MeSessionsController } from './http/me-sessions.controller';
+import { MePushTokenController } from './http/me-push-token.controller';
 import { PrismaAuthRepository } from './persistence/prisma-auth.repository';
 import { AuthEmailVerificationJobs } from './jobs/auth-email-verification.jobs';
 import { AuthPasswordResetJobs } from './jobs/auth-password-reset.jobs';
@@ -22,8 +25,15 @@ import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
 import { GoogleOidcIdTokenVerifier } from './security/google-oidc-id-token-verifier';
 
 @Module({
-  imports: [PrismaModule, RedisModule, PlatformAuthModule, PlatformEmailModule, QueueModule],
-  controllers: [AuthController, JwksController, MeSessionsController],
+  imports: [
+    PrismaModule,
+    RedisModule,
+    PlatformAuthModule,
+    PlatformEmailModule,
+    PlatformPushModule,
+    QueueModule,
+  ],
+  controllers: [AuthController, JwksController, MeSessionsController, MePushTokenController],
   providers: [
     PrismaAuthRepository,
     AuthEmailVerificationJobs,
@@ -38,6 +48,11 @@ import { GoogleOidcIdTokenVerifier } from './security/google-oidc-id-token-verif
       provide: AuthSessionsService,
       inject: [PrismaAuthRepository],
       useFactory: (repo: PrismaAuthRepository) => new AuthSessionsService(repo),
+    },
+    {
+      provide: AuthPushTokensService,
+      inject: [PrismaAuthRepository],
+      useFactory: (repo: PrismaAuthRepository) => new AuthPushTokensService(repo),
     },
     {
       provide: AuthService,

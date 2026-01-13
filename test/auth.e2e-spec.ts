@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { generateKeyPairSync, randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { createApiApp } from '../apps/api/src/bootstrap';
 import { PrismaClient, UserRole, UserStatus } from '@prisma/client';
@@ -117,6 +117,18 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
     process.env.RESEND_API_KEY ??= 're_test_dummy';
     process.env.EMAIL_FROM ??= 'no-reply@example.com';
     process.env.PUBLIC_APP_URL ??= 'http://localhost:3000';
+
+    // Enable push token endpoints in e2e tests without requiring real FCM credentials.
+    process.env.PUSH_PROVIDER ??= 'FCM';
+    process.env.FCM_PROJECT_ID ??= 'test-project';
+    process.env.FCM_SERVICE_ACCOUNT_JSON ??= (() => {
+      const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+      return JSON.stringify({
+        project_id: process.env.FCM_PROJECT_ID,
+        client_email: 'push-test@example.com',
+        private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+      });
+    })();
 
     process.env.STORAGE_S3_ENDPOINT ??= storageEndpoint ?? 'http://127.0.0.1:59090';
     process.env.STORAGE_S3_REGION ??= storageRegion ?? 'us-east-1';
@@ -892,6 +904,59 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
 
     expect(missing.headers['content-type']).toContain('application/problem+json');
     expect(missing.body).toMatchObject({ code: 'NOT_FOUND', status: 404 });
+  });
+
+  it('revoked session cannot clear push token on an active session', async () => {
+    const email = `me-push-token+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+    const pushToken = `fcm-${randomUUID()}`;
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password, deviceId: 'device-a', deviceName: 'Device A' })
+      .expect(200);
+
+    const reg = registerRes.body.data as { accessToken: string };
+    const sessionA = getSessionIdFromAccessToken(reg.accessToken);
+
+    const loginRes = await request(baseUrl)
+      .post('/v1/auth/password/login')
+      .send({ email, password, deviceId: 'device-b', deviceName: 'Device B' })
+      .expect(200);
+
+    const loggedIn = loginRes.body.data as { accessToken: string };
+    const sessionB = getSessionIdFromAccessToken(loggedIn.accessToken);
+
+    await request(baseUrl)
+      .put('/v1/me/push-token')
+      .set('Authorization', `Bearer ${loggedIn.accessToken}`)
+      .send({ platform: 'ANDROID', token: pushToken })
+      .expect(204);
+
+    const before = await prisma.session.findUnique({
+      where: { id: sessionB },
+      select: { pushToken: true },
+    });
+    expect(before?.pushToken).toBe(pushToken);
+
+    await request(baseUrl)
+      .post(`/v1/me/sessions/${sessionA}/revoke`)
+      .set('Authorization', `Bearer ${loggedIn.accessToken}`)
+      .expect(204);
+
+    // Access tokens remain valid until expiry, but the session is revoked; this must not clear token
+    // registration on active sessions.
+    await request(baseUrl)
+      .put('/v1/me/push-token')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ platform: 'ANDROID', token: pushToken })
+      .expect(401);
+
+    const after = await prisma.session.findUnique({
+      where: { id: sessionB },
+      select: { pushToken: true },
+    });
+    expect(after?.pushToken).toBe(pushToken);
   });
 
   it('register -> PATCH /v1/me updates profile', async () => {
