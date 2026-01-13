@@ -22,6 +22,7 @@ import type {
   UserSessionListItem,
   UserSessionsSortField,
   ResetPasswordByTokenHashResult,
+  SessionSeenMetadata,
   SessionRecord,
   VerifyEmailResult,
 } from '../../app/ports/auth.repository';
@@ -445,6 +446,9 @@ export class PrismaAuthRepository implements AuthRepository {
         id: true,
         deviceId: true,
         deviceName: true,
+        ip: true,
+        userAgent: true,
+        lastSeenAt: true,
         createdAt: true,
         expiresAt: true,
         revokedAt: true,
@@ -458,6 +462,9 @@ export class PrismaAuthRepository implements AuthRepository {
       id: s.id,
       deviceId: s.deviceId,
       deviceName: s.deviceName,
+      ip: s.ip,
+      userAgent: s.userAgent,
+      lastSeenAt: s.lastSeenAt,
       createdAt: s.createdAt,
       expiresAt: s.expiresAt,
       revokedAt: s.revokedAt,
@@ -815,7 +822,10 @@ export class PrismaAuthRepository implements AuthRepository {
         userId: input.userId,
         deviceId: input.deviceId,
         deviceName: input.deviceName,
+        ip: input.ip,
+        userAgent: input.userAgent,
         activeKey: input.activeKey,
+        lastSeenAt: input.lastSeenAt,
         expiresAt: input.sessionExpiresAt,
       },
       select: { id: true, expiresAt: true },
@@ -847,6 +857,7 @@ export class PrismaAuthRepository implements AuthRepository {
     tokenHash: string,
     newTokenHash: string,
     now: Date,
+    session?: SessionSeenMetadata,
   ): Promise<RefreshRotationResult> {
     const client = this.prisma.getClient();
     const existing = await client.refreshToken.findUnique({
@@ -915,6 +926,16 @@ export class PrismaAuthRepository implements AuthRepository {
         if (updated.count !== 1) {
           throw new RefreshTokenAlreadyUsedError();
         }
+
+        await tx.session.update({
+          where: { id: sessionId },
+          data: {
+            lastSeenAt: now,
+            ...(session && session.ip !== undefined ? { ip: session.ip } : {}),
+            ...(session && session.userAgent !== undefined ? { userAgent: session.userAgent } : {}),
+          },
+          select: { id: true },
+        });
       });
     } catch (err: unknown) {
       if (err instanceof RefreshTokenAlreadyUsedError) {

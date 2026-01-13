@@ -24,6 +24,25 @@ export class MeSessionDto {
   @IsString()
   deviceName!: string | null;
 
+  @ApiPropertyOptional({ type: String, example: '203.0.113.10', nullable: true })
+  @IsOptional()
+  @IsString()
+  ip!: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    example: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15',
+    nullable: true,
+    maxLength: 512,
+  })
+  @IsOptional()
+  @IsString()
+  userAgent!: string | null;
+
+  @ApiProperty({ example: '2026-01-10T12:34:56.789Z', format: 'date-time' })
+  @IsString()
+  lastSeenAt!: string;
+
   @ApiProperty({ example: '2026-01-10T12:34:56.789Z', format: 'date-time' })
   @IsString()
   createdAt!: string;

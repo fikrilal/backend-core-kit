@@ -37,6 +37,25 @@ import {
   VerifyEmailRequestDto,
 } from './dtos/auth.dto';
 
+const SESSION_USER_AGENT_MAX_LENGTH = 512;
+
+function normalizeUserAgent(value: unknown): string | undefined {
+  const raw = (() => {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value) && typeof value[0] === 'string') return value[0];
+    return undefined;
+  })();
+
+  if (!raw) return undefined;
+
+  const trimmed = raw.trim();
+  if (trimmed === '') return undefined;
+
+  return trimmed.length <= SESSION_USER_AGENT_MAX_LENGTH
+    ? trimmed
+    : trimmed.slice(0, SESSION_USER_AGENT_MAX_LENGTH);
+}
+
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
@@ -72,6 +91,7 @@ export class AuthController {
         deviceId: body.deviceId,
         deviceName: body.deviceName,
         ip: req.ip,
+        userAgent: normalizeUserAgent(req.headers['user-agent']),
       });
 
       try {
@@ -115,6 +135,7 @@ export class AuthController {
         deviceId: body.deviceId,
         deviceName: body.deviceName,
         ip: req.ip,
+        userAgent: normalizeUserAgent(req.headers['user-agent']),
       });
     } catch (err: unknown) {
       throw this.mapAuthError(err);
@@ -316,6 +337,7 @@ export class AuthController {
         deviceId: body.deviceId,
         deviceName: body.deviceName,
         ip: req.ip,
+        userAgent: normalizeUserAgent(req.headers['user-agent']),
       });
     } catch (err: unknown) {
       throw this.mapAuthError(err);
@@ -377,9 +399,13 @@ export class AuthController {
     ErrorCode.INTERNAL,
   ])
   @ApiOkResponse({ type: AuthResultEnvelopeDto })
-  async refresh(@Body() body: RefreshRequestDto) {
+  async refresh(@Body() body: RefreshRequestDto, @Req() req: FastifyRequest) {
     try {
-      return await this.auth.refresh({ refreshToken: body.refreshToken });
+      return await this.auth.refresh({
+        refreshToken: body.refreshToken,
+        ip: req.ip,
+        userAgent: normalizeUserAgent(req.headers['user-agent']),
+      });
     } catch (err: unknown) {
       throw this.mapAuthError(err);
     }

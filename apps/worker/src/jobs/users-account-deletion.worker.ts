@@ -1,10 +1,23 @@
 import { Injectable, type OnModuleInit } from '@nestjs/common';
-import { Prisma, UserRole as PrismaUserRole, UserStatus as PrismaUserStatus } from '@prisma/client';
+import {
+  FilePurpose as PrismaFilePurpose,
+  FileStatus as PrismaFileStatus,
+  Prisma,
+  UserRole as PrismaUserRole,
+  UserStatus as PrismaUserStatus,
+} from '@prisma/client';
 import { DelayedError, type Job } from 'bullmq';
 import { PinoLogger } from 'nestjs-pino';
 import { PrismaService } from '../../../../libs/platform/db/prisma.service';
 import type { JsonObject } from '../../../../libs/platform/queue/json.types';
 import { QueueWorkerFactory } from '../../../../libs/platform/queue/queue.worker';
+import { ObjectStorageService } from '../../../../libs/platform/storage/object-storage.service';
+import {
+  USERS_PROFILE_IMAGE_DELETE_STORED_FILE_JOB,
+  USERS_PROFILE_IMAGE_EXPIRE_UPLOAD_JOB,
+  type UsersProfileImageDeleteStoredFileJobData,
+  type UsersProfileImageExpireUploadJobData,
+} from '../../../../libs/features/users/infra/jobs/profile-image-cleanup.job';
 import {
   USERS_FINALIZE_ACCOUNT_DELETION_JOB,
   USERS_QUEUE,
@@ -26,11 +39,38 @@ type UsersFinalizeAccountDeletionJobResult = Readonly<{
 }> &
   JsonObject;
 
+type UsersProfileImageDeleteStoredFileJobResult = Readonly<{
+  ok: true;
+  fileId: string;
+  outcome: 'deleted' | 'skipped';
+  reason?: 'file_not_found' | 'storage_not_configured' | 'not_profile_image';
+}> &
+  JsonObject;
+
+type UsersProfileImageExpireUploadJobResult = Readonly<{
+  ok: true;
+  fileId: string;
+  outcome: 'expired' | 'skipped';
+  reason?: 'file_not_found' | 'not_uploading' | 'storage_not_configured';
+}> &
+  JsonObject;
+
+type UsersQueueJobData =
+  | UsersFinalizeAccountDeletionJobData
+  | UsersProfileImageDeleteStoredFileJobData
+  | UsersProfileImageExpireUploadJobData;
+
+type UsersQueueJobResult =
+  | UsersFinalizeAccountDeletionJobResult
+  | UsersProfileImageDeleteStoredFileJobResult
+  | UsersProfileImageExpireUploadJobResult;
+
 @Injectable()
 export class UsersAccountDeletionWorker implements OnModuleInit {
   constructor(
     private readonly workers: QueueWorkerFactory,
     private readonly prisma: PrismaService,
+    private readonly storage: ObjectStorageService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(UsersAccountDeletionWorker.name);
@@ -40,25 +80,41 @@ export class UsersAccountDeletionWorker implements OnModuleInit {
     // Keep the worker process runnable in dev/test without Redis/DB unless configured.
     if (!this.workers.isEnabled() || !this.prisma.isEnabled()) return;
 
-    this.workers.createWorker<
-      UsersFinalizeAccountDeletionJobData,
-      UsersFinalizeAccountDeletionJobResult
-    >(USERS_QUEUE, async (job, token) => this.process(job, token), { concurrency: 2 });
+    this.workers.createWorker<UsersQueueJobData, UsersQueueJobResult>(
+      USERS_QUEUE,
+      async (job, token) => this.process(job, token),
+      { concurrency: 2 },
+    );
   }
 
   private async process(
-    job: Job<UsersFinalizeAccountDeletionJobData, UsersFinalizeAccountDeletionJobResult>,
+    job: Job<UsersQueueJobData, UsersQueueJobResult>,
     token: string | undefined,
-  ): Promise<UsersFinalizeAccountDeletionJobResult> {
-    if (job.name !== USERS_FINALIZE_ACCOUNT_DELETION_JOB) {
-      throw new Error(`Unknown job name "${job.name}" on queue "${USERS_QUEUE}"`);
-    }
-
+  ): Promise<UsersQueueJobResult> {
     if (!token) {
       throw new Error('Missing job lock token');
     }
 
-    return await this.finalize(job, token);
+    switch (job.name) {
+      case USERS_FINALIZE_ACCOUNT_DELETION_JOB:
+        return await this.finalize(
+          job as Job<UsersFinalizeAccountDeletionJobData, UsersFinalizeAccountDeletionJobResult>,
+          token,
+        );
+      case USERS_PROFILE_IMAGE_DELETE_STORED_FILE_JOB:
+        return await this.deleteProfileImageStoredFile(
+          job as Job<
+            UsersProfileImageDeleteStoredFileJobData,
+            UsersProfileImageDeleteStoredFileJobResult
+          >,
+        );
+      case USERS_PROFILE_IMAGE_EXPIRE_UPLOAD_JOB:
+        return await this.expireProfileImageUpload(
+          job as Job<UsersProfileImageExpireUploadJobData, UsersProfileImageExpireUploadJobResult>,
+        );
+      default:
+        throw new Error(`Unknown job name "${job.name}" on queue "${USERS_QUEUE}"`);
+    }
   }
 
   private async finalize(
@@ -253,6 +309,103 @@ export class UsersAccountDeletionWorker implements OnModuleInit {
     }
 
     throw new Error('Unexpected: exhausted transaction retries');
+  }
+
+  private async deleteProfileImageStoredFile(
+    job: Job<UsersProfileImageDeleteStoredFileJobData, UsersProfileImageDeleteStoredFileJobResult>,
+  ): Promise<UsersProfileImageDeleteStoredFileJobResult> {
+    const client = this.prisma.getClient();
+    const now = new Date();
+
+    const file = await client.storedFile.findFirst({
+      where: {
+        id: job.data.fileId,
+        ownerUserId: job.data.ownerUserId,
+      },
+      select: { id: true, purpose: true, status: true, objectKey: true },
+    });
+
+    if (!file) {
+      return { ok: true, fileId: job.data.fileId, outcome: 'skipped', reason: 'file_not_found' };
+    }
+
+    if (file.purpose !== PrismaFilePurpose.PROFILE_IMAGE) {
+      return {
+        ok: true,
+        fileId: file.id,
+        outcome: 'skipped',
+        reason: 'not_profile_image',
+      };
+    }
+
+    if (!this.storage.isEnabled()) {
+      return {
+        ok: true,
+        fileId: file.id,
+        outcome: 'skipped',
+        reason: 'storage_not_configured',
+      };
+    }
+
+    await this.storage.deleteObject(file.objectKey);
+
+    await client.storedFile.updateMany({
+      where: {
+        id: file.id,
+        ownerUserId: job.data.ownerUserId,
+        status: { not: PrismaFileStatus.DELETED },
+      },
+      data: { status: PrismaFileStatus.DELETED, deletedAt: now },
+    });
+
+    return { ok: true, fileId: file.id, outcome: 'deleted' };
+  }
+
+  private async expireProfileImageUpload(
+    job: Job<UsersProfileImageExpireUploadJobData, UsersProfileImageExpireUploadJobResult>,
+  ): Promise<UsersProfileImageExpireUploadJobResult> {
+    const client = this.prisma.getClient();
+    const now = new Date();
+
+    const file = await client.storedFile.findFirst({
+      where: {
+        id: job.data.fileId,
+        ownerUserId: job.data.ownerUserId,
+      },
+      select: { id: true, purpose: true, status: true, objectKey: true },
+    });
+
+    if (!file) {
+      return { ok: true, fileId: job.data.fileId, outcome: 'skipped', reason: 'file_not_found' };
+    }
+
+    if (file.purpose !== PrismaFilePurpose.PROFILE_IMAGE) {
+      return { ok: true, fileId: file.id, outcome: 'skipped', reason: 'not_uploading' };
+    }
+
+    if (file.status !== PrismaFileStatus.UPLOADING) {
+      return { ok: true, fileId: file.id, outcome: 'skipped', reason: 'not_uploading' };
+    }
+
+    if (this.storage.isEnabled()) {
+      await this.storage.deleteObject(file.objectKey);
+    }
+
+    await client.storedFile.updateMany({
+      where: {
+        id: file.id,
+        ownerUserId: job.data.ownerUserId,
+        status: { not: PrismaFileStatus.DELETED },
+      },
+      data: { status: PrismaFileStatus.DELETED, deletedAt: now },
+    });
+
+    return {
+      ok: true,
+      fileId: file.id,
+      outcome: 'expired',
+      ...(this.storage.isEnabled() ? {} : { reason: 'storage_not_configured' }),
+    };
   }
 }
 

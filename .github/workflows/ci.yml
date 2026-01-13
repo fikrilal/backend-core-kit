@@ -61,7 +61,7 @@ jobs:
       - name: OpenAPI Spectral lint
         run: npm run openapi:lint
 
-      - name: Start local dependencies (Postgres + Redis)
+      - name: Start local dependencies (Postgres + Redis + MinIO)
         run: npm run deps:up
 
       - name: Wait for Postgres (docker compose)
@@ -90,6 +90,20 @@ jobs:
           done
           echo "Redis did not become ready in time"
           docker compose logs redis
+          exit 1
+
+      - name: Wait for MinIO (docker compose)
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:59090/minio/health/ready > /dev/null; then
+              echo "MinIO is ready"
+              exit 0
+            fi
+            echo "Waiting for MinIO... ($i/60)"
+            sleep 1
+          done
+          echo "MinIO did not become ready in time"
+          docker compose logs minio
           exit 1
 
       - name: Apply Prisma migrations

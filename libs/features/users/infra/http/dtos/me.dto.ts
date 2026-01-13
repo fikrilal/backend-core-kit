@@ -44,6 +44,17 @@ function AtLeastOneDefined(fields: ReadonlyArray<string>, validationOptions?: Va
 }
 
 export class MeProfileDto {
+  @ApiPropertyOptional({
+    type: String,
+    example: '3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0',
+    nullable: true,
+    description:
+      'Current profile image stored file ID. Use `GET /v1/me/profile-image/url` to get a short-lived URL for rendering.',
+  })
+  @IsOptional()
+  @IsString()
+  profileImageFileId!: string | null;
+
   @ApiPropertyOptional({ type: String, example: 'Dante', nullable: true })
   @IsOptional()
   @IsString()

@@ -41,4 +41,13 @@ function loadDotEnvIfPresent(keys: readonly string[]): void {
   }
 }
 
-loadDotEnvIfPresent(['DATABASE_URL', 'REDIS_URL']);
+loadDotEnvIfPresent([
+  'DATABASE_URL',
+  'REDIS_URL',
+  'STORAGE_S3_ENDPOINT',
+  'STORAGE_S3_REGION',
+  'STORAGE_S3_BUCKET',
+  'STORAGE_S3_ACCESS_KEY_ID',
+  'STORAGE_S3_SECRET_ACCESS_KEY',
+  'STORAGE_S3_FORCE_PATH_STYLE',
+]);

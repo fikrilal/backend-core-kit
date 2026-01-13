@@ -64,6 +64,21 @@ Implementation (current):
   - `/health` and `/ready` are excluded from tracing.
   - Querystrings are stripped from URL span attributes; requestId is attached as `app.request_id` for correlation.
 
+### Async propagation (BullMQ jobs)
+
+Rules:
+
+- All job producers must use `libs/platform/queue/queue.producer.ts` (`QueueProducer`).
+- All job workers must use `libs/platform/queue/queue.worker.ts` (`QueueWorkerFactory`).
+- The platform propagates W3C trace context (`traceparent` + optional `tracestate`) across the
+  queue boundary by storing it in `job.data.__meta.otel`.
+
+Notes:
+
+- Job processing runs under an extracted parent context and emits a consumer span (`queue.process`)
+  so worker spans are part of the originating request trace when enqueued from HTTP.
+- Worker logs include `otelTraceId`/`otelSpanId` when emitted inside an active span context.
+
 ## Metrics
 
 Baseline metrics (minimum):

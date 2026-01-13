@@ -5,6 +5,7 @@ import { PrismaClient, UserRole, UserStatus } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import Redis from 'ioredis';
 import { Queue } from 'bullmq';
+import { CreateBucketCommand, S3Client } from '@aws-sdk/client-s3';
 import {
   AUTH_SEND_VERIFICATION_EMAIL_JOB,
   EMAIL_QUEUE,
@@ -31,6 +32,12 @@ import {
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
+const storageEndpoint = process.env.STORAGE_S3_ENDPOINT?.trim();
+const storageRegion = process.env.STORAGE_S3_REGION?.trim();
+const storageBucket = process.env.STORAGE_S3_BUCKET?.trim();
+const storageAccessKeyId = process.env.STORAGE_S3_ACCESS_KEY_ID?.trim();
+const storageSecretAccessKey = process.env.STORAGE_S3_SECRET_ACCESS_KEY?.trim();
+const storageForcePathStyle = process.env.STORAGE_S3_FORCE_PATH_STYLE?.trim();
 const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -93,6 +100,7 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
     | UsersSendAccountDeletionReminderEmailJobData
   >;
   let redis: Redis;
+  let s3: S3Client;
 
   beforeAll(async () => {
     if (!databaseUrl) {
@@ -110,12 +118,40 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
     process.env.EMAIL_FROM ??= 'no-reply@example.com';
     process.env.PUBLIC_APP_URL ??= 'http://localhost:3000';
 
+    process.env.STORAGE_S3_ENDPOINT ??= storageEndpoint ?? 'http://127.0.0.1:59090';
+    process.env.STORAGE_S3_REGION ??= storageRegion ?? 'us-east-1';
+    process.env.STORAGE_S3_BUCKET ??= storageBucket ?? 'backend-core-kit';
+    process.env.STORAGE_S3_ACCESS_KEY_ID ??= storageAccessKeyId ?? 'minioadmin';
+    process.env.STORAGE_S3_SECRET_ACCESS_KEY ??= storageSecretAccessKey ?? 'minioadmin';
+    process.env.STORAGE_S3_FORCE_PATH_STYLE ??= storageForcePathStyle ?? 'true';
+
+    // Keep limits small for deterministic rate-limit tests.
+    process.env.USERS_PROFILE_IMAGE_UPLOAD_USER_MAX_ATTEMPTS ??= '1';
+    process.env.USERS_PROFILE_IMAGE_UPLOAD_USER_WINDOW_SECONDS ??= '60';
+    process.env.USERS_PROFILE_IMAGE_UPLOAD_USER_BLOCK_SECONDS ??= '60';
+
     const adapter = new PrismaPg({ connectionString: databaseUrl });
     prisma = new PrismaClient({ adapter });
     await prisma.$connect();
 
     redis = new Redis(redisUrl);
     await redis.ping();
+
+    s3 = new S3Client({
+      region: process.env.STORAGE_S3_REGION ?? 'us-east-1',
+      endpoint: process.env.STORAGE_S3_ENDPOINT,
+      forcePathStyle: process.env.STORAGE_S3_FORCE_PATH_STYLE === 'true',
+      credentials: {
+        accessKeyId: process.env.STORAGE_S3_ACCESS_KEY_ID ?? 'minioadmin',
+        secretAccessKey: process.env.STORAGE_S3_SECRET_ACCESS_KEY ?? 'minioadmin',
+      },
+    });
+
+    try {
+      await s3.send(new CreateBucketCommand({ Bucket: process.env.STORAGE_S3_BUCKET }));
+    } catch {
+      // ignore (bucket may already exist)
+    }
 
     emailQueue = new Queue<
       | AuthSendVerificationEmailJobData
@@ -136,6 +172,7 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       deleteKeysByPattern(redis, 'auth:login:*'),
       deleteKeysByPattern(redis, 'auth:password-reset:request:*'),
       deleteKeysByPattern(redis, 'auth:email-verification:resend:*'),
+      deleteKeysByPattern(redis, 'users:profile-image:upload:*'),
     ]);
   });
 
@@ -144,6 +181,7 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
     await emailQueue.close();
     await redis.quit();
     await prisma.$disconnect();
+    s3.destroy();
     await app.close();
   });
 
@@ -581,6 +619,36 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
     expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
   });
 
+  it('POST /v1/me/profile-image/upload requires an access token', async () => {
+    const res = await request(baseUrl)
+      .post('/v1/me/profile-image/upload')
+      .send({ contentType: 'image/png', sizeBytes: 100 })
+      .expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
+  it('POST /v1/me/profile-image/complete requires an access token', async () => {
+    const res = await request(baseUrl)
+      .post('/v1/me/profile-image/complete')
+      .send({ fileId: randomUUID() })
+      .expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
+  it('GET /v1/me/profile-image/url requires an access token', async () => {
+    const res = await request(baseUrl).get('/v1/me/profile-image/url').expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
+  it('DELETE /v1/me/profile-image requires an access token', async () => {
+    const res = await request(baseUrl).delete('/v1/me/profile-image').expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
   it('POST /v1/me/sessions/:sessionId/revoke requires an access token', async () => {
     const res = await request(baseUrl).post(`/v1/me/sessions/${randomUUID()}/revoke`).expect(401);
     expect(res.headers['content-type']).toContain('application/problem+json');
@@ -614,8 +682,118 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       emailVerified: false,
       roles: ['USER'],
       authMethods: ['PASSWORD'],
-      profile: { displayName: null, givenName: null, familyName: null },
+      profile: { profileImageFileId: null, displayName: null, givenName: null, familyName: null },
     });
+  });
+
+  it('GET /v1/me/profile-image/url returns 204 when no profile image is set', async () => {
+    const email = `me-profile-image-url+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { accessToken: string };
+
+    await request(baseUrl)
+      .get('/v1/me/profile-image/url')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(204);
+  });
+
+  it('register -> profile image upload/complete attaches image and returns a view URL', async () => {
+    const email = `me-profile-image-upload+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { accessToken: string };
+
+    const contentType = 'image/png';
+    const imageBytes = Buffer.from(`fake-png-${Date.now()}`, 'utf8');
+
+    const uploadPlanRes = await request(baseUrl)
+      .post('/v1/me/profile-image/upload')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ contentType, sizeBytes: imageBytes.length })
+      .expect(200);
+
+    const plan = uploadPlanRes.body.data as {
+      fileId: string;
+      upload: { method: string; url: string; headers: Record<string, string> };
+      expiresAt: string;
+    };
+
+    expect(typeof plan.fileId).toBe('string');
+    expect(plan.upload).toMatchObject({ method: 'PUT' });
+    expect(typeof plan.upload.url).toBe('string');
+    expect(plan.upload.headers).toMatchObject({ 'Content-Type': contentType });
+
+    const putRes = await fetch(plan.upload.url, {
+      method: 'PUT',
+      headers: plan.upload.headers,
+      body: imageBytes,
+    });
+    expect(putRes.ok).toBe(true);
+
+    await request(baseUrl)
+      .post('/v1/me/profile-image/complete')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ fileId: plan.fileId })
+      .expect(204);
+
+    const meRes = await request(baseUrl)
+      .get('/v1/me')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
+
+    expect(meRes.body.data.profile).toMatchObject({ profileImageFileId: plan.fileId });
+
+    const urlRes = await request(baseUrl)
+      .get('/v1/me/profile-image/url')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .expect(200);
+
+    const view = urlRes.body.data as { url: string; expiresAt: string };
+    expect(typeof view.url).toBe('string');
+    expect(typeof view.expiresAt).toBe('string');
+
+    const getRes = await fetch(view.url);
+    expect(getRes.ok).toBe(true);
+    const downloaded = Buffer.from(await getRes.arrayBuffer());
+    expect(downloaded.equals(imageBytes)).toBe(true);
+  });
+
+  it('POST /v1/me/profile-image/upload returns 429 RATE_LIMITED on repeated calls', async () => {
+    const email = `me-profile-image-rate-limit+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { accessToken: string };
+
+    await request(baseUrl)
+      .post('/v1/me/profile-image/upload')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ contentType: 'image/png', sizeBytes: 123 })
+      .expect(200);
+
+    const rateLimited = await request(baseUrl)
+      .post('/v1/me/profile-image/upload')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ contentType: 'image/png', sizeBytes: 123 })
+      .expect(429);
+
+    expect(rateLimited.headers['content-type']).toContain('application/problem+json');
+    expect(rateLimited.body).toMatchObject({ code: 'RATE_LIMITED', status: 429 });
   });
 
   it('register -> login -> GET /v1/me/sessions returns sessions and marks current', async () => {
@@ -748,7 +926,12 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       email: email.toLowerCase(),
       emailVerified: false,
       roles: ['USER'],
-      profile: { displayName: 'Dante', givenName: 'Dante', familyName: 'Alighieri' },
+      profile: {
+        profileImageFileId: null,
+        displayName: 'Dante',
+        givenName: 'Dante',
+        familyName: 'Alighieri',
+      },
     });
 
     const meRes = await request(baseUrl)
@@ -757,6 +940,7 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       .expect(200);
 
     expect(meRes.body.data.profile).toEqual({
+      profileImageFileId: null,
       displayName: 'Dante',
       givenName: 'Dante',
       familyName: 'Alighieri',
@@ -837,6 +1021,7 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       .expect(200);
 
     expect(cleared.body.data.profile).toMatchObject({
+      profileImageFileId: null,
       displayName: null,
       givenName: null,
       familyName: null,

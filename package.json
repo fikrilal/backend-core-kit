@@ -26,7 +26,7 @@
     "openapi:generate": "ts-node --files scripts/openapi-generate.ts",
     "openapi:lint": "spectral lint --fail-severity warn docs/openapi/openapi.yaml",
     "openapi:check": "ts-node --files scripts/openapi-check.ts",
-    "deps:up": "docker compose up -d postgres redis",
+    "deps:up": "docker compose up -d postgres redis minio",
     "deps:down": "docker compose down",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
@@ -34,6 +34,8 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.966.0",
+    "@aws-sdk/s3-request-presigner": "^3.966.0",
     "@fastify/swagger": "^9.6.1",
     "@fastify/swagger-ui": "^5.2.4",
     "@nestjs/common": "^11.1.8",

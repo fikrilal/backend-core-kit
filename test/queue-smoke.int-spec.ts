@@ -7,7 +7,27 @@ import { jobName } from '../libs/platform/queue/job-name';
 import { QueueProducer } from '../libs/platform/queue/queue.producer';
 import { queueName } from '../libs/platform/queue/queue-name';
 import { PrismaService } from '../libs/platform/db/prisma.service';
-import { ExternalIdentityProvider, UserRole, UserStatus } from '@prisma/client';
+import {
+  CreateBucketCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
+import {
+  ExternalIdentityProvider,
+  FilePurpose,
+  FileStatus,
+  UserRole,
+  UserStatus,
+} from '@prisma/client';
+import {
+  deleteStoredFileJobId,
+  expireUploadJobId,
+  USERS_PROFILE_IMAGE_DELETE_STORED_FILE_JOB,
+  USERS_PROFILE_IMAGE_EXPIRE_UPLOAD_JOB,
+  type UsersProfileImageDeleteStoredFileJobData,
+  type UsersProfileImageExpireUploadJobData,
+} from '../libs/features/users/infra/jobs/profile-image-cleanup.job';
 import {
   finalizeAccountDeletionJobId,
   USERS_FINALIZE_ACCOUNT_DELETION_JOB,
@@ -17,8 +37,42 @@ import {
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
+const storageEndpoint = process.env.STORAGE_S3_ENDPOINT?.trim();
+const storageRegion = process.env.STORAGE_S3_REGION?.trim();
+const storageBucket = process.env.STORAGE_S3_BUCKET?.trim();
+const storageAccessKeyId = process.env.STORAGE_S3_ACCESS_KEY_ID?.trim();
+const storageSecretAccessKey = process.env.STORAGE_S3_SECRET_ACCESS_KEY?.trim();
+const storageForcePathStyle = process.env.STORAGE_S3_FORCE_PATH_STYLE?.trim();
 
 const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNotFoundError(err: unknown): boolean {
+  if (!isRecord(err)) return false;
+
+  const name = typeof err.name === 'string' ? err.name : undefined;
+  if (name === 'NotFound' || name === 'NoSuchKey') return true;
+
+  const metadata = err.$metadata;
+  if (isRecord(metadata) && typeof metadata.httpStatusCode === 'number') {
+    return metadata.httpStatusCode === 404;
+  }
+
+  return false;
+}
+
+async function expectObjectDeleted(s3: S3Client, bucket: string, key: string): Promise<void> {
+  try {
+    await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+    throw new Error(`Expected object "${key}" to be deleted`);
+  } catch (err: unknown) {
+    if (isNotFoundError(err)) return;
+    throw err;
+  }
+}
 
 async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -40,6 +94,8 @@ async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> 
   let workerBaseUrl: string;
   let producer: QueueProducer;
   let prisma: PrismaService;
+  let s3: S3Client;
+  let bucket: string;
 
   beforeAll(async () => {
     if (!databaseUrl) {
@@ -51,6 +107,30 @@ async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> 
       throw new Error(
         'REDIS_URL is required for Queue smoke (int) tests (set DATABASE_URL/REDIS_URL or set SKIP_DEPS_TESTS=true to skip)',
       );
+    }
+
+    process.env.STORAGE_S3_ENDPOINT ??= storageEndpoint ?? 'http://127.0.0.1:59090';
+    process.env.STORAGE_S3_REGION ??= storageRegion ?? 'us-east-1';
+    process.env.STORAGE_S3_BUCKET ??= storageBucket ?? 'backend-core-kit';
+    process.env.STORAGE_S3_ACCESS_KEY_ID ??= storageAccessKeyId ?? 'minioadmin';
+    process.env.STORAGE_S3_SECRET_ACCESS_KEY ??= storageSecretAccessKey ?? 'minioadmin';
+    process.env.STORAGE_S3_FORCE_PATH_STYLE ??= storageForcePathStyle ?? 'true';
+
+    bucket = process.env.STORAGE_S3_BUCKET ?? 'backend-core-kit';
+    s3 = new S3Client({
+      region: process.env.STORAGE_S3_REGION ?? 'us-east-1',
+      endpoint: process.env.STORAGE_S3_ENDPOINT,
+      forcePathStyle: process.env.STORAGE_S3_FORCE_PATH_STYLE === 'true',
+      credentials: {
+        accessKeyId: process.env.STORAGE_S3_ACCESS_KEY_ID ?? 'minioadmin',
+        secretAccessKey: process.env.STORAGE_S3_SECRET_ACCESS_KEY ?? 'minioadmin',
+      },
+    });
+
+    try {
+      await s3.send(new CreateBucketCommand({ Bucket: bucket }));
+    } catch {
+      // ignore (bucket may already exist)
     }
 
     workerApp = await createWorkerApp();
@@ -67,6 +147,7 @@ async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> 
   afterAll(async () => {
     await apiApp.close();
     await workerApp.close();
+    s3.destroy();
   });
 
   it('Worker health endpoints return ok', async () => {
@@ -280,5 +361,155 @@ async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> 
       action: 'FINALIZED',
       traceId: `trace_${runId}`,
     });
+  });
+
+  it('Deletes users.profileImage.deleteStoredFile objects and marks stored files deleted', async () => {
+    const client = prisma.getClient();
+    const now = new Date();
+    const runId = randomUUID();
+
+    const user = await client.user.create({
+      data: {
+        email: `profile-image-delete+${runId}@example.com`,
+        role: UserRole.USER,
+        status: UserStatus.ACTIVE,
+      },
+      select: { id: true },
+    });
+
+    const fileId = randomUUID();
+    const objectKey = `users/${user.id}/profile-images/${fileId}`;
+    const contentType = 'image/png';
+    const body = Buffer.from(`profile-image-${runId}`, 'utf8');
+
+    await client.storedFile.create({
+      data: {
+        id: fileId,
+        ownerUserId: user.id,
+        purpose: FilePurpose.PROFILE_IMAGE,
+        status: FileStatus.ACTIVE,
+        bucket,
+        objectKey,
+        contentType,
+        sizeBytes: body.length,
+        traceId: `trace_${runId}`,
+        uploadedAt: now,
+      },
+      select: { id: true },
+    });
+
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: objectKey,
+        Body: body,
+        ContentType: contentType,
+      }),
+    );
+
+    const queueEvents = new QueueEvents(USERS_QUEUE, { connection: { url: redisUrl } });
+    try {
+      await queueEvents.waitUntilReady();
+      const jobData: UsersProfileImageDeleteStoredFileJobData = {
+        fileId,
+        ownerUserId: user.id,
+        enqueuedAt: now.toISOString(),
+      };
+      const job = await producer.enqueue(
+        USERS_QUEUE,
+        USERS_PROFILE_IMAGE_DELETE_STORED_FILE_JOB,
+        jobData,
+        { jobId: deleteStoredFileJobId(fileId) },
+      );
+
+      const result = await job.waitUntilFinished(queueEvents, 20_000);
+      expect(result).toEqual({ ok: true, fileId, outcome: 'deleted' });
+    } finally {
+      await queueEvents.close();
+    }
+
+    await expectObjectDeleted(s3, bucket, objectKey);
+
+    const storedFile = await client.storedFile.findUnique({
+      where: { id: fileId },
+      select: { status: true, deletedAt: true },
+    });
+
+    expect(storedFile).toMatchObject({ status: FileStatus.DELETED, deletedAt: expect.any(Date) });
+  });
+
+  it('Expires users.profileImage.expireUpload uploads and marks stored files deleted', async () => {
+    const client = prisma.getClient();
+    const now = new Date();
+    const runId = randomUUID();
+
+    const user = await client.user.create({
+      data: {
+        email: `profile-image-expire+${runId}@example.com`,
+        role: UserRole.USER,
+        status: UserStatus.ACTIVE,
+      },
+      select: { id: true },
+    });
+
+    const fileId = randomUUID();
+    const objectKey = `users/${user.id}/profile-images/${fileId}`;
+    const contentType = 'image/png';
+    const body = Buffer.from(`profile-image-expire-${runId}`, 'utf8');
+
+    await client.storedFile.create({
+      data: {
+        id: fileId,
+        ownerUserId: user.id,
+        purpose: FilePurpose.PROFILE_IMAGE,
+        status: FileStatus.UPLOADING,
+        bucket,
+        objectKey,
+        contentType,
+        sizeBytes: body.length,
+        traceId: `trace_${runId}`,
+      },
+      select: { id: true },
+    });
+
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: objectKey,
+        Body: body,
+        ContentType: contentType,
+      }),
+    );
+
+    const queueEvents = new QueueEvents(USERS_QUEUE, { connection: { url: redisUrl } });
+    try {
+      await queueEvents.waitUntilReady();
+      const jobData: UsersProfileImageExpireUploadJobData = {
+        fileId,
+        ownerUserId: user.id,
+        enqueuedAt: now.toISOString(),
+        expiresAt: now.toISOString(),
+      };
+      const job = await producer.enqueue(
+        USERS_QUEUE,
+        USERS_PROFILE_IMAGE_EXPIRE_UPLOAD_JOB,
+        jobData,
+        { jobId: expireUploadJobId(fileId) },
+      );
+
+      const result = await job.waitUntilFinished(queueEvents, 20_000);
+      expect(result).toMatchObject({ ok: true, fileId, outcome: 'expired' });
+    } finally {
+      await queueEvents.close();
+    }
+
+    await expectObjectDeleted(s3, bucket, objectKey);
+
+    const storedFile = await client.storedFile.findUnique({
+      where: { id: fileId },
+      select: { status: true, deletedAt: true },
+    });
+
+    expect(storedFile).toMatchObject({ status: FileStatus.DELETED, deletedAt: expect.any(Date) });
   });
 });

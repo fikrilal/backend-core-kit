@@ -21,6 +21,16 @@ enum ExternalIdentityProvider {
   GOOGLE
 }
 
+enum FilePurpose {
+  PROFILE_IMAGE
+}
+
+enum FileStatus {
+  UPLOADING
+  ACTIVE
+  DELETED
+}
+
 model User {
   id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email           String  @unique
@@ -37,6 +47,7 @@ model User {
   deletedAt                  DateTime?
 
   profile UserProfile?
+  storedFiles StoredFile[]
   passwordCredential PasswordCredential?
   sessions           Session[]
   externalIdentities ExternalIdentity[]
@@ -48,6 +59,34 @@ model User {
 
   @@index([deletionScheduledFor])
   @@index([deletedAt])
+}
+
+model StoredFile {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  ownerUserId String @db.Uuid
+  ownerUser   User   @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  purpose FilePurpose
+  status  FileStatus @default(UPLOADING)
+
+  bucket    String
+  objectKey String
+
+  contentType String
+  sizeBytes   Int
+
+  uploadedAt DateTime?
+  deletedAt  DateTime?
+  traceId    String?
+
+  profileImageOf UserProfile?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bucket, objectKey])
+  @@index([ownerUserId, createdAt])
 }
 
 model ExternalIdentity {
@@ -72,6 +111,9 @@ model ExternalIdentity {
 model UserProfile {
   userId String @id @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  profileImageFileId String? @unique @db.Uuid
+  profileImageFile   StoredFile? @relation(fields: [profileImageFileId], references: [id], onDelete: SetNull)
 
   displayName String?
   givenName   String?
@@ -98,9 +140,15 @@ model Session {
 
   deviceId   String?
   deviceName String?
+  // Best-effort client metadata; treat as PII.
+  ip        String? @db.Inet
+  userAgent String? @db.VarChar(512)
   // Enforces "one active session per (userId, deviceId)" when deviceId is provided.
   // Revoked sessions must clear this field.
   activeKey String? @unique
+
+  // Updated on successful refresh; used for sessions UI and incident response.
+  lastSeenAt DateTime @default(now())
 
   expiresAt DateTime
   revokedAt DateTime?

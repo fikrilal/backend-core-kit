@@ -30,7 +30,10 @@ type PrismaUserWithProfile = Pick<
   | 'deletionRequestedAt'
   | 'deletionScheduledFor'
 > & {
-  profile: Pick<UserProfile, 'displayName' | 'givenName' | 'familyName'> | null;
+  profile: Pick<
+    UserProfile,
+    'profileImageFileId' | 'displayName' | 'givenName' | 'familyName'
+  > | null;
   passwordCredential: Pick<PasswordCredential, 'userId'> | null;
   externalIdentities: Array<Pick<ExternalIdentity, 'provider'>>;
 };
@@ -42,6 +45,7 @@ function isRecordNotFoundError(err: unknown): boolean {
 function toProfileRecord(profile: PrismaUserWithProfile['profile']): UserProfileRecord | null {
   if (!profile) return null;
   return {
+    profileImageFileId: profile.profileImageFileId,
     displayName: profile.displayName,
     givenName: profile.givenName,
     familyName: profile.familyName,
@@ -91,7 +95,14 @@ export class PrismaUsersRepository implements UsersRepository {
         status: true,
         deletionRequestedAt: true,
         deletionScheduledFor: true,
-        profile: { select: { displayName: true, givenName: true, familyName: true } },
+        profile: {
+          select: {
+            profileImageFileId: true,
+            displayName: true,
+            givenName: true,
+            familyName: true,
+          },
+        },
         passwordCredential: { select: { userId: true } },
         externalIdentities: { select: { provider: true } },
       },
@@ -139,7 +150,14 @@ export class PrismaUsersRepository implements UsersRepository {
           status: true,
           deletionRequestedAt: true,
           deletionScheduledFor: true,
-          profile: { select: { displayName: true, givenName: true, familyName: true } },
+          profile: {
+            select: {
+              profileImageFileId: true,
+              displayName: true,
+              givenName: true,
+              familyName: true,
+            },
+          },
           passwordCredential: { select: { userId: true } },
           externalIdentities: { select: { provider: true } },
         },
@@ -176,7 +194,14 @@ export class PrismaUsersRepository implements UsersRepository {
                 status: true,
                 deletionRequestedAt: true,
                 deletionScheduledFor: true,
-                profile: { select: { displayName: true, givenName: true, familyName: true } },
+                profile: {
+                  select: {
+                    profileImageFileId: true,
+                    displayName: true,
+                    givenName: true,
+                    familyName: true,
+                  },
+                },
                 passwordCredential: { select: { userId: true } },
                 externalIdentities: { select: { provider: true } },
               },
@@ -215,7 +240,14 @@ export class PrismaUsersRepository implements UsersRepository {
                 status: true,
                 deletionRequestedAt: true,
                 deletionScheduledFor: true,
-                profile: { select: { displayName: true, givenName: true, familyName: true } },
+                profile: {
+                  select: {
+                    profileImageFileId: true,
+                    displayName: true,
+                    givenName: true,
+                    familyName: true,
+                  },
+                },
                 passwordCredential: { select: { userId: true } },
                 externalIdentities: { select: { provider: true } },
               },
@@ -270,7 +302,14 @@ export class PrismaUsersRepository implements UsersRepository {
                 status: true,
                 deletionRequestedAt: true,
                 deletionScheduledFor: true,
-                profile: { select: { displayName: true, givenName: true, familyName: true } },
+                profile: {
+                  select: {
+                    profileImageFileId: true,
+                    displayName: true,
+                    givenName: true,
+                    familyName: true,
+                  },
+                },
                 passwordCredential: { select: { userId: true } },
                 externalIdentities: { select: { provider: true } },
               },
@@ -298,7 +337,14 @@ export class PrismaUsersRepository implements UsersRepository {
                 status: true,
                 deletionRequestedAt: true,
                 deletionScheduledFor: true,
-                profile: { select: { displayName: true, givenName: true, familyName: true } },
+                profile: {
+                  select: {
+                    profileImageFileId: true,
+                    displayName: true,
+                    givenName: true,
+                    familyName: true,
+                  },
+                },
                 passwordCredential: { select: { userId: true } },
                 externalIdentities: { select: { provider: true } },
               },
