@@ -79,6 +79,10 @@ export class ObjectStorageService {
     return this.enabled;
   }
 
+  getBucketName(): string {
+    return this.assertConfigured().bucket;
+  }
+
   private assertConfigured(): { client: S3Client; bucket: string } {
     if (!this.client || !this.bucket) {
       throw new ObjectStorageError(

@@ -479,6 +479,72 @@ paths:
         - IDEMPOTENCY_IN_PROGRESS
         - CONFLICT
         - INTERNAL
+  /v1/me/profile-image/upload:
+    post:
+      description: Creates an upload record and returns a short-lived presigned URL
+        for direct upload to object storage.
+      operationId: users.me.profileImage.upload
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: "Idempotency key for safe retries of write requests. Replays return
+            `Idempotency-Replayed: true`."
+          required: false
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProfileImageUploadRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileImageUploadPlanEnvelopeDto"
+      security:
+        - access-token: []
+      summary: Create a profile image upload plan (presigned URL)
+      tags: &a4
+        - Users
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - IDEMPOTENCY_IN_PROGRESS
+        - CONFLICT
+        - USERS_OBJECT_STORAGE_NOT_CONFIGURED
+        - INTERNAL
+  /v1/me/profile-image/complete:
+    post:
+      description: Verifies the uploaded object and attaches it to the current user profile.
+      operationId: users.me.profileImage.complete
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteProfileImageUploadRequestDto"
+      responses:
+        "204":
+          description: ""
+      security:
+        - access-token: []
+      summary: Finalize a profile image upload
+      tags: *a4
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - NOT_FOUND
+        - USERS_OBJECT_STORAGE_NOT_CONFIGURED
+        - USERS_PROFILE_IMAGE_NOT_UPLOADED
+        - USERS_PROFILE_IMAGE_SIZE_MISMATCH
+        - USERS_PROFILE_IMAGE_CONTENT_TYPE_MISMATCH
+        - INTERNAL
   /v1/me/account-deletion/request:
     post:
       description: Schedules account deletion 30 days in the future. The account
@@ -501,7 +567,7 @@ paths:
       security:
         - access-token: []
       summary: Request account deletion (30-day grace)
-      tags: &a4
+      tags: &a5
         - Users
       x-error-codes:
         - UNAUTHORIZED
@@ -528,7 +594,7 @@ paths:
       security:
         - access-token: []
       summary: Cancel account deletion
-      tags: *a4
+      tags: *a5
       x-error-codes:
         - UNAUTHORIZED
         - IDEMPOTENCY_IN_PROGRESS
@@ -635,10 +701,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUsersListEnvelopeDto"
-      security: &a5
+      security: &a6
         - access-token: []
       summary: List users
-      tags: &a6
+      tags: &a7
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -679,9 +745,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a5
+      security: *a6
       summary: Set user role
-      tags: *a6
+      tags: *a7
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -724,9 +790,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a5
+      security: *a6
       summary: Set user status
-      tags: *a6
+      tags: *a7
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -831,10 +897,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserRoleChangeAuditsListEnvelopeDto"
-      security: &a7
+      security: &a8
         - access-token: []
       summary: List user role changes
-      tags: &a8
+      tags: &a9
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -923,9 +989,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserAccountDeletionAuditsListEnvelopeDto"
-      security: *a7
+      security: *a8
       summary: List user account deletion events
-      tags: *a8
+      tags: *a9
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -994,7 +1060,7 @@ components:
             refresh responses.
           items:
             type: string
-            enum: &a10
+            enum: &a11
               - PASSWORD
               - GOOGLE
       required:
@@ -1028,7 +1094,7 @@ components:
       properties:
         provider:
           type: string
-          enum: &a9
+          enum: &a10
             - GOOGLE
           example: GOOGLE
         idToken:
@@ -1048,7 +1114,7 @@ components:
       properties:
         provider:
           type: string
-          enum: *a9
+          enum: *a10
           example: GOOGLE
         idToken:
           type: string
@@ -1269,7 +1335,7 @@ components:
           description: Linked authentication methods on this account.
           items:
             type: string
-            enum: *a10
+            enum: *a11
         profile:
           $ref: "#/components/schemas/MeProfileDto"
         accountDeletion:
@@ -1320,6 +1386,79 @@ components:
           $ref: "#/components/schemas/PatchMeProfileDto"
       required:
         - profile
+    CreateProfileImageUploadRequestDto:
+      type: object
+      properties:
+        contentType:
+          type: string
+          enum:
+            - image/jpeg
+            - image/png
+            - image/webp
+          example: image/webp
+          description: Declared MIME type for the upload. Must match the Content-Type used
+            during upload.
+        sizeBytes:
+          type: number
+          example: 123456
+          minimum: 1
+          maximum: 5000000
+          description: Declared size of the upload in bytes (used to verify the stored
+            object).
+      required:
+        - contentType
+        - sizeBytes
+    PresignedUploadDto:
+      type: object
+      properties:
+        method:
+          type: string
+          enum:
+            - PUT
+          example: PUT
+        url:
+          type: string
+          example: https://<r2-presigned-url>
+        headers:
+          type: object
+          example:
+            Content-Type: image/webp
+          description: Headers that must be sent with the upload request.
+      required:
+        - method
+        - url
+        - headers
+    ProfileImageUploadPlanDto:
+      type: object
+      properties:
+        fileId:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        upload:
+          $ref: "#/components/schemas/PresignedUploadDto"
+        expiresAt:
+          type: string
+          example: 2026-01-10T12:34:56.789Z
+          format: date-time
+      required:
+        - fileId
+        - upload
+        - expiresAt
+    ProfileImageUploadPlanEnvelopeDto:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/ProfileImageUploadPlanDto"
+      required:
+        - data
+    CompleteProfileImageUploadRequestDto:
+      type: object
+      properties:
+        fileId:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+      required:
+        - fileId
     AdminWhoamiDto:
       type: object
       properties:
@@ -1459,13 +1598,13 @@ components:
           example: 9d8c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
         oldRole:
           type: string
-          enum: &a11
+          enum: &a12
             - USER
             - ADMIN
           example: USER
         newRole:
           type: string
-          enum: *a11
+          enum: *a12
           example: ADMIN
         traceId:
           type: string

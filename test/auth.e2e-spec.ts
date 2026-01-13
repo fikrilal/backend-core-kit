@@ -581,6 +581,24 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
     expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
   });
 
+  it('POST /v1/me/profile-image/upload requires an access token', async () => {
+    const res = await request(baseUrl)
+      .post('/v1/me/profile-image/upload')
+      .send({ contentType: 'image/png', sizeBytes: 100 })
+      .expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
+  it('POST /v1/me/profile-image/complete requires an access token', async () => {
+    const res = await request(baseUrl)
+      .post('/v1/me/profile-image/complete')
+      .send({ fileId: randomUUID() })
+      .expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+  });
+
   it('POST /v1/me/sessions/:sessionId/revoke requires an access token', async () => {
     const res = await request(baseUrl).post(`/v1/me/sessions/${randomUUID()}/revoke`).expect(401);
     expect(res.headers['content-type']).toContain('application/problem+json');
