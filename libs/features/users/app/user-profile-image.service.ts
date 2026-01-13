@@ -178,6 +178,24 @@ export class UserProfileImageService {
     }
   }
 
+  async clearProfileImage(input: { userId: string; traceId: string }): Promise<void> {
+    const now = new Date();
+
+    const cleared = await this.repo.clearProfileImage({ userId: input.userId, now });
+    if (cleared.kind === 'not_found') {
+      throw new UserNotFoundError();
+    }
+
+    if (!cleared.clearedFile) return;
+    if (!this.storage.isEnabled()) return;
+
+    try {
+      await this.storage.deleteObject(cleared.clearedFile.objectKey);
+    } catch {
+      // best-effort; ignore
+    }
+  }
+
   private async rejectUpload(file: StoredFileRecord, ownerUserId: string): Promise<void> {
     const now = new Date();
 

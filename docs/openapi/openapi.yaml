@@ -545,6 +545,22 @@ paths:
         - USERS_PROFILE_IMAGE_SIZE_MISMATCH
         - USERS_PROFILE_IMAGE_CONTENT_TYPE_MISMATCH
         - INTERNAL
+  /v1/me/profile-image:
+    delete:
+      description: Detaches the current profile image (if any) and marks the stored
+        file deleted. Object storage deletion is best-effort.
+      operationId: users.me.profileImage.clear
+      parameters: []
+      responses:
+        "204":
+          description: ""
+      security:
+        - access-token: []
+      summary: Clear current profile image
+      tags: *a4
+      x-error-codes:
+        - UNAUTHORIZED
+        - INTERNAL
   /v1/me/account-deletion/request:
     post:
       description: Schedules account deletion 30 days in the future. The account

@@ -18,6 +18,10 @@ export type AttachProfileImageResult =
   | Readonly<{ kind: 'ok'; previousFileId: string | null }>
   | Readonly<{ kind: 'not_found' }>;
 
+export type ClearProfileImageResult =
+  | Readonly<{ kind: 'ok'; clearedFile: Readonly<{ id: string; objectKey: string }> | null }>
+  | Readonly<{ kind: 'not_found' }>;
+
 export interface ProfileImageRepository {
   createProfileImageFile(input: {
     fileId: string;
@@ -39,6 +43,8 @@ export interface ProfileImageRepository {
     fileId: string;
     now: Date;
   }): Promise<AttachProfileImageResult>;
+
+  clearProfileImage(input: { userId: string; now: Date }): Promise<ClearProfileImageResult>;
 
   markStoredFileDeleted(input: { fileId: string; ownerUserId: string; now: Date }): Promise<void>;
 }

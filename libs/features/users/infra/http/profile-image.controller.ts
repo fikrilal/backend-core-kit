@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiNoContentResponse,
@@ -100,6 +100,32 @@ export class ProfileImageController {
       await this.images.completeUpload({
         userId: principal.userId,
         fileId: body.fileId,
+        traceId: req.requestId ?? 'unknown',
+      });
+    } catch (err: unknown) {
+      throw this.mapUsersError(err);
+    }
+  }
+
+  @Delete('me/profile-image')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: 'users.me.profileImage.clear',
+    summary: 'Clear current profile image',
+    description:
+      'Detaches the current profile image (if any) and marks the stored file deleted. Object storage deletion is best-effort.',
+  })
+  @ApiErrorCodes([ErrorCode.UNAUTHORIZED, ErrorCode.INTERNAL])
+  @ApiNoContentResponse()
+  async clearProfileImage(
+    @CurrentPrincipal() principal: AuthPrincipal,
+    @Req() req: FastifyRequest,
+  ): Promise<void> {
+    try {
+      await this.images.clearProfileImage({
+        userId: principal.userId,
         traceId: req.requestId ?? 'unknown',
       });
     } catch (err: unknown) {

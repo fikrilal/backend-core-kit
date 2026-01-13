@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../../../../platform/db/prisma.service';
 import type {
   AttachProfileImageResult,
+  ClearProfileImageResult,
   CreateProfileImageFileResult,
   ProfileImageRepository,
   StoredFileRecord,
@@ -148,6 +149,45 @@ export class PrismaProfileImageRepository implements ProfileImageRepository {
       });
 
       return { kind: 'ok', previousFileId };
+    });
+  }
+
+  async clearProfileImage(input: { userId: string; now: Date }): Promise<ClearProfileImageResult> {
+    return await this.prisma.transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: input.userId },
+        select: { status: true },
+      });
+      if (!user || user.status === PrismaUserStatus.DELETED) return { kind: 'not_found' };
+
+      const profile = await tx.userProfile.findUnique({
+        where: { userId: input.userId },
+        select: { profileImageFileId: true },
+      });
+
+      const fileId = profile?.profileImageFileId ?? null;
+      if (!fileId) return { kind: 'ok', clearedFile: null };
+
+      await tx.userProfile.updateMany({
+        where: { userId: input.userId },
+        data: { profileImageFileId: null },
+      });
+
+      const file = await tx.storedFile.findFirst({
+        where: { id: fileId, ownerUserId: input.userId },
+        select: { id: true, objectKey: true },
+      });
+
+      await tx.storedFile.updateMany({
+        where: {
+          id: fileId,
+          ownerUserId: input.userId,
+          status: { not: PrismaFileStatus.DELETED },
+        },
+        data: { status: PrismaFileStatus.DELETED, deletedAt: input.now },
+      });
+
+      return { kind: 'ok', clearedFile: file ? { id: file.id, objectKey: file.objectKey } : null };
     });
   }
 
