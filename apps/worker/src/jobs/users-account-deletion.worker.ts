@@ -51,7 +51,7 @@ type UsersProfileImageExpireUploadJobResult = Readonly<{
   ok: true;
   fileId: string;
   outcome: 'expired' | 'skipped';
-  reason?: 'file_not_found' | 'not_uploading' | 'storage_not_configured';
+  reason?: 'file_not_found' | 'not_profile_image' | 'not_uploading' | 'storage_not_configured';
 }> &
   JsonObject;
 
@@ -380,7 +380,7 @@ export class UsersAccountDeletionWorker implements OnModuleInit {
     }
 
     if (file.purpose !== PrismaFilePurpose.PROFILE_IMAGE) {
-      return { ok: true, fileId: file.id, outcome: 'skipped', reason: 'not_uploading' };
+      return { ok: true, fileId: file.id, outcome: 'skipped', reason: 'not_profile_image' };
     }
 
     if (file.status !== PrismaFileStatus.UPLOADING) {

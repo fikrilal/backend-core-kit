@@ -40,4 +40,22 @@ describe('validateEnv', () => {
   it('throws when storage config is partial', () => {
     expect(() => validateEnv({ STORAGE_S3_BUCKET: 'my-bucket' })).toThrow(/STORAGE_S3_ENDPOINT/i);
   });
+
+  it('throws when FCM env is set without PUSH_PROVIDER', () => {
+    expect(() => validateEnv({ FCM_PROJECT_ID: 'project' })).toThrow(/PUSH_PROVIDER/i);
+  });
+
+  it('throws when PUSH_PROVIDER=FCM is missing required vars', () => {
+    expect(() => validateEnv({ PUSH_PROVIDER: 'FCM' })).toThrow(/FCM_PROJECT_ID/i);
+  });
+
+  it('allows PUSH_PROVIDER=FCM with ADC', () => {
+    expect(() =>
+      validateEnv({
+        PUSH_PROVIDER: 'FCM',
+        FCM_PROJECT_ID: 'project',
+        FCM_USE_APPLICATION_DEFAULT: 'true',
+      }),
+    ).not.toThrow();
+  });
 });

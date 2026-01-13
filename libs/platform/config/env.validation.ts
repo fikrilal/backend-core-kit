@@ -18,6 +18,10 @@ export enum NodeEnv {
   Production = 'production',
 }
 
+export enum PushProvider {
+  Fcm = 'FCM',
+}
+
 function parseEnvBoolean(value: unknown): boolean | undefined {
   if (value === undefined) return undefined;
   if (typeof value === 'boolean') return value;
@@ -234,6 +238,30 @@ class EnvVars {
   @IsString()
   EMAIL_REPLY_TO?: string;
 
+  // Push notifications (FCM)
+  @Transform(({ value }) => (value !== undefined ? String(value).trim().toUpperCase() : undefined))
+  @IsOptional()
+  @IsEnum(PushProvider)
+  PUSH_PROVIDER?: PushProvider;
+
+  @IsOptional()
+  @IsString()
+  FCM_PROJECT_ID?: string;
+
+  // Prefer a file path in production (secrets mount), but allow JSON for convenience.
+  @IsOptional()
+  @IsString()
+  FCM_SERVICE_ACCOUNT_JSON_PATH?: string;
+
+  @IsOptional()
+  @IsString()
+  FCM_SERVICE_ACCOUNT_JSON?: string;
+
+  @Transform(({ value }) => parseEnvBoolean(value))
+  @IsOptional()
+  @IsBoolean()
+  FCM_USE_APPLICATION_DEFAULT?: boolean;
+
   // Object storage (S3-compatible; e.g. Cloudflare R2)
   @IsOptional()
   @IsUrl({ require_tld: false })
@@ -360,6 +388,49 @@ function assertStorageConfigConsistency(env: EnvVars) {
   }
 }
 
+function assertPushConfigConsistency(env: EnvVars) {
+  const provider = env.PUSH_PROVIDER;
+
+  const hasAnyPushEnv = Boolean(
+    provider ||
+    env.FCM_PROJECT_ID?.trim() ||
+    env.FCM_SERVICE_ACCOUNT_JSON_PATH?.trim() ||
+    env.FCM_SERVICE_ACCOUNT_JSON?.trim() ||
+    env.FCM_USE_APPLICATION_DEFAULT,
+  );
+
+  if (!hasAnyPushEnv) return;
+
+  if (!provider) {
+    throw new Error(
+      'Missing required environment variables: PUSH_PROVIDER (required when FCM_* is set)',
+    );
+  }
+
+  if (provider !== PushProvider.Fcm) {
+    throw new Error(`Unsupported PUSH_PROVIDER: ${provider}`);
+  }
+
+  const missing: string[] = [];
+
+  const projectId = env.FCM_PROJECT_ID?.trim();
+  if (!projectId) missing.push('FCM_PROJECT_ID');
+
+  const useAdc = env.FCM_USE_APPLICATION_DEFAULT === true;
+  const hasServiceAccountPath = Boolean(env.FCM_SERVICE_ACCOUNT_JSON_PATH?.trim());
+  const hasServiceAccountJson = Boolean(env.FCM_SERVICE_ACCOUNT_JSON?.trim());
+
+  if (!useAdc && !hasServiceAccountPath && !hasServiceAccountJson) {
+    missing.push('FCM_SERVICE_ACCOUNT_JSON_PATH or FCM_SERVICE_ACCOUNT_JSON');
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required environment variables: ${missing.join(', ')} (required when PUSH_PROVIDER=FCM)`,
+    );
+  }
+}
+
 export function validateEnv(config: Record<string, unknown>): EnvVars {
   const validated = plainToInstance(EnvVars, config, { enableImplicitConversion: true });
   const errors = validateSync(validated, {
@@ -372,6 +443,7 @@ export function validateEnv(config: Record<string, unknown>): EnvVars {
 
   requireInProductionLike(validated);
   assertEmailConfigConsistency(validated);
+  assertPushConfigConsistency(validated);
   assertStorageConfigConsistency(validated);
   return validated;
 }
