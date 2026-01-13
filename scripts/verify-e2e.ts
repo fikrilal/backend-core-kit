@@ -112,7 +112,40 @@ async function waitForRedis(maxAttempts = 30, delayMs = 2000): Promise<void> {
   throw new Error('Redis did not become ready in time');
 }
 
+async function waitForMinio(maxAttempts = 60, delayMs = 1000): Promise<void> {
+  const endpoint = process.env.STORAGE_S3_ENDPOINT?.trim() || 'http://127.0.0.1:59090';
+  const healthUrl = `${endpoint.replace(/\/$/, '')}/minio/health/ready`;
+
+  for (let i = 1; i <= maxAttempts; i++) {
+    try {
+      const res = await fetch(healthUrl);
+      if (res.ok) {
+        process.stdout.write('MinIO is ready\n');
+        return;
+      }
+    } catch {
+      // keep retrying
+    }
+
+    process.stdout.write(`Waiting for MinIO... (${i}/${maxAttempts})\n`);
+    await sleep(delayMs);
+  }
+
+  throw new Error('MinIO did not become ready in time');
+}
+
+function setDefaultTestStorageEnv(): void {
+  process.env.STORAGE_S3_ENDPOINT ??= 'http://127.0.0.1:59090';
+  process.env.STORAGE_S3_REGION ??= 'us-east-1';
+  process.env.STORAGE_S3_BUCKET ??= 'backend-core-kit';
+  process.env.STORAGE_S3_ACCESS_KEY_ID ??= 'minioadmin';
+  process.env.STORAGE_S3_SECRET_ACCESS_KEY ??= 'minioadmin';
+  process.env.STORAGE_S3_FORCE_PATH_STYLE ??= 'true';
+}
+
 async function main(): Promise<void> {
+  setDefaultTestStorageEnv();
+
   const npm = 'npm';
   let depsAttempted = false;
   try {
@@ -125,6 +158,9 @@ async function main(): Promise<void> {
 
     process.stdout.write('==> wait:redis\n');
     await waitForRedis();
+
+    process.stdout.write('==> wait:minio\n');
+    await waitForMinio();
 
     process.stdout.write('==> prisma:migrate:deploy\n');
     await run(npm, ['run', 'prisma:migrate:deploy']);

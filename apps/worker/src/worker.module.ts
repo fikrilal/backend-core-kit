@@ -9,6 +9,7 @@ import { ResponseEnvelopeInterceptor } from '../../../libs/platform/http/interce
 import { LoggingModule } from '../../../libs/platform/logging/logging.module';
 import { PlatformEmailModule } from '../../../libs/platform/email/email.module';
 import { QueueModule } from '../../../libs/platform/queue/queue.module';
+import { PlatformStorageModule } from '../../../libs/platform/storage/storage.module';
 import { SystemSmokeWorker } from './jobs/system-smoke.worker';
 import { AuthEmailsWorker } from './jobs/auth-email-verification.worker';
 import { UsersAccountDeletionWorker } from './jobs/users-account-deletion.worker';
@@ -20,6 +21,7 @@ import { UsersAccountDeletionWorker } from './jobs/users-account-deletion.worker
     PrismaModule,
     HealthModule,
     PlatformEmailModule,
+    PlatformStorageModule,
     QueueModule,
   ],
   providers: [

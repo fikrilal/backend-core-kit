@@ -514,6 +514,7 @@ paths:
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
+        - RATE_LIMITED
         - IDEMPOTENCY_IN_PROGRESS
         - CONFLICT
         - USERS_OBJECT_STORAGE_NOT_CONFIGURED

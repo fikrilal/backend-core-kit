@@ -21,6 +21,7 @@ These documents are not “standards”. Standards live under `docs/standards/`.
 - Users
   - `docs/engineering/users/README.md`
   - `docs/engineering/users/account-deletion.md`
+  - `docs/engineering/users/profile-images.md`
 - Email
   - `docs/engineering/email/README.md`
   - `docs/engineering/email/resend.md`

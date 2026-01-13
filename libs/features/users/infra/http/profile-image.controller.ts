@@ -19,6 +19,9 @@ import { PROFILE_IMAGE_PRESIGN_TTL_SECONDS } from '../../app/profile-image.polic
 import { UserProfileImageService } from '../../app/user-profile-image.service';
 import { UsersErrorCode } from '../../app/users.error-codes';
 import { UserNotFoundError, UsersError } from '../../app/users.errors';
+import { PinoLogger } from 'nestjs-pino';
+import { ProfileImageCleanupJobs } from '../jobs/profile-image-cleanup.jobs';
+import { RedisProfileImageUploadRateLimiter } from '../rate-limit/redis-profile-image-upload-rate-limiter';
 import {
   CompleteProfileImageUploadRequestDto,
   CreateProfileImageUploadRequestDto,
@@ -29,7 +32,14 @@ import {
 @ApiTags('Users')
 @Controller()
 export class ProfileImageController {
-  constructor(private readonly images: UserProfileImageService) {}
+  constructor(
+    private readonly images: UserProfileImageService,
+    private readonly rateLimiter: RedisProfileImageUploadRateLimiter,
+    private readonly jobs: ProfileImageCleanupJobs,
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(ProfileImageController.name);
+  }
 
   @Post('me/profile-image/upload')
   @UseGuards(AccessTokenGuard)
@@ -44,6 +54,7 @@ export class ProfileImageController {
   @ApiErrorCodes([
     ErrorCode.VALIDATION_FAILED,
     ErrorCode.UNAUTHORIZED,
+    ErrorCode.RATE_LIMITED,
     ErrorCode.IDEMPOTENCY_IN_PROGRESS,
     ErrorCode.CONFLICT,
     UsersErrorCode.USERS_OBJECT_STORAGE_NOT_CONFIGURED,
@@ -61,12 +72,24 @@ export class ProfileImageController {
     @Body() body: CreateProfileImageUploadRequestDto,
   ) {
     try {
-      return await this.images.createUploadPlan({
+      await this.rateLimiter.assertAllowed({ userId: principal.userId, ip: req.ip });
+      const plan = await this.images.createUploadPlan({
         userId: principal.userId,
         contentType: body.contentType,
         sizeBytes: body.sizeBytes,
         traceId: req.requestId ?? 'unknown',
       });
+
+      try {
+        await this.jobs.scheduleExpireUpload(principal.userId, plan.fileId);
+      } catch (err: unknown) {
+        this.logger.error(
+          { err, userId: principal.userId, fileId: plan.fileId },
+          'Failed to schedule profile image upload expiry job',
+        );
+      }
+
+      return plan;
     } catch (err: unknown) {
       throw this.mapUsersError(err);
     }
@@ -98,11 +121,22 @@ export class ProfileImageController {
     @Body() body: CompleteProfileImageUploadRequestDto,
   ): Promise<void> {
     try {
-      await this.images.completeUpload({
+      const previousFileId = await this.images.completeUpload({
         userId: principal.userId,
         fileId: body.fileId,
         traceId: req.requestId ?? 'unknown',
       });
+
+      if (previousFileId) {
+        try {
+          await this.jobs.enqueueDeleteStoredFile(principal.userId, previousFileId);
+        } catch (err: unknown) {
+          this.logger.error(
+            { err, userId: principal.userId, fileId: previousFileId },
+            'Failed to enqueue profile image cleanup job',
+          );
+        }
+      }
     } catch (err: unknown) {
       throw this.mapUsersError(err);
     }
@@ -125,10 +159,21 @@ export class ProfileImageController {
     @Req() req: FastifyRequest,
   ): Promise<void> {
     try {
-      await this.images.clearProfileImage({
+      const clearedFileId = await this.images.clearProfileImage({
         userId: principal.userId,
         traceId: req.requestId ?? 'unknown',
       });
+
+      if (clearedFileId) {
+        try {
+          await this.jobs.enqueueDeleteStoredFile(principal.userId, clearedFileId);
+        } catch (err: unknown) {
+          this.logger.error(
+            { err, userId: principal.userId, fileId: clearedFileId },
+            'Failed to enqueue profile image cleanup job',
+          );
+        }
+      }
     } catch (err: unknown) {
       throw this.mapUsersError(err);
     }

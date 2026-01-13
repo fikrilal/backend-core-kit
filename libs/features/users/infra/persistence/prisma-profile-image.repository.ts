@@ -149,6 +149,18 @@ export class PrismaProfileImageRepository implements ProfileImageRepository {
         select: { id: true },
       });
 
+      if (previousFileId && previousFileId !== input.fileId) {
+        await tx.storedFile.updateMany({
+          where: {
+            id: previousFileId,
+            ownerUserId: input.userId,
+            purpose: PrismaFilePurpose.PROFILE_IMAGE,
+            status: { not: PrismaFileStatus.DELETED },
+          },
+          data: { status: PrismaFileStatus.DELETED, deletedAt: input.now },
+        });
+      }
+
       return { kind: 'ok', previousFileId };
     });
   }

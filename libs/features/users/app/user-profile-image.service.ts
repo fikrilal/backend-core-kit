@@ -110,7 +110,11 @@ export class UserProfileImageService {
     return { fileId, upload, expiresAt };
   }
 
-  async completeUpload(input: { userId: string; fileId: string; traceId: string }): Promise<void> {
+  async completeUpload(input: {
+    userId: string;
+    fileId: string;
+    traceId: string;
+  }): Promise<string | null> {
     if (!this.storage.isEnabled()) {
       throw new UsersError({
         status: 501,
@@ -138,7 +142,7 @@ export class UserProfileImageService {
 
     const attachedFileId = await this.repo.getProfileImageFileId(input.userId);
     if (record.status === 'ACTIVE' && attachedFileId === input.fileId) {
-      return;
+      return null;
     }
 
     const head = await this.storage.headObject(record.objectKey);
@@ -179,12 +183,12 @@ export class UserProfileImageService {
       throw new UserNotFoundError();
     }
 
-    if (attach.previousFileId && attach.previousFileId !== input.fileId) {
-      await this.tryDeletePreviousFile(input.userId, attach.previousFileId, now);
-    }
+    if (!attach.previousFileId) return null;
+    if (attach.previousFileId === input.fileId) return null;
+    return attach.previousFileId;
   }
 
-  async clearProfileImage(input: { userId: string; traceId: string }): Promise<void> {
+  async clearProfileImage(input: { userId: string; traceId: string }): Promise<string | null> {
     const now = new Date();
 
     const cleared = await this.repo.clearProfileImage({ userId: input.userId, now });
@@ -192,14 +196,7 @@ export class UserProfileImageService {
       throw new UserNotFoundError();
     }
 
-    if (!cleared.clearedFile) return;
-    if (!this.storage.isEnabled()) return;
-
-    try {
-      await this.storage.deleteObject(cleared.clearedFile.objectKey);
-    } catch {
-      // best-effort; ignore
-    }
+    return cleared.clearedFile?.id ?? null;
   }
 
   async getProfileImageUrl(input: {
@@ -241,28 +238,6 @@ export class UserProfileImageService {
 
     try {
       await this.repo.markStoredFileDeleted({ fileId: file.id, ownerUserId, now });
-    } catch {
-      // best-effort; ignore
-    }
-  }
-
-  private async tryDeletePreviousFile(
-    ownerUserId: string,
-    previousFileId: string,
-    now: Date,
-  ): Promise<void> {
-    const old = await this.repo.findStoredFileForOwner(previousFileId, ownerUserId);
-    if (!old) return;
-    if (old.status === 'DELETED') return;
-
-    try {
-      await this.storage.deleteObject(old.objectKey);
-    } catch {
-      return;
-    }
-
-    try {
-      await this.repo.markStoredFileDeleted({ fileId: old.id, ownerUserId, now });
     } catch {
       // best-effort; ignore
     }
