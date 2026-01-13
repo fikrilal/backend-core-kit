@@ -1,13 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { QueueModule } from '../queue/queue.module';
 import { PUSH_SERVICE } from './push.tokens';
 import { DisabledPushService } from './disabled-push.service';
 import { FcmPushService } from './fcm-push.service';
+import { PushJobs } from './push.jobs';
 
 @Module({
+  imports: [QueueModule],
   providers: [
     DisabledPushService,
     FcmPushService,
+    PushJobs,
     {
       provide: PUSH_SERVICE,
       inject: [ConfigService, FcmPushService, DisabledPushService],
@@ -20,6 +24,6 @@ import { FcmPushService } from './fcm-push.service';
       },
     },
   ],
-  exports: [PUSH_SERVICE, FcmPushService, DisabledPushService],
+  exports: [PUSH_SERVICE, FcmPushService, DisabledPushService, PushJobs],
 })
 export class PlatformPushModule {}

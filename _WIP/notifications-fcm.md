@@ -23,6 +23,8 @@ The intent is: provide a clean, reusable baseline that most products need, while
   - `DELETE /v1/me/push-token`
 - Push queue + worker processor resolves `sessionId -> token` and clears invalid tokens:
   - `apps/worker/src/jobs/push.worker.ts`
+- Platform enqueue helper for features:
+  - `libs/platform/push/push.jobs.ts`
 
 ### Phase 3 — Application use cases (not implemented)
 
