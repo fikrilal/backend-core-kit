@@ -61,6 +61,9 @@ jobs:
       - name: OpenAPI Spectral lint
         run: npm run openapi:lint
 
+      - name: Gate honesty (expected failures)
+        run: npm run verify:gates
+
       - name: Start local dependencies (Postgres + Redis + MinIO)
         run: npm run deps:up
 

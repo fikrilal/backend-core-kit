@@ -55,6 +55,36 @@ describe('API baseline (e2e)', () => {
     });
     expect(res.body.traceId).toBe(res.headers['x-request-id']);
   });
+
+  it('Echoes provided X-Request-Id on success', async () => {
+    const requestId = 'req_fixed_1';
+    const res = await request(baseUrl).get('/health').set('X-Request-Id', requestId).expect(200);
+    expect(res.headers['x-request-id']).toBe(requestId);
+  });
+
+  it('Echoes provided X-Request-Id and uses it as traceId on 404', async () => {
+    const requestId = 'req_fixed_2';
+    const res = await request(baseUrl)
+      .get('/does-not-exist')
+      .set('X-Request-Id', requestId)
+      .expect(404);
+    expect(res.headers['x-request-id']).toBe(requestId);
+    expect(res.body.traceId).toBe(requestId);
+  });
+
+  it('Echoes provided X-Request-Id and uses it as traceId on 401', async () => {
+    const requestId = 'req_fixed_3';
+    const res = await request(baseUrl).get('/v1/me').set('X-Request-Id', requestId).expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.headers['x-request-id']).toBe(requestId);
+    expect(res.body).toMatchObject({
+      type: 'about:blank',
+      title: 'Unauthorized',
+      status: 401,
+      code: 'UNAUTHORIZED',
+      traceId: requestId,
+    });
+  });
 });
 
 describe('Swagger UI (e2e)', () => {
