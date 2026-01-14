@@ -1123,6 +1123,21 @@ export class PrismaAuthRepository implements AuthRepository {
 }
 
 function isRetryableTransactionError(err: unknown): boolean {
-  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
-  return err.code === 'P2034';
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    return err.code === 'P2034' || err.code === '40001' || err.code === '40P01';
+  }
+
+  if (err instanceof Error) {
+    // Prisma 7 adapter errors surfaced directly from the driver.
+    if (err.name === 'DriverAdapterError' && err.message === 'TransactionWriteConflict') {
+      return true;
+    }
+
+    // Best-effort fallbacks for other transient transaction errors.
+    if (err.message.includes('TransactionWriteConflict')) return true;
+    if (err.message.toLowerCase().includes('could not serialize access')) return true;
+    if (err.message.toLowerCase().includes('deadlock detected')) return true;
+  }
+
+  return false;
 }

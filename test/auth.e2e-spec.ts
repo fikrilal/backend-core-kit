@@ -5,7 +5,12 @@ import { PrismaClient, UserRole, UserStatus } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import Redis from 'ioredis';
 import { Queue } from 'bullmq';
-import { CreateBucketCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  CreateBucketCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import {
   AUTH_SEND_VERIFICATION_EMAIL_JOB,
   EMAIL_QUEUE,
@@ -42,6 +47,30 @@ const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNotFoundError(err: unknown): boolean {
+  if (!isObject(err)) return false;
+
+  const name = typeof err.name === 'string' ? err.name : undefined;
+  if (name === 'NotFound' || name === 'NoSuchKey') return true;
+
+  const metadata = err.$metadata;
+  if (isObject(metadata) && typeof metadata.httpStatusCode === 'number') {
+    return metadata.httpStatusCode === 404;
+  }
+
+  return false;
+}
+
+async function expectObjectDeleted(s3: S3Client, bucket: string, key: string): Promise<void> {
+  try {
+    await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+    throw new Error(`Expected object "${key}" to be deleted`);
+  } catch (err: unknown) {
+    if (isNotFoundError(err)) return;
+    throw err;
+  }
 }
 
 function getSessionIdFromAccessToken(token: string): string {
@@ -249,6 +278,43 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
 
     expect(afterLogout.headers['content-type']).toContain('application/problem+json');
     expect(afterLogout.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });
+  });
+
+  it('refresh token reuse revokes the session (reuse detection)', async () => {
+    const email = `refresh-reuse+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password, deviceId: 'device-a', deviceName: 'Device A' })
+      .expect(200);
+
+    const reg = registerRes.body.data as { refreshToken: string };
+
+    const firstRefreshRes = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: reg.refreshToken })
+      .expect(200);
+
+    const first = firstRefreshRes.body.data as { refreshToken: string };
+    expect(typeof first.refreshToken).toBe('string');
+    expect(first.refreshToken).not.toBe(reg.refreshToken);
+
+    const reuse = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: reg.refreshToken })
+      .expect(401);
+
+    expect(reuse.headers['content-type']).toContain('application/problem+json');
+    expect(reuse.body).toMatchObject({ code: 'AUTH_REFRESH_TOKEN_REUSED', status: 401 });
+
+    const afterReuse = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: first.refreshToken })
+      .expect(401);
+
+    expect(afterReuse.headers['content-type']).toContain('application/problem+json');
+    expect(afterReuse.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });
   });
 
   it('register enqueues auth.sendVerificationEmail job when email is configured', async () => {
@@ -581,6 +647,13 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
       .send({ currentPassword: password, newPassword })
       .expect(204);
 
+    const currentSessionRefresh = await request(baseUrl)
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: reg.refreshToken })
+      .expect(200);
+
+    expect(typeof currentSessionRefresh.body.data.refreshToken).toBe('string');
+
     const replayed = await request(baseUrl)
       .post('/v1/auth/password/change')
       .set('Authorization', `Bearer ${reg.accessToken}`)
@@ -779,6 +852,141 @@ async function deleteKeysByPattern(redis: Redis, pattern: string): Promise<void>
     expect(getRes.ok).toBe(true);
     const downloaded = Buffer.from(await getRes.arrayBuffer());
     expect(downloaded.equals(imageBytes)).toBe(true);
+  });
+
+  it('profile image complete returns 409 USERS_PROFILE_IMAGE_NOT_UPLOADED when object is missing', async () => {
+    const email = `me-profile-image-missing+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { accessToken: string };
+
+    const uploadPlanRes = await request(baseUrl)
+      .post('/v1/me/profile-image/upload')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ contentType: 'image/png', sizeBytes: 10 })
+      .expect(200);
+
+    const plan = uploadPlanRes.body.data as { fileId: string };
+
+    const completeRes = await request(baseUrl)
+      .post('/v1/me/profile-image/complete')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ fileId: plan.fileId })
+      .expect(409);
+
+    expect(completeRes.headers['content-type']).toContain('application/problem+json');
+    expect(completeRes.body).toMatchObject({
+      code: 'USERS_PROFILE_IMAGE_NOT_UPLOADED',
+      status: 409,
+    });
+  });
+
+  it('profile image complete returns 409 USERS_PROFILE_IMAGE_SIZE_MISMATCH and deletes the object', async () => {
+    const email = `me-profile-image-size-mismatch+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { user: { id: string }; accessToken: string };
+
+    const uploadPlanRes = await request(baseUrl)
+      .post('/v1/me/profile-image/upload')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ contentType: 'image/png', sizeBytes: 10 })
+      .expect(200);
+
+    const plan = uploadPlanRes.body.data as { fileId: string };
+    const bucket = process.env.STORAGE_S3_BUCKET ?? 'backend-core-kit';
+    const objectKey = `users/${reg.user.id}/profile-images/${plan.fileId}`;
+
+    // Upload with a different size than declared.
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: objectKey,
+        Body: Buffer.from('123456789', 'utf8'), // 9 bytes
+        ContentType: 'image/png',
+      }),
+    );
+
+    const completeRes = await request(baseUrl)
+      .post('/v1/me/profile-image/complete')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ fileId: plan.fileId })
+      .expect(409);
+
+    expect(completeRes.headers['content-type']).toContain('application/problem+json');
+    expect(completeRes.body).toMatchObject({
+      code: 'USERS_PROFILE_IMAGE_SIZE_MISMATCH',
+      status: 409,
+    });
+
+    await expectObjectDeleted(s3, bucket, objectKey);
+
+    const stored = await prisma.storedFile.findUnique({
+      where: { id: plan.fileId },
+      select: { status: true },
+    });
+    expect(stored?.status).toBe('DELETED');
+  });
+
+  it('profile image complete returns 409 USERS_PROFILE_IMAGE_CONTENT_TYPE_MISMATCH and deletes the object', async () => {
+    const email = `me-profile-image-content-type-mismatch+${Date.now()}@example.com`;
+    const password = 'correct-horse-battery-staple';
+
+    const registerRes = await request(baseUrl)
+      .post('/v1/auth/password/register')
+      .send({ email, password })
+      .expect(200);
+
+    const reg = registerRes.body.data as { user: { id: string }; accessToken: string };
+
+    const uploadPlanRes = await request(baseUrl)
+      .post('/v1/me/profile-image/upload')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ contentType: 'image/png', sizeBytes: 9 })
+      .expect(200);
+
+    const plan = uploadPlanRes.body.data as { fileId: string };
+    const bucket = process.env.STORAGE_S3_BUCKET ?? 'backend-core-kit';
+    const objectKey = `users/${reg.user.id}/profile-images/${plan.fileId}`;
+
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: objectKey,
+        Body: Buffer.from('123456789', 'utf8'),
+        ContentType: 'image/jpeg',
+      }),
+    );
+
+    const completeRes = await request(baseUrl)
+      .post('/v1/me/profile-image/complete')
+      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .send({ fileId: plan.fileId })
+      .expect(409);
+
+    expect(completeRes.headers['content-type']).toContain('application/problem+json');
+    expect(completeRes.body).toMatchObject({
+      code: 'USERS_PROFILE_IMAGE_CONTENT_TYPE_MISMATCH',
+      status: 409,
+    });
+
+    await expectObjectDeleted(s3, bucket, objectKey);
+
+    const stored = await prisma.storedFile.findUnique({
+      where: { id: plan.fileId },
+      select: { status: true },
+    });
+    expect(stored?.status).toBe('DELETED');
   });
 
   it('POST /v1/me/profile-image/upload returns 429 RATE_LIMITED on repeated calls', async () => {

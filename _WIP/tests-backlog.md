@@ -24,15 +24,15 @@ Biggest gaps by folder (high-level): `apps/*` (bootstrap/worker), `libs/platform
 
 ## P1 — Infra integration (real deps)
 
-- [ ] **[int]** Object storage happy path (MinIO): presign PUT → upload bytes → `headObject` → finalize. Include 409 cases (missing object, size mismatch, content-type mismatch).
-- [ ] **[int]** Job processing invariants (BullMQ worker):
-  - push worker: revoked/expired session is skipped; invalid token clears only if `WHERE pushToken = <token>` matches.
-  - email workers: disabled provider is a no-op; enqueue payloads are validated (no secrets in job data).
-- [ ] **[int]** Rate limiters (Redis): login, password reset, email verify resend, profile-image upload. Assert 429 + `RATE_LIMITED` + key TTL behavior.
-- [ ] **[int]** Session/security invariants in persistence:
+- [x] **[e2e]** Object storage happy path (MinIO): presign PUT → upload bytes → `headObject` → finalize. Include 409 cases (missing object, size mismatch, content-type mismatch).
+- [x] **[int]** Job processing invariants (BullMQ worker):
+  - [x] push worker: revoked/expired session is skipped; invalid token clears only if `WHERE pushToken = <token>` matches.
+  - [x] email workers: disabled provider is a no-op; enqueue payloads are validated (no secrets in job data).
+- [x] **[int]** Rate limiters (Redis): login, password reset, email verify resend, profile-image upload. Assert 429 + `RATE_LIMITED` + key TTL behavior.
+- [x] **[e2e]** Session/security invariants in persistence:
   - refresh token reuse detection revokes the session.
   - password change revokes other sessions but preserves current session.
-- [ ] **[int]** Admin role invariants under concurrent writes:
+- [x] **[int]** Admin role invariants under concurrent writes:
   - “last admin cannot be demoted/suspended/deleted” remains safe under concurrency (transaction isolation + retry paths).
 
 ## P2 — Unit coverage for pure logic (cheap, high ROI)
