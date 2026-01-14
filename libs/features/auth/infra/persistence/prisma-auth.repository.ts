@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   ExternalIdentityProvider as PrismaExternalIdentityProvider,
+  PushPlatform as PrismaPushPlatform,
   Prisma,
   type RefreshToken,
   type User,
@@ -16,6 +17,7 @@ import type {
   CreateSessionInput,
   LinkExternalIdentityResult,
   ListUserSessionsResult,
+  SessionPushPlatform,
   RefreshRotationResult,
   RefreshTokenRecord,
   RefreshTokenWithSession,
@@ -24,6 +26,7 @@ import type {
   ResetPasswordByTokenHashResult,
   SessionSeenMetadata,
   SessionRecord,
+  UpsertSessionPushTokenResult,
   VerifyEmailResult,
 } from '../../app/ports/auth.repository';
 import { EmailAlreadyExistsError, ExternalIdentityAlreadyExistsError } from '../../app/auth.errors';
@@ -81,6 +84,17 @@ function toPrismaExternalIdentityProvider(provider: OidcProvider): PrismaExterna
   switch (provider) {
     case 'GOOGLE':
       return PrismaExternalIdentityProvider.GOOGLE;
+  }
+}
+
+function toPrismaPushPlatform(platform: SessionPushPlatform): PrismaPushPlatform {
+  switch (platform) {
+    case 'ANDROID':
+      return PrismaPushPlatform.ANDROID;
+    case 'IOS':
+      return PrismaPushPlatform.IOS;
+    case 'WEB':
+      return PrismaPushPlatform.WEB;
   }
 }
 
@@ -507,13 +521,26 @@ export class PrismaAuthRepository implements AuthRepository {
       if (session.revokedAt === null) {
         await tx.session.update({
           where: { id: sessionId },
-          data: { revokedAt: now, activeKey: null },
+          data: {
+            revokedAt: now,
+            activeKey: null,
+            pushPlatform: null,
+            pushToken: null,
+            pushTokenUpdatedAt: now,
+            pushTokenRevokedAt: now,
+          },
           select: { id: true },
         });
       } else {
         await tx.session.updateMany({
-          where: { id: sessionId, userId, activeKey: { not: null } },
-          data: { activeKey: null },
+          where: { id: sessionId, userId },
+          data: {
+            activeKey: null,
+            pushPlatform: null,
+            pushToken: null,
+            pushTokenUpdatedAt: now,
+            pushTokenRevokedAt: now,
+          },
         });
       }
 
@@ -523,6 +550,92 @@ export class PrismaAuthRepository implements AuthRepository {
       });
 
       return true;
+    });
+  }
+
+  async upsertSessionPushToken(input: {
+    userId: string;
+    sessionId: string;
+    platform: SessionPushPlatform;
+    token: string;
+    now: Date;
+  }): Promise<UpsertSessionPushTokenResult> {
+    const client = this.prisma.getClient();
+    const platform = toPrismaPushPlatform(input.platform);
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await client.$transaction(
+          async (tx) => {
+            // Validate (and lock) the caller's session first. This prevents a revoked/expired/nonexistent
+            // session from clearing another session's push token.
+            const locked = await tx.session.updateMany({
+              where: {
+                id: input.sessionId,
+                userId: input.userId,
+                revokedAt: null,
+                expiresAt: { gt: input.now },
+              },
+              data: {
+                pushTokenUpdatedAt: input.now,
+              },
+            });
+
+            if (locked.count !== 1) return { kind: 'session_not_found' };
+
+            // Ensure a token is attached to at most one session (supports account switching on the same
+            // device/app install). This runs only after the caller's session is validated.
+            await tx.session.updateMany({
+              where: { pushToken: input.token, id: { not: input.sessionId } },
+              data: {
+                pushPlatform: null,
+                pushToken: null,
+                pushTokenUpdatedAt: input.now,
+                pushTokenRevokedAt: input.now,
+              },
+            });
+
+            await tx.session.update({
+              where: { id: input.sessionId },
+              data: {
+                pushPlatform: platform,
+                pushToken: input.token,
+                pushTokenUpdatedAt: input.now,
+                pushTokenRevokedAt: null,
+              },
+              select: { id: true },
+            });
+
+            return { kind: 'ok' };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (err: unknown) {
+        const retryable =
+          isRetryableTransactionError(err) || isUniqueConstraintError(err, 'pushToken');
+        if (attempt < maxAttempts && retryable) continue;
+        throw err;
+      }
+    }
+
+    throw new Error('Unexpected: exhausted transaction retries');
+  }
+
+  async revokeSessionPushToken(input: {
+    userId: string;
+    sessionId: string;
+    now: Date;
+  }): Promise<void> {
+    const client = this.prisma.getClient();
+    await client.session.updateMany({
+      where: { id: input.sessionId, userId: input.userId },
+      data: {
+        pushPlatform: null,
+        pushToken: null,
+        pushTokenUpdatedAt: input.now,
+        pushTokenRevokedAt: input.now,
+      },
     });
   }
 
@@ -659,7 +772,14 @@ export class PrismaAuthRepository implements AuthRepository {
 
             await tx.session.updateMany({
               where: { userId: token.userId, revokedAt: null },
-              data: { revokedAt: now, activeKey: null },
+              data: {
+                revokedAt: now,
+                activeKey: null,
+                pushPlatform: null,
+                pushToken: null,
+                pushTokenUpdatedAt: now,
+                pushTokenRevokedAt: now,
+              },
             });
 
             await tx.refreshToken.updateMany({
@@ -732,7 +852,14 @@ export class PrismaAuthRepository implements AuthRepository {
 
             await tx.session.updateMany({
               where: { id: { in: otherSessionIds } },
-              data: { revokedAt: input.now, activeKey: null },
+              data: {
+                revokedAt: input.now,
+                activeKey: null,
+                pushPlatform: null,
+                pushToken: null,
+                pushTokenUpdatedAt: input.now,
+                pushTokenRevokedAt: input.now,
+              },
             });
 
             await tx.refreshToken.updateMany({
@@ -805,7 +932,14 @@ export class PrismaAuthRepository implements AuthRepository {
 
       await tx.session.update({
         where: { id: existing.id },
-        data: { revokedAt: now, activeKey: null },
+        data: {
+          revokedAt: now,
+          activeKey: null,
+          pushPlatform: null,
+          pushToken: null,
+          pushTokenUpdatedAt: now,
+          pushTokenRevokedAt: now,
+        },
       });
 
       await tx.refreshToken.updateMany({
@@ -965,8 +1099,19 @@ export class PrismaAuthRepository implements AuthRepository {
   private async revokeSessionAndTokens(sessionId: string, now: Date): Promise<void> {
     await this.prisma.transaction(async (tx) => {
       await tx.session.updateMany({
+        where: { id: sessionId },
+        data: {
+          activeKey: null,
+          pushPlatform: null,
+          pushToken: null,
+          pushTokenUpdatedAt: now,
+          pushTokenRevokedAt: now,
+        },
+      });
+
+      await tx.session.updateMany({
         where: { id: sessionId, revokedAt: null },
-        data: { revokedAt: now, activeKey: null },
+        data: { revokedAt: now },
       });
 
       await tx.refreshToken.updateMany({

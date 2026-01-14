@@ -423,6 +423,45 @@ paths:
         - UNAUTHORIZED
         - NOT_FOUND
         - INTERNAL
+  /v1/me/push-token:
+    put:
+      description: Stores the FCM registration token for the current session.
+        Idempotent; replaces any existing token for the session.
+      operationId: users.me.pushToken.upsert
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MePushTokenUpsertRequestDto"
+      responses:
+        "204":
+          description: ""
+      security:
+        - access-token: []
+      summary: Register/update push token (current session)
+      tags: &a3
+        - Users
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - PUSH_NOT_CONFIGURED
+        - INTERNAL
+    delete:
+      description: Clears the stored push token for the current session. Idempotent.
+      operationId: users.me.pushToken.revoke
+      parameters: []
+      responses:
+        "204":
+          description: ""
+      security:
+        - access-token: []
+      summary: Revoke push token (current session)
+      tags: *a3
+      x-error-codes:
+        - UNAUTHORIZED
+        - INTERNAL
   /v1/me:
     get:
       description: Returns the authenticated user profile.
@@ -438,7 +477,7 @@ paths:
       security:
         - access-token: []
       summary: Get current user
-      tags: &a3
+      tags: &a4
         - Users
       x-error-codes:
         - UNAUTHORIZED
@@ -472,7 +511,7 @@ paths:
       security:
         - access-token: []
       summary: Update current user profile
-      tags: *a3
+      tags: *a4
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -509,7 +548,7 @@ paths:
       security:
         - access-token: []
       summary: Create a profile image upload plan (presigned URL)
-      tags: &a4
+      tags: &a5
         - Users
       x-error-codes:
         - VALIDATION_FAILED
@@ -536,7 +575,7 @@ paths:
       security:
         - access-token: []
       summary: Finalize a profile image upload
-      tags: *a4
+      tags: *a5
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -558,7 +597,7 @@ paths:
       security:
         - access-token: []
       summary: Clear current profile image
-      tags: *a4
+      tags: *a5
       x-error-codes:
         - UNAUTHORIZED
         - INTERNAL
@@ -580,7 +619,7 @@ paths:
       security:
         - access-token: []
       summary: Get current profile image URL
-      tags: *a4
+      tags: *a5
       x-error-codes:
         - UNAUTHORIZED
         - USERS_OBJECT_STORAGE_NOT_CONFIGURED
@@ -607,7 +646,7 @@ paths:
       security:
         - access-token: []
       summary: Request account deletion (30-day grace)
-      tags: &a5
+      tags: &a6
         - Users
       x-error-codes:
         - UNAUTHORIZED
@@ -634,7 +673,7 @@ paths:
       security:
         - access-token: []
       summary: Cancel account deletion
-      tags: *a5
+      tags: *a6
       x-error-codes:
         - UNAUTHORIZED
         - IDEMPOTENCY_IN_PROGRESS
@@ -741,10 +780,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUsersListEnvelopeDto"
-      security: &a6
+      security: &a7
         - access-token: []
       summary: List users
-      tags: &a7
+      tags: &a8
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -785,9 +824,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a6
+      security: *a7
       summary: Set user role
-      tags: *a7
+      tags: *a8
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -830,9 +869,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a6
+      security: *a7
       summary: Set user status
-      tags: *a7
+      tags: *a8
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -937,10 +976,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserRoleChangeAuditsListEnvelopeDto"
-      security: &a8
+      security: &a9
         - access-token: []
       summary: List user role changes
-      tags: &a9
+      tags: &a10
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -1029,9 +1068,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserAccountDeletionAuditsListEnvelopeDto"
-      security: *a8
+      security: *a9
       summary: List user account deletion events
-      tags: *a9
+      tags: *a10
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -1100,7 +1139,7 @@ components:
             refresh responses.
           items:
             type: string
-            enum: &a11
+            enum: &a12
               - PASSWORD
               - GOOGLE
       required:
@@ -1134,7 +1173,7 @@ components:
       properties:
         provider:
           type: string
-          enum: &a10
+          enum: &a11
             - GOOGLE
           example: GOOGLE
         idToken:
@@ -1154,7 +1193,7 @@ components:
       properties:
         provider:
           type: string
-          enum: *a10
+          enum: *a11
           example: GOOGLE
         idToken:
           type: string
@@ -1321,6 +1360,25 @@ components:
       required:
         - data
         - meta
+    MePushTokenUpsertRequestDto:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum:
+            - ANDROID
+            - IOS
+            - WEB
+          example: ANDROID
+          description: Client platform where the push token was minted.
+        token:
+          type: string
+          example: <fcm-registration-token>
+          maxLength: 2048
+          description: FCM registration token for this device/app install.
+      required:
+        - platform
+        - token
     MeProfileDto:
       type: object
       properties:
@@ -1381,7 +1439,7 @@ components:
           description: Linked authentication methods on this account.
           items:
             type: string
-            enum: *a11
+            enum: *a12
         profile:
           $ref: "#/components/schemas/MeProfileDto"
         accountDeletion:
@@ -1664,13 +1722,13 @@ components:
           example: 9d8c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
         oldRole:
           type: string
-          enum: &a12
+          enum: &a13
             - USER
             - ADMIN
           example: USER
         newRole:
           type: string
-          enum: *a12
+          enum: *a13
           example: ADMIN
         traceId:
           type: string

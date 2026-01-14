@@ -25,6 +25,10 @@ export type SessionRecord = Readonly<{
   expiresAt: Date;
 }>;
 
+export type SessionPushPlatform = 'ANDROID' | 'IOS' | 'WEB';
+
+export type UpsertSessionPushTokenResult = Readonly<{ kind: 'ok' } | { kind: 'session_not_found' }>;
+
 export type RefreshTokenRecord = Readonly<{
   id: string;
   tokenHash: string;
@@ -141,6 +145,16 @@ export interface AuthRepository {
   ): Promise<ListUserSessionsResult>;
 
   revokeSessionById(userId: string, sessionId: string, now: Date): Promise<boolean>;
+
+  upsertSessionPushToken(input: {
+    userId: string;
+    sessionId: string;
+    platform: SessionPushPlatform;
+    token: string;
+    now: Date;
+  }): Promise<UpsertSessionPushTokenResult>;
+
+  revokeSessionPushToken(input: { userId: string; sessionId: string; now: Date }): Promise<void>;
 
   findPasswordCredential(userId: string): Promise<Readonly<{ passwordHash: string }> | null>;
 

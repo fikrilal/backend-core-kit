@@ -60,6 +60,8 @@ function makeRepo(overrides: Partial<AuthRepository>): AuthRepository {
     linkExternalIdentityToUser: async () => unimplemented(),
     listUserSessions: async () => unimplemented(),
     revokeSessionById: async () => unimplemented(),
+    upsertSessionPushToken: async () => unimplemented(),
+    revokeSessionPushToken: async () => undefined,
     findPasswordCredential: async () => unimplemented(),
     verifyEmailByTokenHash: async () => unimplemented(),
     resetPasswordByTokenHash: async () => unimplemented(),

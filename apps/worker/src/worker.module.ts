@@ -8,10 +8,12 @@ import { ProblemDetailsFilter } from '../../../libs/platform/http/filters/proble
 import { ResponseEnvelopeInterceptor } from '../../../libs/platform/http/interceptors/response-envelope.interceptor';
 import { LoggingModule } from '../../../libs/platform/logging/logging.module';
 import { PlatformEmailModule } from '../../../libs/platform/email/email.module';
+import { PlatformPushModule } from '../../../libs/platform/push/push.module';
 import { QueueModule } from '../../../libs/platform/queue/queue.module';
 import { PlatformStorageModule } from '../../../libs/platform/storage/storage.module';
 import { SystemSmokeWorker } from './jobs/system-smoke.worker';
 import { AuthEmailsWorker } from './jobs/auth-email-verification.worker';
+import { PushWorker } from './jobs/push.worker';
 import { UsersAccountDeletionWorker } from './jobs/users-account-deletion.worker';
 
 @Module({
@@ -21,6 +23,7 @@ import { UsersAccountDeletionWorker } from './jobs/users-account-deletion.worker
     PrismaModule,
     HealthModule,
     PlatformEmailModule,
+    PlatformPushModule,
     PlatformStorageModule,
     QueueModule,
   ],
@@ -29,6 +32,7 @@ import { UsersAccountDeletionWorker } from './jobs/users-account-deletion.worker
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },
     SystemSmokeWorker,
     AuthEmailsWorker,
+    PushWorker,
     UsersAccountDeletionWorker,
   ],
 })
