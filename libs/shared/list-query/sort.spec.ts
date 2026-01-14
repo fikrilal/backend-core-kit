@@ -60,4 +60,40 @@ describe('parseSort', () => {
       }),
     ).toThrow(ListQueryValidationError);
   });
+
+  it('rejects duplicate sort fields', () => {
+    expect(() =>
+      parseSort('createdAt,-createdAt', {
+        allowed: ALLOWED,
+        default: [{ field: 'createdAt', direction: 'desc' }],
+        maxFields: 3,
+        tieBreaker: { field: 'id', direction: 'asc' },
+      }),
+    ).toThrow(ListQueryValidationError);
+  });
+
+  it('rejects non-string sort inputs (e.g. repeated query params)', () => {
+    expect(() =>
+      parseSort(['createdAt'] as unknown, {
+        allowed: ALLOWED,
+        default: [{ field: 'createdAt', direction: 'desc' }],
+        maxFields: 3,
+        tieBreaker: { field: 'id', direction: 'asc' },
+      }),
+    ).toThrow(ListQueryValidationError);
+  });
+
+  it('ignores empty sort tokens and trims whitespace', () => {
+    const res = parseSort('  , -createdAt ,  ', {
+      allowed: ALLOWED,
+      default: [{ field: 'createdAt', direction: 'asc' }],
+      maxFields: 3,
+      tieBreaker: { field: 'id', direction: 'asc' },
+    });
+
+    expect(res.sort).toEqual([
+      { field: 'createdAt', direction: 'desc' },
+      { field: 'id', direction: 'asc' },
+    ]);
+  });
 });

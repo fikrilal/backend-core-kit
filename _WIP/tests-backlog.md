@@ -15,12 +15,12 @@ Biggest gaps by folder (high-level): `apps/*` (bootstrap/worker), `libs/platform
 
 ## P0 — Security + contract regressions
 
-- [ ] **[unit]** `libs/platform/auth/access-token-verifier.service.ts`: issuer/audience enforcement, `kid` selection, clock skew, JWKS fetch failures → stable 401 vs 503 mapping.
-- [ ] **[unit]** `libs/platform/auth/access-token.guard.ts`: principal extraction invariants (`sub`, `sid`, `roles`, `email_verified`) and “deny on missing/invalid claims”.
-- [ ] **[unit]** `libs/platform/rbac/rbac.guard.ts`: metadata merge semantics (controller-level + handler-level), dedupe/normalize, and explicit bypass (`@Public()`, `@SkipRbac()`).
-- [ ] **[unit]** `libs/platform/rbac/db-role-hydrator.service.ts`: “deny-by-default” for unknown roles + DB role hydration behavior (esp. `/v1/admin/*`).
-- [ ] **[int]** `libs/platform/http/idempotency/idempotency.service.ts`: redis-backed begin/end, concurrency behavior, replay header (`Idempotency-Replayed`), TTL expiry.
-- [ ] **[e2e]** “contract shape smoke” for new endpoints: assert `{ data, meta? }` on success + RFC7807 problem-details on failure for at least one route per feature (auth/users/admin).
+- [x] **[unit]** `libs/platform/auth/access-token-verifier.service.ts`: issuer/audience enforcement (staging/prod), signature verification (RS256 + EdDSA), required claims (`typ/sub/sid/exp`), and role normalization.
+- [x] **[unit]** `libs/platform/auth/access-token.guard.ts`: Bearer parsing, `@Public()` bypass, principal attachment, and error mapping (401 vs 500).
+- [x] **[unit]** `libs/platform/rbac/rbac.guard.ts`: metadata merge semantics (controller-level + handler-level), dedupe/normalize, and explicit bypass (`@Public()`, `@SkipRbac()`).
+- [x] **[unit]** `libs/platform/rbac/db-role-hydrator.service.ts`: “deny-by-default” for unknown roles + DB role hydration behavior (esp. `/v1/admin/*`).
+- [x] **[int]** `libs/platform/http/idempotency/idempotency.service.ts`: redis-backed begin/end, concurrency behavior, replay behavior, and TTL-backed completion cache.
+- [x] **[e2e]** “contract shape smoke”: `{ data, meta? }` on success + RFC7807 problem-details on failure (covered across `test/api.e2e-spec.ts` and `test/auth.e2e-spec.ts`).
 
 ## P1 — Infra integration (real deps)
 
@@ -37,10 +37,10 @@ Biggest gaps by folder (high-level): `apps/*` (bootstrap/worker), `libs/platform
 
 ## P2 — Unit coverage for pure logic (cheap, high ROI)
 
-- [ ] **[unit]** `libs/platform/http/errors/*`: problem-details mapping for known exceptions → stable `code` + `traceId`.
-- [ ] **[unit]** `libs/shared/list-query/*`: expand edge cases (repeated params, max fields exceeded, invalid operators, mixed cursor+offset rules if applicable).
-- [ ] **[unit]** Audit log shaping/mappers: role change events + account deletion events are deterministic, PII-minimized, and filterable.
-- [ ] **[unit]** Email template payload shaping: verify we never embed secrets in URLs; only opaque one-time tokens.
+- [x] **[unit]** `libs/platform/http/errors/*`: problem-details mapping for known exceptions → stable `code` + `traceId` (`libs/platform/http/filters/problem-details.filter.spec.ts`).
+- [x] **[unit]** `libs/shared/list-query/*`: expanded edge cases (repeated params, max fields exceeded, invalid operators, cursor validation) (`libs/shared/list-query/*.spec.ts`).
+- [x] **[unit]** Audit log shaping/mappers: role change + account deletion events are deterministic, ID-only, and filterable (`libs/features/admin/infra/persistence/prisma-admin-audit.repository.spec.ts`).
+- [x] **[unit]** Email template payload shaping: ensure only opaque one-time tokens are emailed; hashes never leak (`apps/worker/src/jobs/auth-email-verification.worker.spec.ts`).
 
 ## P3 — Observability + “kit correctness”
 

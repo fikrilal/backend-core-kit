@@ -72,6 +72,37 @@ describe('AccessTokenVerifier', () => {
     });
   });
 
+  it('verifies a valid EdDSA token and returns principal', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+    const kid = 'kid-eddsa';
+
+    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
+      getPublicKeyForKid: async (requestedKid: string) =>
+        requestedKid === kid ? { alg: 'EdDSA', key: publicKey } : undefined,
+    } as unknown as AuthKeyRing);
+
+    const token = createSignedJwt({
+      alg: 'EdDSA',
+      privateKey,
+      header: { kid, alg: 'EdDSA' },
+      payload: {
+        typ: 'access',
+        sub: 'user-eddsa',
+        sid: 'session-eddsa',
+        exp: Math.floor(Date.now() / 1000) + 60,
+        email_verified: false,
+        roles: ['USER'],
+      },
+    });
+
+    await expect(verifier.verifyAccessToken(token)).resolves.toEqual({
+      userId: 'user-eddsa',
+      sessionId: 'session-eddsa',
+      emailVerified: false,
+      roles: ['USER'],
+    });
+  });
+
   it('throws when AUTH_ISSUER/AUTH_AUDIENCE are missing in staging', async () => {
     const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'staging' }), {
       getPublicKeyForKid: async () => undefined,
@@ -137,6 +168,59 @@ describe('AccessTokenVerifier', () => {
     });
 
     await expect(verifier.verifyAccessToken(token)).rejects.toBeInstanceOf(AccessTokenInvalidError);
+  });
+
+  it('rejects tokens missing required claims (sub/sid/exp)', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const kid = 'kid-missing-claims';
+
+    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
+      getPublicKeyForKid: async (requestedKid: string) =>
+        requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
+    } as unknown as AuthKeyRing);
+
+    const missingSub = createSignedJwt({
+      alg: 'RS256',
+      privateKey,
+      header: { kid, alg: 'RS256' },
+      payload: {
+        typ: 'access',
+        sid: 'session-1',
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+    });
+
+    const missingSid = createSignedJwt({
+      alg: 'RS256',
+      privateKey,
+      header: { kid, alg: 'RS256' },
+      payload: {
+        typ: 'access',
+        sub: 'user-1',
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+    });
+
+    const missingExp = createSignedJwt({
+      alg: 'RS256',
+      privateKey,
+      header: { kid, alg: 'RS256' },
+      payload: {
+        typ: 'access',
+        sub: 'user-1',
+        sid: 'session-1',
+      },
+    });
+
+    await expect(verifier.verifyAccessToken(missingSub)).rejects.toBeInstanceOf(
+      AccessTokenInvalidError,
+    );
+    await expect(verifier.verifyAccessToken(missingSid)).rejects.toBeInstanceOf(
+      AccessTokenInvalidError,
+    );
+    await expect(verifier.verifyAccessToken(missingExp)).rejects.toBeInstanceOf(
+      AccessTokenInvalidError,
+    );
   });
 
   it('rejects tokens with unknown kid', async () => {

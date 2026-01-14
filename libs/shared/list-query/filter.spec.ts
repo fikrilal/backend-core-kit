@@ -47,4 +47,28 @@ describe('parseFilters', () => {
   it('rejects invalid enum values', () => {
     expect(() => parseFilters({ status: 'NOPE' }, FILTERS)).toThrow(ListQueryValidationError);
   });
+
+  it('rejects filter when not an object', () => {
+    expect(() => parseFilters('ACTIVE', FILTERS)).toThrow(ListQueryValidationError);
+  });
+
+  it('rejects unsupported operators', () => {
+    expect(() => parseFilters({ status: { gte: 'ACTIVE' } }, FILTERS)).toThrow(
+      ListQueryValidationError,
+    );
+    expect(() => parseFilters({ 'filter[status][gte]': 'ACTIVE' }, FILTERS)).toThrow(
+      ListQueryValidationError,
+    );
+  });
+
+  it('parses "in" lists while ignoring empty list items', () => {
+    const res = parseFilters({ status: { in: 'ACTIVE,,SUSPENDED,' } }, FILTERS);
+    expect(res).toEqual([{ field: 'status', op: 'in', value: ['ACTIVE', 'SUSPENDED'] }]);
+  });
+
+  it('rejects invalid values in "in" lists', () => {
+    expect(() => parseFilters({ status: { in: 'ACTIVE,NOPE' } }, FILTERS)).toThrow(
+      ListQueryValidationError,
+    );
+  });
 });
