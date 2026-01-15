@@ -15,6 +15,7 @@ These are the typical commands a project should provide:
 - `npm run test:int`
 - `npm run test:e2e`
 - `npm run verify:e2e` (deps + migrations + integration + e2e)
+- `npm run verify:gates` (meta: ensure OpenAPI/deps gates fail when broken)
 - `npm run openapi:generate` (or similar)
 - `npm run openapi:lint` (Spectral)
 - `npm run start:dev` (API)
