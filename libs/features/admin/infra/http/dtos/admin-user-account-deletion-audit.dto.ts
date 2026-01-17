@@ -1,5 +1,6 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsArray, IsString } from 'class-validator';
+import { CursorPaginationMetaDto } from './cursor-pagination-meta.dto';
 
 const ADMIN_USER_ACCOUNT_DELETION_ACTION_VALUES = [
   'REQUESTED',
@@ -39,22 +40,6 @@ export class AdminUserAccountDeletionAuditDto {
   @ApiProperty({ example: '2026-01-10T12:34:56.789Z', format: 'date-time' })
   @IsString()
   createdAt!: string;
-}
-
-export class CursorPaginationMetaDto {
-  @ApiProperty({ example: 25 })
-  @IsInt()
-  @Min(1)
-  limit!: number;
-
-  @ApiProperty({ example: true })
-  @IsBoolean()
-  hasMore!: boolean;
-
-  @ApiPropertyOptional({ example: 'eyJ2IjoxLCJzb3J0IjoiLWNyZWF0ZWRBdCIsImFmdGVyIjp7fX0' })
-  @IsOptional()
-  @IsString()
-  nextCursor?: string;
 }
 
 export class AdminUserAccountDeletionAuditsListEnvelopeDto {

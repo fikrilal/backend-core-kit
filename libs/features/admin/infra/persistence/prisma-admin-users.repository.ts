@@ -10,6 +10,7 @@ import {
 } from '../../../../shared/list-query';
 import type {
   AdminUserListItem,
+  AdminUserRole,
   AdminUsersFilterField,
   AdminUsersListResult,
   AdminUsersSortField,
@@ -197,11 +198,13 @@ function toListItem(user: {
   suspendedReason: string | null;
   createdAt: Date;
 }): AdminUserListItem {
+  const role = String(user.role) as AdminUserRole;
+
   return {
     id: user.id,
     email: user.email,
     emailVerified: user.emailVerifiedAt !== null,
-    roles: [String(user.role)],
+    roles: [role],
     status: String(user.status) as AdminUserListItem['status'],
     suspendedAt: user.suspendedAt ? user.suspendedAt.toISOString() : null,
     suspendedReason: user.suspendedReason ?? null,

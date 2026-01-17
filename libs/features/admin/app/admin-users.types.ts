@@ -12,7 +12,7 @@ export type AdminUserListItem = Readonly<{
   id: string;
   email: string;
   emailVerified: boolean;
-  roles: ReadonlyArray<string>;
+  roles: ReadonlyArray<AdminUserRole>;
   status: AdminUserStatus;
   suspendedAt: string | null;
   suspendedReason: string | null;
