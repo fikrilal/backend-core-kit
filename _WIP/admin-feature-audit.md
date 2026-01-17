@@ -13,12 +13,12 @@ All commands were run from repo root (`/mnt/c/Development/_CORE/backend-core-kit
 
 - `npm run lint` ✅
 - `npm run typecheck` ✅
-- `npm test` ✅ (Jest warns about an open handle leak in the overall suite)
+- `npm test -- libs/features/admin` ✅
 - `npm run deps:check` ✅
 - OpenAPI gates:
-  - `npm run openapi:check` ❌ in WSL/Linux due to native module mismatch (`@node-rs/argon2` binding load failure)
-  - `bash tools/agent/npmw run openapi:check` ✅
-  - `bash tools/agent/npmw run openapi:lint` ✅
+  - `npm run openapi:lint` ✅
+  - `npm run openapi:check` ❌ in this environment due to native module mismatch (`@node-rs/argon2` binding load failure)
+  - Expected: `bash tools/agent/npmw run openapi:check` (Windows toolchain), but `powershell.exe` failed with a WSL vsock error in this run
 
 ## Strengths (Keep)
 
@@ -61,6 +61,9 @@ All commands were run from repo root (`/mnt/c/Development/_CORE/backend-core-kit
 
 ### P1 — Mixed response envelope strategy across controllers
 
+**Status**
+- Fixed on 2026-01-17 by making admin controllers consistently return “raw” results and rely on `ResponseEnvelopeInterceptor` to produce `{ data, meta? }`.
+
 **Evidence**
 - Some endpoints manually return `{ data, meta }` (e.g., list users), while others return list-shaped objects and rely on `ResponseEnvelopeInterceptor` to wrap into `{ data, meta }` (e.g., audit list endpoints).
   - `libs/features/admin/infra/http/admin-users.controller.ts`
@@ -77,6 +80,9 @@ All commands were run from repo root (`/mnt/c/Development/_CORE/backend-core-kit
 ---
 
 ### P1 — Repetitive `AdminError` → `ProblemException` mapping boilerplate
+
+**Status**
+- Fixed on 2026-01-17 by introducing `AdminErrorFilter` and removing controller-local `try/catch` mapping.
 
 **Evidence**
 - Endpoints repeatedly `try/catch` and call `mapAdminError`, and re-derive titles from status codes (`libs/features/admin/infra/http/admin-users.controller.ts`).
@@ -138,6 +144,6 @@ All commands were run from repo root (`/mnt/c/Development/_CORE/backend-core-kit
 ## Suggested Next Steps (Low-Risk Order)
 
 1. ✅ Fix P0 type/contract mismatch for `setUserStatus` (separate mutable vs stored status).
-2. Add an admin exception filter to remove controller boilerplate.
+2. ✅ Add an admin exception filter to remove controller boilerplate.
 3. Extract `CursorPaginationMetaDto` to a shared DTO.
-4. Standardize envelope strategy across admin controllers.
+4. ✅ Standardize envelope strategy across admin controllers.
