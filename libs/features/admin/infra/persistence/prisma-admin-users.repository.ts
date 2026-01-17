@@ -363,8 +363,18 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
 
   async setUserStatus(input: SetUserStatusInput): Promise<SetUserStatusResult> {
     const client = this.prisma.getClient();
-    const nextStatus =
-      input.status === 'SUSPENDED' ? PrismaUserStatus.SUSPENDED : PrismaUserStatus.ACTIVE;
+    const nextStatus = (() => {
+      switch (input.status) {
+        case 'ACTIVE':
+          return PrismaUserStatus.ACTIVE;
+        case 'SUSPENDED':
+          return PrismaUserStatus.SUSPENDED;
+        default: {
+          const unreachable: never = input.status;
+          throw new Error(`Unexpected user status: ${String(unreachable)}`);
+        }
+      }
+    })();
 
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {

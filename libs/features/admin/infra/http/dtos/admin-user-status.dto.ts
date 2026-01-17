@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsOptional, IsString, MinLength } from 'class-validator';
-import type { AdminUserStatus } from '../../../app/admin-users.types';
+import type { AdminUserMutableStatus } from '../../../app/admin-users.types';
 
 const ADMIN_USER_STATUS_VALUES = ['ACTIVE', 'SUSPENDED'] as const;
 
@@ -8,7 +8,7 @@ export class SetAdminUserStatusRequestDto {
   @ApiProperty({ enum: ADMIN_USER_STATUS_VALUES, example: 'SUSPENDED' })
   @IsString()
   @IsIn(ADMIN_USER_STATUS_VALUES)
-  status!: AdminUserStatus;
+  status!: AdminUserMutableStatus;
 
   @ApiPropertyOptional({
     type: String,

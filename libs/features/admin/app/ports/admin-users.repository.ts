@@ -2,7 +2,7 @@ import type { ListQuery } from '../../../../shared/list-query';
 import type {
   AdminUsersFilterField,
   AdminUserRole,
-  AdminUserStatus,
+  AdminUserMutableStatus,
   AdminUserListItem,
   AdminUsersListResult,
   AdminUsersSortField,
@@ -26,7 +26,7 @@ export type SetUserStatusInput = Readonly<{
   actorSessionId: string;
   traceId: string;
   targetUserId: string;
-  status: AdminUserStatus;
+  status: AdminUserMutableStatus;
   reason?: string | null;
   now: Date;
 }>;
