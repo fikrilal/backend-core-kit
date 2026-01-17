@@ -35,6 +35,14 @@ export class AuthService {
     private readonly config: AuthConfig,
   ) {}
 
+  private async requireExistingNonDeletedUser(userId: string): Promise<AuthUserRecord> {
+    const user = await this.repo.findUserById(userId);
+    if (!user || user.status === 'DELETED') {
+      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+    }
+    return user;
+  }
+
   async registerWithPassword(input: {
     email: string;
     password: string;
@@ -104,6 +112,15 @@ export class AuthService {
     const ok = found !== null && verified;
 
     if (!ok || !found) {
+      await this.loginRateLimiter.recordFailure({ email, ip: input.ip });
+      throw new AuthError({
+        status: 401,
+        code: AuthErrorCode.AUTH_INVALID_CREDENTIALS,
+        message: 'Invalid credentials',
+      });
+    }
+
+    if (found.user.status === 'DELETED') {
       await this.loginRateLimiter.recordFailure({ email, ip: input.ip });
       throw new AuthError({
         status: 401,
@@ -241,6 +258,14 @@ export class AuthService {
       }
     }
 
+    if (user.status === 'DELETED') {
+      throw new AuthError({
+        status: 401,
+        code: AuthErrorCode.AUTH_INVALID_CREDENTIALS,
+        message: 'Invalid credentials',
+      });
+    }
+
     if (user.status === 'SUSPENDED') {
       throw new AuthError({
         status: 403,
@@ -279,6 +304,8 @@ export class AuthService {
     provider: OidcProvider;
     idToken: string;
   }): Promise<void> {
+    await this.requireExistingNonDeletedUser(input.userId);
+
     const verified = await this.oidcVerifier.verifyIdToken({
       provider: input.provider,
       idToken: input.idToken,
@@ -433,6 +460,14 @@ export class AuthService {
       });
     }
 
+    if (existing.user.status === 'DELETED') {
+      throw new AuthError({
+        status: 401,
+        code: AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID,
+        message: 'Invalid refresh token',
+      });
+    }
+
     if (existing.user.status === 'SUSPENDED') {
       throw new AuthError({
         status: 403,
@@ -558,10 +593,7 @@ export class AuthService {
   }
 
   async getEmailVerificationStatus(userId: string): Promise<'verified' | 'unverified'> {
-    const user = await this.repo.findUserById(userId);
-    if (!user) {
-      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
-    }
+    const user = await this.requireExistingNonDeletedUser(userId);
 
     return user.emailVerifiedAt !== null ? 'verified' : 'unverified';
   }

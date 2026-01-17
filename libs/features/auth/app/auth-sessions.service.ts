@@ -41,15 +41,19 @@ function statusFor(
 export class AuthSessionsService {
   constructor(private readonly repo: AuthRepository) {}
 
+  private async assertUserIsNotDeleted(userId: string): Promise<void> {
+    const user = await this.repo.findUserById(userId);
+    if (!user || user.status === 'DELETED') {
+      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+    }
+  }
+
   async listMySessions(
     userId: string,
     currentSessionId: string,
     query: ListQuery<UserSessionsSortField, never>,
   ): Promise<ListMySessionsResult> {
-    const user = await this.repo.findUserById(userId);
-    if (!user) {
-      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
-    }
+    await this.assertUserIsNotDeleted(userId);
 
     const now = new Date();
     const res = await this.repo.listUserSessions(userId, query);
@@ -75,10 +79,7 @@ export class AuthSessionsService {
     userId: string,
     sessionId: string,
   ): Promise<Readonly<{ kind: 'ok' } | { kind: 'not_found' }>> {
-    const user = await this.repo.findUserById(userId);
-    if (!user) {
-      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
-    }
+    await this.assertUserIsNotDeleted(userId);
 
     const ok = await this.repo.revokeSessionById(userId, sessionId, new Date());
     return ok ? { kind: 'ok' } : { kind: 'not_found' };
