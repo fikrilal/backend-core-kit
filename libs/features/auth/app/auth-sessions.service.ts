@@ -5,6 +5,7 @@ import type {
   UserSessionsSortField,
   UserSessionListItem,
 } from './ports/auth.repository';
+import type { Clock } from './time';
 
 export type SessionStatus = 'active' | 'revoked' | 'expired';
 
@@ -39,7 +40,10 @@ function statusFor(
 }
 
 export class AuthSessionsService {
-  constructor(private readonly repo: AuthRepository) {}
+  constructor(
+    private readonly repo: AuthRepository,
+    private readonly clock: Clock,
+  ) {}
 
   private async assertUserIsNotDeleted(userId: string): Promise<void> {
     const user = await this.repo.findUserById(userId);
@@ -55,7 +59,7 @@ export class AuthSessionsService {
   ): Promise<ListMySessionsResult> {
     await this.assertUserIsNotDeleted(userId);
 
-    const now = new Date();
+    const now = this.clock.now();
     const res = await this.repo.listUserSessions(userId, query);
 
     const items: SessionView[] = res.items.map((s) => ({
@@ -81,7 +85,7 @@ export class AuthSessionsService {
   ): Promise<Readonly<{ kind: 'ok' } | { kind: 'not_found' }>> {
     await this.assertUserIsNotDeleted(userId);
 
-    const ok = await this.repo.revokeSessionById(userId, sessionId, new Date());
+    const ok = await this.repo.revokeSessionById(userId, sessionId, this.clock.now());
     return ok ? { kind: 'ok' } : { kind: 'not_found' };
   }
 }

@@ -78,10 +78,10 @@ Recommendation (incremental, low-risk):
 
 ### P1 — Consistency: time source is inconsistent across auth app services
 
-Evidence:
-- `AuthService` uses injected `Clock` (`libs/features/auth/app/auth.service.ts:33`, `:66`, `:97`, `:184`, etc.).
-- `AuthSessionsService` uses `new Date()` directly (`libs/features/auth/app/auth-sessions.service.ts:54`, `:83`).
-- `AuthPushTokensService` requires `now` to be passed in (`libs/features/auth/app/auth-push-tokens.service.ts:12`, `:25`).
+Evidence (current):
+- `AuthService` uses injected `Clock` (`libs/features/auth/app/auth.service.ts:33`).
+- `AuthSessionsService` uses injected `Clock` (`libs/features/auth/app/auth-sessions.service.ts:44`).
+- `AuthPushTokensService` uses injected `Clock` (`libs/features/auth/app/auth-push-tokens.service.ts:7`).
 
 Why this matters:
 - Inconsistency increases mental overhead and makes deterministic tests harder.
@@ -92,6 +92,10 @@ Recommendation:
   - **Option A:** Inject `Clock` into all auth app services (most consistent with current `AuthService`).
   - **Option B:** Require `now` as an input for all time-sensitive methods.
 - Do not mix the styles unless there’s a strong reason.
+
+Implemented (2026-01-17):
+- Standardized on **Option A** (inject `Clock` into auth app services).
+- Removed `now` from `AuthPushTokensService` public method inputs (now derived from `Clock`).
 
 ### P2 — Type safety / readability: error codes are untyped strings in `AuthError`
 
@@ -120,8 +124,8 @@ Recommendation:
 
 ## Suggested next steps (smallest-first)
 
-1. **P0:** Decide the `'DELETED'` semantics and enforce it (either in app or by removing from types if impossible).
-2. **P1:** Normalize time handling (`Clock` everywhere or `now` everywhere).
+1. **Done (P0):** Treat `'DELETED'` as non-authenticatable in auth app services + regression tests.
+2. **Done (P1):** Normalize time handling (standardized on `Clock`).
 3. **P1:** Extract a couple of private helpers from `AuthService` to reduce duplication and centralize invariants.
 4. **P2:** Type error codes and remove raw string usage where practical.
 5. **Later:** Infra audit (controllers, Prisma repo, argon2 integration, OpenAPI snapshot impact).
