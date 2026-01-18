@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Agent-only convenience wrapper around `tools/agent/win` for Windows node.
+#
+# Usage:
+# - `bash tools/agent/nodew -v`
+# - `bash tools/agent/nodew -e "console.log(process.versions.node)"`
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec bash "$script_dir/win" node "$@"
+

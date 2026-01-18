@@ -24,6 +24,10 @@ On every PR:
 - generate OpenAPI from code and compare with committed snapshot (`docs/openapi/openapi.yaml`)
 - run Spectral lint on the OpenAPI artifact using `.spectral.yaml`
 
+Meta gate (recommended):
+
+- prove the gates are effective (OpenAPI drift and boundary violations are caught): `npm run verify:gates`
+
 4. Security gates (baseline)
 
 - secret scanning (pre-merge)

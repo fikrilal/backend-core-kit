@@ -4,10 +4,18 @@ import { stringify } from 'yaml';
 import { createApiApp } from '../apps/api/src/bootstrap';
 import { buildOpenApiDocument } from '../apps/api/src/openapi';
 
+function resolveSnapshotPath(): string {
+  const override = process.env.OPENAPI_CHECK_SNAPSHOT_PATH?.trim();
+  if (override && override !== '') {
+    return resolve(process.cwd(), override);
+  }
+  return resolve(process.cwd(), 'docs/openapi/openapi.yaml');
+}
+
 async function main() {
   process.env.NODE_ENV ??= 'development';
 
-  const outPath = resolve(process.cwd(), 'docs/openapi/openapi.yaml');
+  const outPath = resolveSnapshotPath();
   const existing = await readFile(outPath, 'utf8').catch(() => null);
   if (existing === null) {
     throw new Error(`Missing OpenAPI snapshot at ${outPath}. Run: npm run openapi:generate`);

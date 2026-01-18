@@ -10,6 +10,7 @@ import {
 } from '../../../../shared/list-query';
 import type {
   AdminUserListItem,
+  AdminUserRole,
   AdminUsersFilterField,
   AdminUsersListResult,
   AdminUsersSortField,
@@ -22,6 +23,7 @@ import type {
   SetUserStatusResult,
 } from '../../app/ports/admin-users.repository';
 import { PrismaService } from '../../../../platform/db/prisma.service';
+import { lockActiveAdminInvariant } from '../../../../platform/db/advisory-locks';
 
 function isPrismaUserRole(value: string): value is UserRole {
   return value === PrismaUserRole.USER || value === PrismaUserRole.ADMIN;
@@ -196,11 +198,13 @@ function toListItem(user: {
   suspendedReason: string | null;
   createdAt: Date;
 }): AdminUserListItem {
+  const role = String(user.role) as AdminUserRole;
+
   return {
     id: user.id,
     email: user.email,
     emailVerified: user.emailVerifiedAt !== null,
-    roles: [String(user.role)],
+    roles: [role],
     status: String(user.status) as AdminUserListItem['status'],
     suspendedAt: user.suspendedAt ? user.suspendedAt.toISOString() : null,
     suspendedReason: user.suspendedReason ?? null,
@@ -315,9 +319,7 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
               found.status === PrismaUserStatus.ACTIVE &&
               nextRole !== PrismaUserRole.ADMIN
             ) {
-              const adminCount = await tx.user.count({
-                where: { role: PrismaUserRole.ADMIN, status: PrismaUserStatus.ACTIVE },
-              });
+              const adminCount = await lockActiveAdminInvariant(tx);
               if (adminCount <= 1) return { kind: 'last_admin' };
             }
 
@@ -349,7 +351,7 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
 
             return { kind: 'ok', user: toListItem(updated) };
           },
-          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+          { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
         );
       } catch (err: unknown) {
         if (attempt < maxAttempts && isRetryableTransactionError(err)) {
@@ -364,8 +366,18 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
 
   async setUserStatus(input: SetUserStatusInput): Promise<SetUserStatusResult> {
     const client = this.prisma.getClient();
-    const nextStatus =
-      input.status === 'SUSPENDED' ? PrismaUserStatus.SUSPENDED : PrismaUserStatus.ACTIVE;
+    const nextStatus = (() => {
+      switch (input.status) {
+        case 'ACTIVE':
+          return PrismaUserStatus.ACTIVE;
+        case 'SUSPENDED':
+          return PrismaUserStatus.SUSPENDED;
+        default: {
+          const unreachable: never = input.status;
+          throw new Error(`Unexpected user status: ${String(unreachable)}`);
+        }
+      }
+    })();
 
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -401,9 +413,7 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
               found.status === PrismaUserStatus.ACTIVE &&
               nextStatus === PrismaUserStatus.SUSPENDED
             ) {
-              const activeAdminCount = await tx.user.count({
-                where: { role: PrismaUserRole.ADMIN, status: PrismaUserStatus.ACTIVE },
-              });
+              const activeAdminCount = await lockActiveAdminInvariant(tx);
               if (activeAdminCount <= 1) return { kind: 'last_admin' };
             }
 
@@ -461,7 +471,7 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
 
             return { kind: 'ok', user: toListItem(updated) };
           },
-          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+          { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
         );
       } catch (err: unknown) {
         if (attempt < maxAttempts && isRetryableTransactionError(err)) {
@@ -476,6 +486,24 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
 }
 
 function isRetryableTransactionError(err: unknown): boolean {
-  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
-  return err.code === 'P2034';
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === 'P2034') return true;
+    if (err.code === '40001') return true;
+    if (err.code === '40P01') return true;
+    return false;
+  }
+
+  if (err instanceof Error) {
+    // Prisma 7 adapter errors surfaced directly from the driver.
+    if (err.name === 'DriverAdapterError' && err.message === 'TransactionWriteConflict') {
+      return true;
+    }
+
+    // Best-effort fallbacks for other transient transaction errors.
+    if (err.message.includes('TransactionWriteConflict')) return true;
+    if (err.message.toLowerCase().includes('could not serialize access')) return true;
+    if (err.message.toLowerCase().includes('deadlock detected')) return true;
+  }
+
+  return false;
 }

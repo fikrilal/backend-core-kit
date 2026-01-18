@@ -1,13 +1,18 @@
+import type { ErrorCode } from '../../../shared/error-codes';
+import type { AuthErrorCode } from './auth.error-codes';
+
+export type AuthErrorCodeValue = AuthErrorCode | ErrorCode;
+
 export type AuthIssue = Readonly<{ field?: string; message: string }>;
 
 export class AuthError extends Error {
   readonly status: number;
-  readonly code: string;
+  readonly code: AuthErrorCodeValue;
   readonly issues?: ReadonlyArray<AuthIssue>;
 
   constructor(params: {
     status: number;
-    code: string;
+    code: AuthErrorCodeValue;
     message?: string;
     issues?: ReadonlyArray<AuthIssue>;
   }) {

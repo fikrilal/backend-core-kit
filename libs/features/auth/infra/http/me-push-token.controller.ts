@@ -66,7 +66,6 @@ export class MePushTokenController {
         sessionId: principal.sessionId,
         platform: body.platform,
         token: body.token,
-        now: new Date(),
       });
     } catch (err: unknown) {
       throw this.mapAuthError(err);
@@ -89,7 +88,6 @@ export class MePushTokenController {
       await this.pushTokens.revokeMyPushToken({
         userId: principal.userId,
         sessionId: principal.sessionId,
-        now: new Date(),
       });
     } catch (err: unknown) {
       throw this.mapAuthError(err);

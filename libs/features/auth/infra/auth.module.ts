@@ -47,12 +47,13 @@ import { GoogleOidcIdTokenVerifier } from './security/google-oidc-id-token-verif
     {
       provide: AuthSessionsService,
       inject: [PrismaAuthRepository],
-      useFactory: (repo: PrismaAuthRepository) => new AuthSessionsService(repo),
+      useFactory: (repo: PrismaAuthRepository) => new AuthSessionsService(repo, new SystemClock()),
     },
     {
       provide: AuthPushTokensService,
       inject: [PrismaAuthRepository],
-      useFactory: (repo: PrismaAuthRepository) => new AuthPushTokensService(repo),
+      useFactory: (repo: PrismaAuthRepository) =>
+        new AuthPushTokensService(repo, new SystemClock()),
     },
     {
       provide: AuthService,

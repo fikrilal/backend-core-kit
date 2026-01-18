@@ -1,18 +1,16 @@
-import { Body, Controller, Get, Param, Patch, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Req, UseFilters, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { FastifyRequest } from 'fastify';
 import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
 import { AdminErrorCode } from '../../app/admin.error-codes';
-import { AdminError } from '../../app/admin.errors';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiListQuery } from '../../../../platform/http/list-query/api-list-query.decorator';
 import { ListQueryParam } from '../../../../platform/http/list-query/list-query.decorator';
 import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
-import { ProblemException } from '../../../../platform/http/errors/problem.exception';
 import type { ListQuery } from '../../../../shared/list-query';
 import { RbacGuard } from '../../../../platform/rbac/rbac.guard';
 import { RequirePermissions } from '../../../../platform/rbac/rbac.decorator';
@@ -20,6 +18,7 @@ import { UseDbRoles } from '../../../../platform/rbac/use-db-roles.decorator';
 import type { ListQueryPipeOptions } from '../../../../platform/http/list-query/list-query.pipe';
 import type { AdminUsersFilterField, AdminUsersSortField } from '../../app/admin-users.types';
 import { AdminUsersService } from '../../app/admin-users.service';
+import { AdminErrorFilter } from './admin-error.filter';
 import { AdminUserEnvelopeDto, AdminUsersListEnvelopeDto } from './dtos/admin-users.dto';
 import { AdminUserIdParamDto, SetAdminUserRoleRequestDto } from './dtos/admin-user-role.dto';
 import { SetAdminUserStatusRequestDto } from './dtos/admin-user-status.dto';
@@ -47,6 +46,7 @@ const listUsersQueryOptions = {
 @Controller('admin')
 @UseDbRoles()
 @UseGuards(AccessTokenGuard, RbacGuard)
+@UseFilters(AdminErrorFilter)
 @RequirePermissions('admin:access')
 @ApiBearerAuth('access-token')
 export class AdminUsersController {
@@ -71,15 +71,7 @@ export class AdminUsersController {
     @ListQueryParam(listUsersQueryOptions)
     query: ListQuery<AdminUsersSortField, AdminUsersFilterField>,
   ) {
-    const res = await this.users.listUsers(query);
-    return {
-      data: [...res.items],
-      meta: {
-        limit: res.limit,
-        hasMore: res.hasMore,
-        ...(res.nextCursor ? { nextCursor: res.nextCursor } : {}),
-      },
-    };
+    return this.users.listUsers(query);
   }
 
   @Patch('users/:userId/role')
@@ -109,18 +101,14 @@ export class AdminUsersController {
     @Param() params: AdminUserIdParamDto,
     @Body() body: SetAdminUserRoleRequestDto,
   ) {
-    try {
-      const user = await this.users.setUserRole({
-        actorUserId: principal.userId,
-        actorSessionId: principal.sessionId,
-        traceId: req.requestId ?? 'unknown',
-        targetUserId: params.userId,
-        role: body.role,
-      });
-      return { data: user };
-    } catch (err: unknown) {
-      throw this.mapAdminError(err);
-    }
+    const user = await this.users.setUserRole({
+      actorUserId: principal.userId,
+      actorSessionId: principal.sessionId,
+      traceId: req.requestId ?? 'unknown',
+      targetUserId: params.userId,
+      role: body.role,
+    });
+    return user;
   }
 
   @Patch('users/:userId/status')
@@ -150,50 +138,15 @@ export class AdminUsersController {
     @Param() params: AdminUserIdParamDto,
     @Body() body: SetAdminUserStatusRequestDto,
   ) {
-    try {
-      const user = await this.users.setUserStatus({
-        actorUserId: principal.userId,
-        actorSessionId: principal.sessionId,
-        traceId: req.requestId ?? 'unknown',
-        targetUserId: params.userId,
-        status: body.status,
-        reason: body.reason,
-        now: new Date(),
-      });
-      return { data: user };
-    } catch (err: unknown) {
-      throw this.mapAdminError(err);
-    }
-  }
-
-  private mapAdminError(err: unknown): ProblemException {
-    if (err instanceof AdminError) {
-      return new ProblemException(err.status, {
-        title: this.titleForStatus(err.status, err.code),
-        detail: err.message,
-        code: err.code,
-        errors: err.issues ? [...err.issues] : undefined,
-      });
-    }
-    throw err;
-  }
-
-  private titleForStatus(status: number, code: string): string {
-    if (code === ErrorCode.VALIDATION_FAILED) return 'Validation Failed';
-
-    switch (status) {
-      case 400:
-        return 'Bad Request';
-      case 401:
-        return 'Unauthorized';
-      case 403:
-        return 'Forbidden';
-      case 404:
-        return 'Not Found';
-      case 409:
-        return 'Conflict';
-      default:
-        return status >= 500 ? 'Internal Server Error' : 'Error';
-    }
+    const user = await this.users.setUserStatus({
+      actorUserId: principal.userId,
+      actorSessionId: principal.sessionId,
+      traceId: req.requestId ?? 'unknown',
+      targetUserId: params.userId,
+      status: body.status,
+      reason: body.reason,
+      now: new Date(),
+    });
+    return user;
   }
 }

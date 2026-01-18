@@ -45,6 +45,7 @@ const storageSecretAccessKey = process.env.STORAGE_S3_SECRET_ACCESS_KEY?.trim();
 const storageForcePathStyle = process.env.STORAGE_S3_FORCE_PATH_STYLE?.trim();
 
 const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
+const shouldSkipDepsTests = skipDepsTests || !databaseUrl || !redisUrl;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -88,7 +89,7 @@ async function waitForReady(baseUrl: string, timeoutMs = 20_000): Promise<void> 
   throw new Error(`Timed out waiting for /ready (last status: ${lastStatus ?? 'unknown'})`);
 }
 
-(skipDepsTests ? describe.skip : describe)('Queue smoke (int)', () => {
+(shouldSkipDepsTests ? describe.skip : describe)('Queue smoke (int)', () => {
   let apiApp: Awaited<ReturnType<typeof createApiApp>>;
   let workerApp: Awaited<ReturnType<typeof createWorkerApp>>;
   let workerBaseUrl: string;

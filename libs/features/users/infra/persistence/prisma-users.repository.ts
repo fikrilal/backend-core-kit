@@ -18,6 +18,7 @@ import type {
   UserStatus,
 } from '../../app/users.types';
 import { PrismaService } from '../../../../platform/db/prisma.service';
+import { lockActiveAdminInvariant } from '../../../../platform/db/advisory-locks';
 import type { AuthMethod } from '../../../../shared/auth/auth-method';
 
 type PrismaUserWithProfile = Pick<
@@ -214,9 +215,7 @@ export class PrismaUsersRepository implements UsersRepository {
               user.status === PrismaUserStatus.ACTIVE &&
               user.deletionScheduledFor === null
             ) {
-              const activeAdminCount = await tx.user.count({
-                where: { role: PrismaUserRole.ADMIN, status: PrismaUserStatus.ACTIVE },
-              });
+              const activeAdminCount = await lockActiveAdminInvariant(tx);
               if (activeAdminCount <= 1) return { kind: 'last_admin' } as const;
             }
 
@@ -266,7 +265,7 @@ export class PrismaUsersRepository implements UsersRepository {
 
             return { kind: 'ok', user: toUserRecord(updated) } as const;
           },
-          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+          { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
         );
       } catch (err: unknown) {
         if (attempt < maxAttempts && isRetryableTransactionError(err)) {
@@ -378,6 +377,21 @@ export class PrismaUsersRepository implements UsersRepository {
 }
 
 function isRetryableTransactionError(err: unknown): boolean {
-  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
-  return err.code === 'P2034';
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    return err.code === 'P2034' || err.code === '40001' || err.code === '40P01';
+  }
+
+  if (err instanceof Error) {
+    // Prisma 7 adapter errors surfaced directly from the driver.
+    if (err.name === 'DriverAdapterError' && err.message === 'TransactionWriteConflict') {
+      return true;
+    }
+
+    // Best-effort fallbacks for other transient transaction errors.
+    if (err.message.includes('TransactionWriteConflict')) return true;
+    if (err.message.toLowerCase().includes('could not serialize access')) return true;
+    if (err.message.toLowerCase().includes('deadlock detected')) return true;
+  }
+
+  return false;
 }

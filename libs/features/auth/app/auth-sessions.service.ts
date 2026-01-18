@@ -1,10 +1,12 @@
 import type { ListQuery } from '../../../shared/list-query';
 import { AuthError } from './auth.errors';
+import { ErrorCode } from '../../../shared/error-codes';
 import type {
   AuthRepository,
   UserSessionsSortField,
   UserSessionListItem,
 } from './ports/auth.repository';
+import type { Clock } from './time';
 
 export type SessionStatus = 'active' | 'revoked' | 'expired';
 
@@ -39,19 +41,26 @@ function statusFor(
 }
 
 export class AuthSessionsService {
-  constructor(private readonly repo: AuthRepository) {}
+  constructor(
+    private readonly repo: AuthRepository,
+    private readonly clock: Clock,
+  ) {}
+
+  private async assertUserIsNotDeleted(userId: string): Promise<void> {
+    const user = await this.repo.findUserById(userId);
+    if (!user || user.status === 'DELETED') {
+      throw new AuthError({ status: 401, code: ErrorCode.UNAUTHORIZED, message: 'Unauthorized' });
+    }
+  }
 
   async listMySessions(
     userId: string,
     currentSessionId: string,
     query: ListQuery<UserSessionsSortField, never>,
   ): Promise<ListMySessionsResult> {
-    const user = await this.repo.findUserById(userId);
-    if (!user) {
-      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
-    }
+    await this.assertUserIsNotDeleted(userId);
 
-    const now = new Date();
+    const now = this.clock.now();
     const res = await this.repo.listUserSessions(userId, query);
 
     const items: SessionView[] = res.items.map((s) => ({
@@ -75,12 +84,9 @@ export class AuthSessionsService {
     userId: string,
     sessionId: string,
   ): Promise<Readonly<{ kind: 'ok' } | { kind: 'not_found' }>> {
-    const user = await this.repo.findUserById(userId);
-    if (!user) {
-      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
-    }
+    await this.assertUserIsNotDeleted(userId);
 
-    const ok = await this.repo.revokeSessionById(userId, sessionId, new Date());
+    const ok = await this.repo.revokeSessionById(userId, sessionId, this.clock.now());
     return ok ? { kind: 'ok' } : { kind: 'not_found' };
   }
 }

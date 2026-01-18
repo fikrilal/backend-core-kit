@@ -22,6 +22,7 @@
     "test:int": "jest --config test/jest-int.json --runInBand",
     "test:e2e": "jest --config test/jest-e2e.json --runInBand",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run deps:check && npm test && npm run openapi:check && npm run openapi:lint",
+    "verify:gates": "ts-node --files scripts/gates-honesty.ts",
     "verify:e2e": "ts-node --files scripts/verify-e2e.ts",
     "openapi:generate": "ts-node --files scripts/openapi-generate.ts",
     "openapi:lint": "spectral lint --fail-severity warn docs/openapi/openapi.yaml",

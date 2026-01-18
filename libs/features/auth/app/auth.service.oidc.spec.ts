@@ -53,7 +53,7 @@ function makeRepo(overrides: Partial<AuthRepository>): AuthRepository {
     createUserWithPassword: async () => unimplemented(),
     findUserIdByEmail: async () => null,
     findUserForLogin: async () => unimplemented(),
-    findUserById: async () => unimplemented(),
+    findUserById: async () => makeUser(),
     getAuthMethods: async () => ['GOOGLE'],
     findUserByExternalIdentity: async () => null,
     createUserWithExternalIdentity: async () => unimplemented(),
