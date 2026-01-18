@@ -1,6 +1,7 @@
 import { AuthError } from './auth.errors';
 import type { AuthRepository, SessionPushPlatform } from './ports/auth.repository';
 import type { Clock } from './time';
+import { ErrorCode } from '../../../shared/error-codes';
 
 export class AuthPushTokensService {
   constructor(
@@ -11,7 +12,7 @@ export class AuthPushTokensService {
   private async assertUserIsNotDeleted(userId: string): Promise<void> {
     const user = await this.repo.findUserById(userId);
     if (!user || user.status === 'DELETED') {
-      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+      throw new AuthError({ status: 401, code: ErrorCode.UNAUTHORIZED, message: 'Unauthorized' });
     }
   }
 
@@ -26,7 +27,7 @@ export class AuthPushTokensService {
     const now = this.clock.now();
     const res = await this.repo.upsertSessionPushToken({ ...input, now });
     if (res.kind === 'session_not_found') {
-      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+      throw new AuthError({ status: 401, code: ErrorCode.UNAUTHORIZED, message: 'Unauthorized' });
     }
   }
 

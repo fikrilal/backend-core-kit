@@ -5,10 +5,15 @@ import {
   EmailAlreadyExistsError,
   ExternalIdentityAlreadyExistsError,
 } from './auth.errors';
+import { ErrorCode } from '../../../shared/error-codes';
 import type { AuthRepository } from './ports/auth.repository';
 import type { AccessTokenIssuer } from './ports/access-token-issuer';
 import type { LoginRateLimiter } from './ports/login-rate-limiter';
-import type { OidcIdTokenVerifier, OidcProvider } from './ports/oidc-id-token-verifier';
+import type {
+  OidcIdTokenVerifier,
+  OidcProvider,
+  VerifiedOidcIdentity,
+} from './ports/oidc-id-token-verifier';
 import type { PasswordHasher } from './ports/password-hasher';
 import { generateRefreshToken, hashRefreshToken } from './refresh-token';
 import { hashEmailVerificationToken } from './email-verification-token';
@@ -38,9 +43,100 @@ export class AuthService {
   private async requireExistingNonDeletedUser(userId: string): Promise<AuthUserRecord> {
     const user = await this.repo.findUserById(userId);
     if (!user || user.status === 'DELETED') {
-      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+      throw new AuthError({ status: 401, code: ErrorCode.UNAUTHORIZED, message: 'Unauthorized' });
     }
     return user;
+  }
+
+  private async verifyOidcIdentityOrThrow(input: {
+    provider: OidcProvider;
+    idToken: string;
+  }): Promise<VerifiedOidcIdentity> {
+    const verified = await this.oidcVerifier.verifyIdToken({
+      provider: input.provider,
+      idToken: input.idToken,
+    });
+
+    if (verified.kind === 'not_configured') {
+      throw new AuthError({
+        status: 500,
+        code: AuthErrorCode.AUTH_OIDC_NOT_CONFIGURED,
+        message: 'OIDC is not configured',
+      });
+    }
+
+    if (verified.kind === 'invalid') {
+      throw new AuthError({
+        status: 401,
+        code: AuthErrorCode.AUTH_OIDC_TOKEN_INVALID,
+        message: 'Invalid OIDC token',
+      });
+    }
+
+    if (!verified.identity.emailVerified) {
+      throw new AuthError({
+        status: 400,
+        code: AuthErrorCode.AUTH_OIDC_EMAIL_NOT_VERIFIED,
+        message: 'Email is not verified',
+      });
+    }
+
+    return verified.identity;
+  }
+
+  private invalidCredentialsError(): AuthError {
+    return new AuthError({
+      status: 401,
+      code: AuthErrorCode.AUTH_INVALID_CREDENTIALS,
+      message: 'Invalid credentials',
+    });
+  }
+
+  private invalidRefreshTokenError(): AuthError {
+    return new AuthError({
+      status: 401,
+      code: AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID,
+      message: 'Invalid refresh token',
+    });
+  }
+
+  private assertUserIsNotSuspended(user: AuthUserRecord): void {
+    if (user.status !== 'SUSPENDED') return;
+    throw new AuthError({
+      status: 403,
+      code: AuthErrorCode.AUTH_USER_SUSPENDED,
+      message: 'User is suspended',
+    });
+  }
+
+  private async signAccessTokenForUser(user: AuthUserRecord, sessionId: string): Promise<string> {
+    return await this.accessTokens.signAccessToken({
+      userId: user.id,
+      sessionId,
+      emailVerified: user.emailVerifiedAt !== null,
+      roles: [user.role],
+      ttlSeconds: this.config.accessTokenTtlSeconds,
+    });
+  }
+
+  private async issueTokensForNewSession(
+    user: AuthUserRecord,
+    authMethods: ReadonlyArray<AuthMethod>,
+    input: {
+      deviceId?: string;
+      deviceName?: string;
+      ip?: string;
+      userAgent?: string;
+      now: Date;
+    },
+  ): Promise<AuthResult> {
+    const { sessionId, refreshToken } = await this.createSessionAndTokens(user.id, input);
+    const accessToken = await this.signAccessTokenForUser(user, sessionId);
+    return { user: this.toUserView(user, authMethods), accessToken, refreshToken };
+  }
+
+  private sessionExpiresAtFrom(now: Date): Date {
+    return new Date(now.getTime() + this.config.refreshTokenTtlSeconds * 1000);
   }
 
   async registerWithPassword(input: {
@@ -72,25 +168,13 @@ export class AuthService {
     }
 
     const now = this.clock.now();
-    const sessionExpiresAt = new Date(now.getTime() + this.config.refreshTokenTtlSeconds * 1000);
-    const { sessionId, refreshToken } = await this.createSessionAndTokens(user.id, {
+    return await this.issueTokensForNewSession(user, ['PASSWORD'], {
       deviceId: input.deviceId,
       deviceName: input.deviceName,
       ip: input.ip,
       userAgent: input.userAgent,
-      sessionExpiresAt,
       now,
     });
-
-    const accessToken = await this.accessTokens.signAccessToken({
-      userId: user.id,
-      sessionId,
-      emailVerified: user.emailVerifiedAt !== null,
-      roles: [user.role],
-      ttlSeconds: this.config.accessTokenTtlSeconds,
-    });
-
-    return { user: this.toUserView(user, ['PASSWORD']), accessToken, refreshToken };
   }
 
   async loginWithPassword(input: {
@@ -113,52 +197,25 @@ export class AuthService {
 
     if (!ok || !found) {
       await this.loginRateLimiter.recordFailure({ email, ip: input.ip });
-      throw new AuthError({
-        status: 401,
-        code: AuthErrorCode.AUTH_INVALID_CREDENTIALS,
-        message: 'Invalid credentials',
-      });
+      throw this.invalidCredentialsError();
     }
 
     if (found.user.status === 'DELETED') {
       await this.loginRateLimiter.recordFailure({ email, ip: input.ip });
-      throw new AuthError({
-        status: 401,
-        code: AuthErrorCode.AUTH_INVALID_CREDENTIALS,
-        message: 'Invalid credentials',
-      });
+      throw this.invalidCredentialsError();
     }
 
-    if (found.user.status === 'SUSPENDED') {
-      throw new AuthError({
-        status: 403,
-        code: AuthErrorCode.AUTH_USER_SUSPENDED,
-        message: 'User is suspended',
-      });
-    }
-
+    this.assertUserIsNotSuspended(found.user);
     await this.loginRateLimiter.recordSuccess({ email, ip: input.ip });
 
-    const sessionExpiresAt = new Date(now.getTime() + this.config.refreshTokenTtlSeconds * 1000);
-    const { sessionId, refreshToken } = await this.createSessionAndTokens(found.user.id, {
+    const authMethods = await this.repo.getAuthMethods(found.user.id);
+    return await this.issueTokensForNewSession(found.user, authMethods, {
       deviceId: input.deviceId,
       deviceName: input.deviceName,
       ip: input.ip,
       userAgent: input.userAgent,
-      sessionExpiresAt,
       now,
     });
-
-    const accessToken = await this.accessTokens.signAccessToken({
-      userId: found.user.id,
-      sessionId,
-      emailVerified: found.user.emailVerifiedAt !== null,
-      roles: [found.user.role],
-      ttlSeconds: this.config.accessTokenTtlSeconds,
-    });
-
-    const authMethods = await this.repo.getAuthMethods(found.user.id);
-    return { user: this.toUserView(found.user, authMethods), accessToken, refreshToken };
   }
 
   async exchangeOidc(input: {
@@ -169,41 +226,17 @@ export class AuthService {
     ip?: string;
     userAgent?: string;
   }): Promise<AuthResult> {
-    const verified = await this.oidcVerifier.verifyIdToken({
+    const identity = await this.verifyOidcIdentityOrThrow({
       provider: input.provider,
       idToken: input.idToken,
     });
 
-    if (verified.kind === 'not_configured') {
-      throw new AuthError({
-        status: 500,
-        code: AuthErrorCode.AUTH_OIDC_NOT_CONFIGURED,
-        message: 'OIDC is not configured',
-      });
-    }
-
-    if (verified.kind === 'invalid') {
-      throw new AuthError({
-        status: 401,
-        code: AuthErrorCode.AUTH_OIDC_TOKEN_INVALID,
-        message: 'Invalid OIDC token',
-      });
-    }
-
-    if (!verified.identity.emailVerified) {
-      throw new AuthError({
-        status: 400,
-        code: AuthErrorCode.AUTH_OIDC_EMAIL_NOT_VERIFIED,
-        message: 'Email is not verified',
-      });
-    }
-
     const now = this.clock.now();
-    const email = normalizeEmail(verified.identity.email);
+    const email = normalizeEmail(identity.email);
 
     let user = await this.repo.findUserByExternalIdentity(
-      verified.identity.provider,
-      verified.identity.subject,
+      identity.provider,
+      identity.subject,
     );
     let createdNewUser = false;
 
@@ -223,15 +256,13 @@ export class AuthService {
           email,
           emailVerifiedAt: now,
           profile: {
-            ...(verified.identity.displayName
-              ? { displayName: verified.identity.displayName }
-              : {}),
-            ...(verified.identity.givenName ? { givenName: verified.identity.givenName } : {}),
-            ...(verified.identity.familyName ? { familyName: verified.identity.familyName } : {}),
+            ...(identity.displayName ? { displayName: identity.displayName } : {}),
+            ...(identity.givenName ? { givenName: identity.givenName } : {}),
+            ...(identity.familyName ? { familyName: identity.familyName } : {}),
           },
           externalIdentity: {
-            provider: verified.identity.provider,
-            subject: verified.identity.subject,
+            provider: identity.provider,
+            subject: identity.subject,
             email,
           },
         });
@@ -247,8 +278,8 @@ export class AuthService {
         }
         if (err instanceof ExternalIdentityAlreadyExistsError) {
           const existing = await this.repo.findUserByExternalIdentity(
-            verified.identity.provider,
-            verified.identity.subject,
+            identity.provider,
+            identity.subject,
           );
           if (existing) user = existing;
           else throw err;
@@ -259,44 +290,22 @@ export class AuthService {
     }
 
     if (user.status === 'DELETED') {
-      throw new AuthError({
-        status: 401,
-        code: AuthErrorCode.AUTH_INVALID_CREDENTIALS,
-        message: 'Invalid credentials',
-      });
+      throw this.invalidCredentialsError();
     }
 
-    if (user.status === 'SUSPENDED') {
-      throw new AuthError({
-        status: 403,
-        code: AuthErrorCode.AUTH_USER_SUSPENDED,
-        message: 'User is suspended',
-      });
-    }
+    this.assertUserIsNotSuspended(user);
 
     const authMethods: ReadonlyArray<AuthMethod> = createdNewUser
       ? ['GOOGLE']
       : await this.repo.getAuthMethods(user.id);
 
-    const sessionExpiresAt = new Date(now.getTime() + this.config.refreshTokenTtlSeconds * 1000);
-    const { sessionId, refreshToken } = await this.createSessionAndTokens(user.id, {
+    return await this.issueTokensForNewSession(user, authMethods, {
       deviceId: input.deviceId,
       deviceName: input.deviceName,
       ip: input.ip,
       userAgent: input.userAgent,
-      sessionExpiresAt,
       now,
     });
-
-    const accessToken = await this.accessTokens.signAccessToken({
-      userId: user.id,
-      sessionId,
-      emailVerified: user.emailVerifiedAt !== null,
-      roles: [user.role],
-      ttlSeconds: this.config.accessTokenTtlSeconds,
-    });
-
-    return { user: this.toUserView(user, authMethods), accessToken, refreshToken };
   }
 
   async connectOidc(input: {
@@ -306,42 +315,18 @@ export class AuthService {
   }): Promise<void> {
     await this.requireExistingNonDeletedUser(input.userId);
 
-    const verified = await this.oidcVerifier.verifyIdToken({
+    const identity = await this.verifyOidcIdentityOrThrow({
       provider: input.provider,
       idToken: input.idToken,
     });
 
-    if (verified.kind === 'not_configured') {
-      throw new AuthError({
-        status: 500,
-        code: AuthErrorCode.AUTH_OIDC_NOT_CONFIGURED,
-        message: 'OIDC is not configured',
-      });
-    }
-
-    if (verified.kind === 'invalid') {
-      throw new AuthError({
-        status: 401,
-        code: AuthErrorCode.AUTH_OIDC_TOKEN_INVALID,
-        message: 'Invalid OIDC token',
-      });
-    }
-
-    if (!verified.identity.emailVerified) {
-      throw new AuthError({
-        status: 400,
-        code: AuthErrorCode.AUTH_OIDC_EMAIL_NOT_VERIFIED,
-        message: 'Email is not verified',
-      });
-    }
-
     const now = this.clock.now();
-    const email = normalizeEmail(verified.identity.email);
+    const email = normalizeEmail(identity.email);
 
     const result = await this.repo.linkExternalIdentityToUser({
       userId: input.userId,
-      provider: verified.identity.provider,
-      subject: verified.identity.subject,
+      provider: identity.provider,
+      subject: identity.subject,
       email,
       now,
     });
@@ -349,7 +334,7 @@ export class AuthService {
     if (result.kind === 'ok' || result.kind === 'already_linked') return;
 
     if (result.kind === 'user_not_found') {
-      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+      throw new AuthError({ status: 401, code: ErrorCode.UNAUTHORIZED, message: 'Unauthorized' });
     }
 
     if (result.kind === 'identity_linked_to_other_user') {
@@ -383,7 +368,7 @@ export class AuthService {
     if (input.currentPassword === input.newPassword) {
       throw new AuthError({
         status: 400,
-        code: 'VALIDATION_FAILED',
+        code: ErrorCode.VALIDATION_FAILED,
         issues: [{ field: 'newPassword', message: 'New password must be different' }],
       });
     }
@@ -420,7 +405,7 @@ export class AuthService {
     if (changed.kind === 'ok') return;
 
     if (changed.kind === 'not_found') {
-      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+      throw new AuthError({ status: 401, code: ErrorCode.UNAUTHORIZED, message: 'Unauthorized' });
     }
 
     if (changed.kind === 'password_not_set') {
@@ -453,28 +438,14 @@ export class AuthService {
 
     const existing = await this.repo.findRefreshTokenWithSession(currentHash);
     if (!existing) {
-      throw new AuthError({
-        status: 401,
-        code: AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID,
-        message: 'Invalid refresh token',
-      });
+      throw this.invalidRefreshTokenError();
     }
 
     if (existing.user.status === 'DELETED') {
-      throw new AuthError({
-        status: 401,
-        code: AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID,
-        message: 'Invalid refresh token',
-      });
+      throw this.invalidRefreshTokenError();
     }
 
-    if (existing.user.status === 'SUSPENDED') {
-      throw new AuthError({
-        status: 403,
-        code: AuthErrorCode.AUTH_USER_SUSPENDED,
-        message: 'User is suspended',
-      });
-    }
+    this.assertUserIsNotSuspended(existing.user);
 
     if (existing.session.revokedAt !== null) {
       throw new AuthError({
@@ -507,13 +478,7 @@ export class AuthService {
 
     // Mint the access token before rotating the refresh token so that non-2xx refresh responses
     // never consume the caller's refresh token.
-    const accessToken = await this.accessTokens.signAccessToken({
-      userId: existing.user.id,
-      sessionId: existing.session.id,
-      emailVerified: existing.user.emailVerifiedAt !== null,
-      roles: [existing.user.role],
-      ttlSeconds: this.config.accessTokenTtlSeconds,
-    });
+    const accessToken = await this.signAccessTokenForUser(existing.user, existing.session.id);
 
     const nextRefreshToken = generateRefreshToken();
     const nextHash = hashRefreshToken(nextRefreshToken);
@@ -523,11 +488,7 @@ export class AuthService {
       userAgent: input.userAgent,
     });
     if (rotation.kind === 'not_found') {
-      throw new AuthError({
-        status: 401,
-        code: AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID,
-        message: 'Invalid refresh token',
-      });
+      throw this.invalidRefreshTokenError();
     }
 
     if (rotation.kind === 'expired') {
@@ -562,11 +523,7 @@ export class AuthService {
     const hash = hashRefreshToken(input.refreshToken);
     const ok = await this.repo.revokeSessionByRefreshTokenHash(hash, now);
     if (!ok) {
-      throw new AuthError({
-        status: 401,
-        code: AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID,
-        message: 'Invalid refresh token',
-      });
+      throw this.invalidRefreshTokenError();
     }
   }
 
@@ -650,7 +607,7 @@ export class AuthService {
     if (typeof password !== 'string' || password.length < min) {
       throw new AuthError({
         status: 400,
-        code: 'VALIDATION_FAILED',
+        code: ErrorCode.VALIDATION_FAILED,
         issues: [{ field: 'password', message: `Password must be at least ${min} characters` }],
       });
     }
@@ -668,7 +625,6 @@ export class AuthService {
       deviceName?: string;
       ip?: string;
       userAgent?: string;
-      sessionExpiresAt: Date;
       now: Date;
     },
   ): Promise<{ sessionId: string; refreshToken: string }> {
@@ -680,6 +636,7 @@ export class AuthService {
       await this.repo.revokeActiveSessionForDevice(userId, activeKey, input.now);
     }
 
+    const sessionExpiresAt = this.sessionExpiresAtFrom(input.now);
     const session = await this.repo.createSession({
       userId,
       deviceId: input.deviceId,
@@ -687,7 +644,7 @@ export class AuthService {
       ip: input.ip,
       userAgent: input.userAgent,
       lastSeenAt: input.now,
-      sessionExpiresAt: input.sessionExpiresAt,
+      sessionExpiresAt,
       activeKey,
     });
 

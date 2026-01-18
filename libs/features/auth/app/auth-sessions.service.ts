@@ -1,5 +1,6 @@
 import type { ListQuery } from '../../../shared/list-query';
 import { AuthError } from './auth.errors';
+import { ErrorCode } from '../../../shared/error-codes';
 import type {
   AuthRepository,
   UserSessionsSortField,
@@ -48,7 +49,7 @@ export class AuthSessionsService {
   private async assertUserIsNotDeleted(userId: string): Promise<void> {
     const user = await this.repo.findUserById(userId);
     if (!user || user.status === 'DELETED') {
-      throw new AuthError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' });
+      throw new AuthError({ status: 401, code: ErrorCode.UNAUTHORIZED, message: 'Unauthorized' });
     }
   }
 

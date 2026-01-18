@@ -8,6 +8,7 @@ import type { PasswordHasher } from './ports/password-hasher';
 import type { Clock } from './time';
 import type { Email } from '../domain/email';
 import type { AuthUserRecord } from './auth.types';
+import { ErrorCode } from '../../../shared/error-codes';
 
 function unimplemented(): never {
   throw new Error('Not implemented');
@@ -226,8 +227,7 @@ describe('AuthService (deleted user semantics)', () => {
       svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
     ).rejects.toMatchObject({
       status: 401,
-      code: 'UNAUTHORIZED',
+      code: ErrorCode.UNAUTHORIZED,
     });
   });
 });
-

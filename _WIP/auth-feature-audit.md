@@ -76,6 +76,15 @@ Recommendation (incremental, low-risk):
 - If you want a bigger cleanup later, split by capability:
   - `PasswordAuthService`, `OidcAuthService`, `SessionTokensService` (still behind one façade if needed).
 
+Implemented (2026-01-17):
+- Added small private helpers to centralize common invariants/boilerplate in `AuthService`:
+  - OIDC verification + email-verified gate
+  - invalid credentials / invalid refresh token errors
+  - suspended-user guard
+  - access token signing + session/token issuance
+  - session expiry calculation (computed inside `createSessionAndTokens`)
+- Refactored `registerWithPassword`, `loginWithPassword`, `exchangeOidc`, `connectOidc`, `refresh`, `logout` to use these helpers.
+
 ### P1 — Consistency: time source is inconsistent across auth app services
 
 Evidence (current):
@@ -100,8 +109,7 @@ Implemented (2026-01-17):
 ### P2 — Type safety / readability: error codes are untyped strings in `AuthError`
 
 Evidence:
-- `AuthError.code` is `string` (`libs/features/auth/app/auth.errors.ts:5`).
-- Raw string literals are used for platform-level codes (`'UNAUTHORIZED'`, `'VALIDATION_FAILED'`) in multiple places (`libs/features/auth/app/auth.service.ts:325`, `:359`, `:396`, `:563`, `:621`; `libs/features/auth/app/auth-sessions.service.ts:51`, `:80`; `libs/features/auth/app/auth-push-tokens.service.ts:16`).
+- `AuthError.code` was `string`, and platform-level codes were used as raw string literals (`'UNAUTHORIZED'`, `'VALIDATION_FAILED'`).
 
 Why this matters:
 - Harder to guarantee “stable codes” and avoid typos.
@@ -110,6 +118,11 @@ Why this matters:
 Recommendation:
 - Tighten `AuthError.code` to a union (e.g. `AuthErrorCode | ErrorCode`) and prefer enum references over string literals.
 - Optionally add small helpers (`unauthorized()`, `validationFailed(issues)`) to remove repetitive boilerplate.
+
+Implemented (2026-01-17):
+- Tightened `AuthError.code` to `AuthErrorCode | ErrorCode` (`libs/features/auth/app/auth.errors.ts`).
+- Introduced shared `ErrorCode` enum in `libs/shared/error-codes.ts` (re-exported from `libs/platform/http/errors/error-codes.ts`).
+- Replaced raw `'UNAUTHORIZED'`/`'VALIDATION_FAILED'` literals with `ErrorCode.UNAUTHORIZED`/`ErrorCode.VALIDATION_FAILED` in auth app services and tests.
 
 ### P2 — Clean boundaries (later, when infra is in-scope): app outputs mix DTO-ish formatting
 
@@ -126,9 +139,10 @@ Recommendation:
 
 1. **Done (P0):** Treat `'DELETED'` as non-authenticatable in auth app services + regression tests.
 2. **Done (P1):** Normalize time handling (standardized on `Clock`).
-3. **P1:** Extract a couple of private helpers from `AuthService` to reduce duplication and centralize invariants.
-4. **P2:** Type error codes and remove raw string usage where practical.
-5. **Later:** Infra audit (controllers, Prisma repo, argon2 integration, OpenAPI snapshot impact).
+3. **Done (P1):** Reduce `AuthService` duplication by centralizing invariants in private helpers.
+4. **Done (P2):** Type error codes and remove raw string usage where practical.
+5. **P2 (later):** Move DTO-ish date serialization out of app layer (infra audit required).
+6. **Later:** Infra audit (controllers, Prisma repo, argon2 integration, OpenAPI snapshot impact).
 
 ## Notes on checks
 
