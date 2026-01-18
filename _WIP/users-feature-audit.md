@@ -58,6 +58,12 @@ Recommendation:
   - `UserProfileImageService.createUploadPlan` (validation failures, storage disabled, user not found).
   - `UserProfileImageService.completeUpload` (missing file, already active, size/type mismatch triggers reject, previous file id returned).
 
+Implemented (2026-01-18):
+
+- Added unit tests:
+  - `libs/features/users/app/users.service.spec.ts`
+  - `libs/features/users/app/user-profile-image.service.spec.ts`
+
 ### P1 — Consistency: time handling is ad-hoc (no shared clock / helper)
 
 Evidence:
