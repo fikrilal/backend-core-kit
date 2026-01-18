@@ -101,7 +101,7 @@ Implemented (2026-01-18):
 
 Evidence:
 
-- `libs/features/auth/infra/persistence/prisma-auth.repository.ts` is ~1143 LOC and contains:
+- `libs/features/auth/infra/persistence/prisma-auth.repository.ts` was ~1143 LOC and contained:
   - mapping functions + Prisma enum adapters
   - cursor pagination builder logic (sessions)
   - multiple transaction retry loops
@@ -121,6 +121,19 @@ Recommendation:
   - `prisma-auth.repository.refresh-tokens.ts` (find/rotate/revoke)
   - `prisma-auth.repository.credentials.ts` (password change/reset)
 - Extract a shared `withSerializableRetry(maxAttempts, fn)` helper to remove repeated retry loops and make failures consistently logged/handled.
+
+Implemented (2026-01-18):
+
+- Split `PrismaAuthRepository` into cohesive modules and reduced the entrypoint file to a small façade:
+  - `libs/features/auth/infra/persistence/prisma-auth.repository.ts` (facade; ~195 LOC)
+  - `libs/features/auth/infra/persistence/prisma-auth.repository.users.ts`
+  - `libs/features/auth/infra/persistence/prisma-auth.repository.sessions.ts`
+  - `libs/features/auth/infra/persistence/prisma-auth.repository.credentials.ts`
+  - `libs/features/auth/infra/persistence/prisma-auth.repository.refresh-tokens.ts`
+- Extracted shared helpers to remove duplicated logic:
+  - `libs/features/auth/infra/persistence/prisma-auth.repository.tx.ts` (`withSerializableRetry`, retryable transaction detection)
+  - `libs/features/auth/infra/persistence/prisma-auth.repository.mappers.ts` (Prisma ↔ app record mapping)
+  - `libs/features/auth/infra/persistence/prisma-auth.repository.prisma-errors.ts` (unique constraint detection)
 
 ### P1 — Contract drift: password DTO validation doesn’t match configured policy
 
@@ -176,7 +189,7 @@ Recommendation:
 
 1. **P0 (done):** Skip auth emails for `DELETED` users in `AuthEmailsWorker` (and optionally upstream prevent enqueue).
 2. **P1 (done):** Add an auth error filter to delete duplicate `mapAuthError/titleForStatus` boilerplate.
-3. **P1:** Split `PrismaAuthRepository` by responsibility + add a shared serializable retry helper.
+3. **P1 (done):** Split `PrismaAuthRepository` by responsibility + add a shared serializable retry helper.
 4. **P1:** Align DTO password constraints with configured policy (or document why not).
 5. **P2:** Optional ergonomics (`Retry-After` for 429, shared parsing helpers).
 
