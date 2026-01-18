@@ -152,6 +152,14 @@ Recommendation:
 - Make DTO constraints match the kit default (`AUTH_PASSWORD_MIN_LENGTH` default 10) by setting `@MinLength(10)` and aligning `@ApiProperty({ minLength: 10 })`.
 - If you truly want runtime-configurable policy, use a custom validator that reads config (more work) and document it explicitly.
 
+Implemented (2026-01-18):
+
+- Aligned password DTO constraints with the configured policy (`AUTH_PASSWORD_MIN_LENGTH`, default 10):
+  - `libs/features/auth/infra/http/dtos/password-policy.ts`
+  - `libs/features/auth/infra/http/dtos/auth.dto.ts`
+- Regenerated OpenAPI snapshot after the contract change:
+  - `docs/openapi/openapi.yaml`
+
 ### P2 — Consistency: repeated parsing helpers across infra (small but noisy)
 
 Evidence:
@@ -167,6 +175,11 @@ Recommendation:
 - Prefer relying on `libs/platform/config/env.validation.ts` (already does numeric parsing + min constraints).
 - Where helpers are still needed, move them to a small shared utility (platform or shared) that fits boundary rules.
 
+Implemented (2026-01-18):
+
+- Centralized common rate limiter helpers (`hashKey`, `asPositiveInt`, `getRetryAfterSeconds`):
+  - `libs/features/auth/infra/rate-limit/rate-limit.utils.ts`
+
 ### P2 — “Nice to have”: improve 429 ergonomics with `Retry-After`
 
 Evidence:
@@ -176,6 +189,14 @@ Evidence:
 Recommendation:
 
 - Add `Retry-After` consistently for rate limited responses (likely at the HTTP layer via an interceptor/filter so it’s uniform).
+
+Implemented (2026-01-18):
+
+- Added `Retry-After` for auth rate limited responses (best-effort based on Redis TTL):
+  - `libs/features/auth/app/auth.errors.ts` (added `retryAfterSeconds`)
+  - `libs/features/auth/infra/http/auth-error.filter.ts` (sets header when provided)
+  - `libs/features/auth/infra/rate-limit/*.ts` (populate `retryAfterSeconds` from TTL)
+  - Docs: `docs/engineering/auth/auth-abuse-protection.md`
 
 ## Standards alignment checklist
 
@@ -190,8 +211,8 @@ Recommendation:
 1. **P0 (done):** Skip auth emails for `DELETED` users in `AuthEmailsWorker` (and optionally upstream prevent enqueue).
 2. **P1 (done):** Add an auth error filter to delete duplicate `mapAuthError/titleForStatus` boilerplate.
 3. **P1 (done):** Split `PrismaAuthRepository` by responsibility + add a shared serializable retry helper.
-4. **P1:** Align DTO password constraints with configured policy (or document why not).
-5. **P2:** Optional ergonomics (`Retry-After` for 429, shared parsing helpers).
+4. **P1 (done):** Align DTO password constraints with configured policy (or document why not).
+5. **P2 (done):** Optional ergonomics (`Retry-After` for 429, shared parsing helpers).
 
 ## Notes on checks
 

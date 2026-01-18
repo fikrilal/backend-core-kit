@@ -90,6 +90,7 @@ On rate limiting:
 
 - HTTP: `429`
 - Content-Type: `application/problem+json`
+- Header: `Retry-After: <seconds>` (best-effort; derived from remaining Redis TTL)
 - Body includes:
   - `code: RATE_LIMITED`
   - `traceId` (and `X-Request-Id` header)
@@ -108,4 +109,4 @@ Client guidance:
 
 ## Future improvements
 
-- Add `Retry-After` response headers for `429` paths (requires a guard/interceptor-level integration so headers can be set consistently).
+- Improve `Retry-After` precision for complex cases (e.g. multiple concurrent limiters).

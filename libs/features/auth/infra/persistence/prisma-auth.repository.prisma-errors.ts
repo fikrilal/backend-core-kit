@@ -38,4 +38,3 @@ export function isUniqueConstraintErrorOnFields(
   }
   return false;
 }
-

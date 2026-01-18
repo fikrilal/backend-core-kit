@@ -9,17 +9,20 @@ export class AuthError extends Error {
   readonly status: number;
   readonly code: AuthErrorCodeValue;
   readonly issues?: ReadonlyArray<AuthIssue>;
+  readonly retryAfterSeconds?: number;
 
   constructor(params: {
     status: number;
     code: AuthErrorCodeValue;
     message?: string;
     issues?: ReadonlyArray<AuthIssue>;
+    retryAfterSeconds?: number;
   }) {
     super(params.message ?? params.code);
     this.status = params.status;
     this.code = params.code;
     this.issues = params.issues;
+    this.retryAfterSeconds = params.retryAfterSeconds;
   }
 }
 

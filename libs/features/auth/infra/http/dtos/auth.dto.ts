@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 import { AUTH_METHOD_VALUES } from '../../../../../shared/auth/auth-method';
+import { AUTH_PASSWORD_MIN_LENGTH } from './password-policy';
 
 const OIDC_PROVIDER_VALUES = ['GOOGLE'] as const;
 
@@ -53,9 +54,9 @@ export class PasswordRegisterRequestDto {
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ minLength: 10 })
+  @ApiProperty({ minLength: AUTH_PASSWORD_MIN_LENGTH })
   @IsString()
-  @MinLength(1)
+  @MinLength(AUTH_PASSWORD_MIN_LENGTH)
   password!: string;
 
   @ApiProperty({ required: false, description: 'Stable per-device identifier (recommended).' })
@@ -144,9 +145,9 @@ export class ChangePasswordRequestDto {
   @MinLength(1)
   currentPassword!: string;
 
-  @ApiProperty({ minLength: 1 })
+  @ApiProperty({ minLength: AUTH_PASSWORD_MIN_LENGTH })
   @IsString()
-  @MinLength(1)
+  @MinLength(AUTH_PASSWORD_MIN_LENGTH)
   newPassword!: string;
 }
 
@@ -169,8 +170,8 @@ export class PasswordResetConfirmRequestDto {
   @MinLength(1)
   token!: string;
 
-  @ApiProperty({ minLength: 1 })
+  @ApiProperty({ minLength: AUTH_PASSWORD_MIN_LENGTH })
   @IsString()
-  @MinLength(1)
+  @MinLength(AUTH_PASSWORD_MIN_LENGTH)
   newPassword!: string;
 }

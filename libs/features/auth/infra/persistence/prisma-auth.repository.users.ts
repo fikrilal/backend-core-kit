@@ -6,7 +6,10 @@ import type { AuthMethod } from '../../../../shared/auth/auth-method';
 import type { Email } from '../../domain/email';
 import type { AuthUserRecord } from '../../app/auth.types';
 import type { OidcProvider } from '../../app/ports/oidc-id-token-verifier';
-import type { LinkExternalIdentityResult, VerifyEmailResult } from '../../app/ports/auth.repository';
+import type {
+  LinkExternalIdentityResult,
+  VerifyEmailResult,
+} from '../../app/ports/auth.repository';
 import { EmailAlreadyExistsError, ExternalIdentityAlreadyExistsError } from '../../app/auth.errors';
 import type { PrismaService } from '../../../../platform/db/prisma.service';
 import {
@@ -60,7 +63,10 @@ export async function createUserWithPassword(
   }
 }
 
-export async function findUserIdByEmail(prisma: PrismaService, email: Email): Promise<string | null> {
+export async function findUserIdByEmail(
+  prisma: PrismaService,
+  email: Email,
+): Promise<string | null> {
   const client = prisma.getClient();
   const user = await client.user.findUnique({
     where: { email },

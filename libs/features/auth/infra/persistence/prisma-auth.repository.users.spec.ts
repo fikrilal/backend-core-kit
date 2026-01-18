@@ -3,16 +3,14 @@ import type { PrismaService } from '../../../../platform/db/prisma.service';
 import { verifyEmailByTokenHash } from './prisma-auth.repository.users';
 
 function createPrismaStub(params: {
-  tokenRow:
-    | Readonly<{
-        id: string;
-        userId: string;
-        expiresAt: Date;
-        usedAt: Date | null;
-        revokedAt: Date | null;
-        user: Readonly<{ emailVerifiedAt: Date | null }>;
-      }>
-    | null;
+  tokenRow: Readonly<{
+    id: string;
+    userId: string;
+    expiresAt: Date;
+    usedAt: Date | null;
+    revokedAt: Date | null;
+    user: Readonly<{ emailVerifiedAt: Date | null }>;
+  }> | null;
 }): Readonly<{
   prisma: PrismaService;
   findUniqueCalls: Prisma.EmailVerificationTokenFindUniqueArgs[];
@@ -81,4 +79,3 @@ describe('verifyEmailByTokenHash (unit)', () => {
     ]);
   });
 });
-

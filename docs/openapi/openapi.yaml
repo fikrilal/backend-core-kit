@@ -1225,7 +1225,7 @@ components:
           example: <password-reset-token>
         newPassword:
           type: string
-          minLength: 1
+          minLength: 10
       required:
         - token
         - newPassword
@@ -1255,7 +1255,7 @@ components:
           minLength: 1
         newPassword:
           type: string
-          minLength: 1
+          minLength: 10
       required:
         - currentPassword
         - newPassword

@@ -1,25 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash } from 'crypto';
 import { normalizeEmail } from '../../domain/email';
 import { AuthError } from '../../app/auth.errors';
 import { RedisService } from '../../../../platform/redis/redis.service';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
+import { asNonEmptyString, asPositiveInt, getRetryAfterSeconds, hashKey } from './rate-limit.utils';
 
 type PasswordResetRateLimitContext = Readonly<{
   email: string;
   ip?: string;
 }>;
-
-function hashKey(value: string): string {
-  return createHash('sha256').update(value).digest('base64url');
-}
-
-function asPositiveInt(value: unknown, fallback: number): number {
-  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return fallback;
-  return n;
-}
 
 type IpRateLimitConfig = Readonly<{
   maxAttempts: number;
@@ -64,14 +54,21 @@ export class RedisPasswordResetRateLimiter {
 
     const client = this.redis.getClient();
 
-    const ip = typeof ctx.ip === 'string' && ctx.ip.trim() !== '' ? ctx.ip.trim() : undefined;
+    const ip = asNonEmptyString(ctx.ip);
     if (ip) {
       const ipHash = hashKey(ip);
       const ipCountKey = `auth:password-reset:request:ip:${ipHash}:requests`;
       const ipBlockKey = `auth:password-reset:request:ip:${ipHash}:blocked`;
 
       const blocked = await client.get(ipBlockKey);
-      if (blocked) throw this.rateLimited();
+      if (blocked) {
+        const retryAfterSeconds = await getRetryAfterSeconds(
+          client,
+          ipBlockKey,
+          this.ipConfig.blockSeconds,
+        );
+        throw this.rateLimited(retryAfterSeconds);
+      }
 
       await this.bumpIp(client, ipCountKey, ipBlockKey);
     }
@@ -79,7 +76,8 @@ export class RedisPasswordResetRateLimiter {
     const emailOk = await client.set(emailKey, '1', 'EX', this.cooldownSeconds, 'NX');
     if (emailOk === 'OK') return;
 
-    throw this.rateLimited();
+    const retryAfterSeconds = await getRetryAfterSeconds(client, emailKey, this.cooldownSeconds);
+    throw this.rateLimited(retryAfterSeconds);
   }
 
   private async bumpIp(
@@ -99,11 +97,12 @@ export class RedisPasswordResetRateLimiter {
     }
   }
 
-  private rateLimited(): AuthError {
+  private rateLimited(retryAfterSeconds: number): AuthError {
     return new AuthError({
       status: 429,
       code: ErrorCode.RATE_LIMITED,
       message: 'Too many password reset requests. Try again later.',
+      retryAfterSeconds,
     });
   }
 }

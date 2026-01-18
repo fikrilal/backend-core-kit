@@ -56,4 +56,3 @@ export function toRefreshTokenRecord(
     replacedById: token.replacedById,
   };
 }
-

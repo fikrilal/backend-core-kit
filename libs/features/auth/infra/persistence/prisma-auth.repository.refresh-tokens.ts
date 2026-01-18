@@ -55,7 +55,9 @@ export async function findRefreshTokenWithSession(
           userId: true,
           expiresAt: true,
           revokedAt: true,
-          user: { select: { id: true, email: true, emailVerifiedAt: true, role: true, status: true } },
+          user: {
+            select: { id: true, email: true, emailVerifiedAt: true, role: true, status: true },
+          },
         },
       },
     },

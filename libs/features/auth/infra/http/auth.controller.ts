@@ -97,7 +97,10 @@ export class AuthController {
     try {
       await this.emailVerificationJobs.enqueueSendVerificationEmail(result.user.id);
     } catch (err: unknown) {
-      this.logger.error({ err, userId: result.user.id }, 'Failed to enqueue verification email job');
+      this.logger.error(
+        { err, userId: result.user.id },
+        'Failed to enqueue verification email job',
+      );
     }
 
     return result;
@@ -217,7 +220,9 @@ export class AuthController {
       ip: req.ip,
     });
 
-    const enqueued = await this.emailVerificationJobs.enqueueSendVerificationEmail(principal.userId);
+    const enqueued = await this.emailVerificationJobs.enqueueSendVerificationEmail(
+      principal.userId,
+    );
     if (!enqueued) {
       throw new AuthError({
         status: 500,
