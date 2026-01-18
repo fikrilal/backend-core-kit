@@ -112,6 +112,64 @@ describe('AuthEmailsWorker (unit)', () => {
     expect(verificationCreates[0]?.data.expiresAt.toISOString()).toBe('2026-01-01T00:01:00.000Z');
   });
 
+  it('skips verification email for DELETED users (no token created, no email sent)', async () => {
+    const verificationCreates: Array<{ data: { tokenHash: string; expiresAt: Date } }> = [];
+    const sent: SendEmailInput[] = [];
+
+    const client = {
+      user: {
+        findUnique: async () => ({
+          id: 'user-deleted-1',
+          email: 'deleted@example.com',
+          emailVerifiedAt: null,
+          status: 'DELETED',
+        }),
+      },
+      emailVerificationToken: {
+        create: async (args: { data: { tokenHash: string; expiresAt: Date } }) => {
+          verificationCreates.push(args);
+          return { id: 'evt-deleted-1' };
+        },
+      },
+    };
+
+    const prisma = { getClient: () => client } as unknown as PrismaService;
+    const email = {
+      isEnabled: () => true,
+      send: async (input: SendEmailInput) => {
+        sent.push(input);
+        return { id: 'email-deleted-1' };
+      },
+    } as unknown as EmailService;
+
+    const worker = new AuthEmailsWorker(
+      stubConfig({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
+      { isEnabled: () => true } as unknown as QueueWorkerFactory,
+      prisma,
+      email,
+      createLoggerStub(),
+    );
+
+    const job = {
+      name: AUTH_SEND_VERIFICATION_EMAIL_JOB,
+      data: {
+        userId: 'user-deleted-1',
+        requestedAt: new Date().toISOString(),
+      } satisfies AuthSendVerificationEmailJobData,
+    } as unknown as Job<unknown, unknown>;
+
+    const res = await getProcess(worker)(job);
+
+    expect(verificationCreates).toHaveLength(0);
+    expect(sent).toHaveLength(0);
+    expect(res).toEqual({
+      ok: true,
+      userId: 'user-deleted-1',
+      outcome: 'skipped',
+      reason: 'already_deleted',
+    });
+  });
+
   it('stores a hashed password reset token and emails only the opaque token (link + fallback token)', async () => {
     const resetCreates: Array<{ data: { tokenHash: string; expiresAt: Date } }> = [];
     const sent: SendEmailInput[] = [];
@@ -190,5 +248,62 @@ describe('AuthEmailsWorker (unit)', () => {
     expect(url.searchParams.get('token')).toBe(String(token));
 
     expect(resetCreates[0]?.data.expiresAt.toISOString()).toBe('2026-01-01T00:30:00.000Z');
+  });
+
+  it('skips password reset email for DELETED users (no token created, no email sent)', async () => {
+    const resetCreates: Array<{ data: { tokenHash: string; expiresAt: Date } }> = [];
+    const sent: SendEmailInput[] = [];
+
+    const client = {
+      user: {
+        findUnique: async () => ({
+          id: 'user-deleted-2',
+          email: 'deleted2@example.com',
+          status: 'DELETED',
+        }),
+      },
+      passwordResetToken: {
+        create: async (args: { data: { tokenHash: string; expiresAt: Date } }) => {
+          resetCreates.push(args);
+          return { id: 'prt-deleted-1' };
+        },
+      },
+    };
+
+    const prisma = { getClient: () => client } as unknown as PrismaService;
+    const email = {
+      isEnabled: () => true,
+      send: async (input: SendEmailInput) => {
+        sent.push(input);
+        return { id: 'email-deleted-2' };
+      },
+    } as unknown as EmailService;
+
+    const worker = new AuthEmailsWorker(
+      stubConfig({ AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: 1800 }),
+      { isEnabled: () => true } as unknown as QueueWorkerFactory,
+      prisma,
+      email,
+      createLoggerStub(),
+    );
+
+    const job = {
+      name: AUTH_SEND_PASSWORD_RESET_EMAIL_JOB,
+      data: {
+        userId: 'user-deleted-2',
+        requestedAt: new Date().toISOString(),
+      } satisfies AuthSendPasswordResetEmailJobData,
+    } as unknown as Job<unknown, unknown>;
+
+    const res = await getProcess(worker)(job);
+
+    expect(resetCreates).toHaveLength(0);
+    expect(sent).toHaveLength(0);
+    expect(res).toEqual({
+      ok: true,
+      userId: 'user-deleted-2',
+      outcome: 'skipped',
+      reason: 'already_deleted',
+    });
   });
 });

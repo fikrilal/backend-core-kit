@@ -34,7 +34,7 @@ type AuthSendVerificationEmailJobResult = Readonly<{
   ok: true;
   userId: string;
   outcome: 'sent' | 'skipped';
-  reason?: 'user_not_found' | 'already_verified';
+  reason?: 'user_not_found' | 'already_verified' | 'already_deleted';
   emailId?: string;
   tokenExpiresAt?: string;
 }> &
@@ -64,7 +64,7 @@ type AuthSendPasswordResetEmailJobResult = Readonly<{
   ok: true;
   userId: string;
   outcome: 'sent' | 'skipped';
-  reason?: 'user_not_found';
+  reason?: 'user_not_found' | 'already_deleted';
   emailId?: string;
   tokenExpiresAt?: string;
   resetLink?: string;
@@ -145,12 +145,17 @@ export class AuthEmailsWorker implements OnModuleInit {
     const client = this.prisma.getClient();
     const user = await client.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, emailVerifiedAt: true },
+      select: { id: true, email: true, emailVerifiedAt: true, status: true },
     });
 
     if (!user) {
       this.logger.warn({ userId }, 'Verification email job skipped: user not found');
       return { ok: true, userId, outcome: 'skipped', reason: 'user_not_found' };
+    }
+
+    if (user.status === 'DELETED') {
+      this.logger.warn({ userId: user.id }, 'Verification email job skipped: user deleted');
+      return { ok: true, userId: user.id, outcome: 'skipped', reason: 'already_deleted' };
     }
 
     if (user.emailVerifiedAt) {
@@ -198,12 +203,17 @@ export class AuthEmailsWorker implements OnModuleInit {
     const client = this.prisma.getClient();
     const user = await client.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true },
+      select: { id: true, email: true, status: true },
     });
 
     if (!user) {
       this.logger.warn({ userId }, 'Password reset email job skipped: user not found');
       return { ok: true, userId, outcome: 'skipped', reason: 'user_not_found' };
+    }
+
+    if (user.status === 'DELETED') {
+      this.logger.warn({ userId: user.id }, 'Password reset email job skipped: user deleted');
+      return { ok: true, userId: user.id, outcome: 'skipped', reason: 'already_deleted' };
     }
 
     const publicAppUrl = asNonEmptyString(this.config.get<string>('PUBLIC_APP_URL'));

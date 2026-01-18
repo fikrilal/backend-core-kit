@@ -64,6 +64,12 @@ Recommendation:
 - In `AuthEmailsWorker`, select `status` and **skip** sending for non-authenticatable users (at minimum `DELETED`; likely also `SUSPENDED` depending on policy).
 - Consider making `AuthService.requestPasswordReset` treat `DELETED` as “not found” (return `null`) to prevent enqueuing jobs in the first place (app-layer change, but simplifies infra).
 
+Implemented (2026-01-18):
+
+- `AuthEmailsWorker` now selects `User.status` and skips verification/password-reset emails for `DELETED` users:
+  - `apps/worker/src/jobs/auth-email-verification.worker.ts`
+  - Regression tests: `apps/worker/src/jobs/auth-email-verification.worker.spec.ts`
+
 ### P1 — Maintainability: duplicated AuthError → ProblemException mapping across controllers
 
 Evidence:
@@ -159,7 +165,7 @@ Recommendation:
 
 ## Proposed backlog (infra-focused)
 
-1. **P0:** Skip auth emails for `DELETED` users in `AuthEmailsWorker` (and optionally upstream prevent enqueue).
+1. **P0 (done):** Skip auth emails for `DELETED` users in `AuthEmailsWorker` (and optionally upstream prevent enqueue).
 2. **P1:** Add `AuthProblemExceptionFilter` to delete duplicate `mapAuthError/titleForStatus` boilerplate.
 3. **P1:** Split `PrismaAuthRepository` by responsibility + add a shared serializable retry helper.
 4. **P1:** Align DTO password constraints with configured policy (or document why not).
