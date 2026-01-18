@@ -20,6 +20,7 @@ export class UsersService {
     if (!user) {
       throw new UserNotFoundError();
     }
+    this.assertUserNotDeleted(user);
 
     return this.toMeView(user);
   }
@@ -29,6 +30,7 @@ export class UsersService {
     if (!user) {
       throw new UserNotFoundError();
     }
+    this.assertUserNotDeleted(user);
 
     return this.toMeView(user);
   }
@@ -63,6 +65,8 @@ export class UsersService {
       });
     }
 
+    this.assertUserNotDeleted(res.user);
+
     const due = res.user.deletionScheduledFor ?? scheduledFor;
     await this.accountDeletion.scheduleFinalize(input.userId, due);
 
@@ -86,7 +90,15 @@ export class UsersService {
       throw new UserNotFoundError();
     }
 
+    this.assertUserNotDeleted(res.user);
+
     await this.accountDeletion.cancelFinalize(input.userId);
+  }
+
+  private assertUserNotDeleted(user: UserRecord): void {
+    if (user.status === 'DELETED') {
+      throw new UserNotFoundError();
+    }
   }
 
   private toMeView(user: UserRecord): MeView {

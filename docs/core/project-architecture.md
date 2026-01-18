@@ -13,6 +13,9 @@ This core kit is designed as a **modular monolith** with hard boundaries and a s
   - API bootstrap wires config, logging, tracing, DI, and routes.
   - Worker bootstrap wires config, logging, tracing, DI, and job processors.
 - **Transport is not domain**: response envelopes, problem details, and request IDs live in the platform layer.
+  - The `app` layer may still define **use-case response models** (often named `*View`) that are shaped for the external API contract.
+  - It is acceptable for `*View` models to use JSON-friendly types (e.g., ISO timestamp strings) as long as `app` stays framework-agnostic (no Nest/Swagger imports).
+  - Keep the `domain` layer pure and free of transport concerns; convert domain records → `*View` in `app` when it reduces duplication.
 
 ## Repository Layout (Standard)
 

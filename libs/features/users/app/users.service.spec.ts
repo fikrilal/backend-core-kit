@@ -99,6 +99,14 @@ describe('UsersService', () => {
     await expect(service.getMe('missing')).rejects.toBeInstanceOf(UserNotFoundError);
   });
 
+  it('getMe throws UserNotFoundError when user is DELETED', async () => {
+    const repo = makeRepo({ findById: async () => makeUser({ status: 'DELETED' }) });
+    const { scheduler } = makeScheduler();
+    const service = new UsersService(repo, scheduler, clock);
+
+    await expect(service.getMe('user-1')).rejects.toBeInstanceOf(UserNotFoundError);
+  });
+
   it('updateMeProfile throws UserNotFoundError when repo returns null', async () => {
     const repo = makeRepo({
       updateProfile: async () => null,
@@ -211,6 +219,20 @@ describe('UsersService', () => {
     } satisfies Partial<UsersError>);
 
     expect(scheduleCalls).toHaveLength(0);
+  });
+
+  it('requestAccountDeletion treats DELETED user as not_found (no job scheduled)', async () => {
+    const repo = makeRepo({
+      requestAccountDeletion: async () => ({ kind: 'ok', user: makeUser({ status: 'DELETED' }) }),
+    });
+    const { scheduler, scheduleCalls } = makeScheduler();
+    const service = new UsersService(repo, scheduler, clock);
+
+    await expect(
+      service.requestAccountDeletion({ userId: 'user-1', sessionId: 's', traceId: 't' }),
+    ).rejects.toBeInstanceOf(UserNotFoundError);
+
+    expect(scheduleCalls).toEqual([]);
   });
 
   it('cancelAccountDeletion cancels the scheduled job (idempotent)', async () => {

@@ -109,3 +109,4 @@ See `docs/engineering/auth/token-refresh-and-request-retry.md` for client retry 
 - Throwing framework exceptions without mapping to problem-details
 - Adding new error codes without documenting them in OpenAPI
 - Implementing ad-hoc pagination/filter formats
+- Duplicating response mapping (prefer `app` to return a `*View` and keep controllers thin)
