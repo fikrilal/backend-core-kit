@@ -2,6 +2,7 @@ import { DbRoleHydrator } from './db-role-hydrator.service';
 import type { PrismaService } from '../db/prisma.service';
 import { ProblemException } from '../http/errors/problem.exception';
 import type { AuthPrincipal } from '../auth/auth.types';
+import { AuthErrorCode } from '../../shared/auth/auth-error-codes';
 
 function expectProblem(err: unknown, status: number, code: string): void {
   if (!(err instanceof ProblemException)) {
@@ -66,7 +67,7 @@ describe('DbRoleHydrator', () => {
     } catch (caught: unknown) {
       err = caught;
     }
-    expectProblem(err, 403, 'AUTH_USER_SUSPENDED');
+    expectProblem(err, 403, AuthErrorCode.AUTH_USER_SUSPENDED);
   });
 
   it('throws 401 when user is deleted', async () => {
