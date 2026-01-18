@@ -1,4 +1,5 @@
 import { initTelemetry } from '../../../libs/platform/otel/telemetry';
+import { loadDotEnvOnce } from '../../../libs/platform/config/dotenv';
 
 function getEnvNumber(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -8,6 +9,8 @@ function getEnvNumber(name: string, fallback: number): number {
 }
 
 async function bootstrap() {
+  await loadDotEnvOnce();
+
   const telemetry = await initTelemetry('worker');
   const shutdownTelemetry = () => void telemetry.shutdown().catch(() => undefined);
   process.once('SIGTERM', shutdownTelemetry);
