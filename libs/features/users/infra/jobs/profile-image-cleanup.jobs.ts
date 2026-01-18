@@ -13,12 +13,6 @@ import {
 } from './profile-image-cleanup.job';
 import { PrismaProfileImageRepository } from '../persistence/prisma-profile-image.repository';
 
-function asPositiveInt(value: unknown, fallback: number): number {
-  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return fallback;
-  return n;
-}
-
 @Injectable()
 export class ProfileImageCleanupJobs {
   private readonly expireDelaySeconds: number;
@@ -29,10 +23,8 @@ export class ProfileImageCleanupJobs {
     private readonly repo: PrismaProfileImageRepository,
     private readonly storage: ObjectStorageService,
   ) {
-    this.expireDelaySeconds = asPositiveInt(
-      this.config.get('USERS_PROFILE_IMAGE_UPLOAD_EXPIRE_DELAY_SECONDS'),
-      2 * 60 * 60,
-    );
+    this.expireDelaySeconds =
+      this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_EXPIRE_DELAY_SECONDS') ?? 2 * 60 * 60;
   }
 
   isEnabled(): boolean {

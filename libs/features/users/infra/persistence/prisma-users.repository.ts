@@ -39,10 +39,6 @@ type PrismaUserWithProfile = Pick<
   externalIdentities: Array<Pick<ExternalIdentity, 'provider'>>;
 };
 
-function isRecordNotFoundError(err: unknown): boolean {
-  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025';
-}
-
 function toProfileRecord(profile: PrismaUserWithProfile['profile']): UserProfileRecord | null {
   if (!profile) return null;
   return {
@@ -116,12 +112,6 @@ export class PrismaUsersRepository implements UsersRepository {
   async updateProfile(userId: string, patch: UpdateMeProfilePatch): Promise<UserRecord | null> {
     const client = this.prisma.getClient();
 
-    const existing = await client.user.findUnique({
-      where: { id: userId },
-      select: { id: true, status: true },
-    });
-    if (!existing || existing.status === PrismaUserStatus.DELETED) return null;
-
     const profileData: {
       displayName?: string | null;
       givenName?: string | null;
@@ -132,17 +122,23 @@ export class PrismaUsersRepository implements UsersRepository {
     if (patch.givenName !== undefined) profileData.givenName = patch.givenName;
     if (patch.familyName !== undefined) profileData.familyName = patch.familyName;
 
-    try {
-      const user = await client.user.update({
+    return await client.$transaction(async (tx) => {
+      const now = new Date();
+
+      const locked = await tx.user.updateMany({
+        where: { id: userId, status: { not: PrismaUserStatus.DELETED } },
+        data: { updatedAt: now },
+      });
+      if (locked.count === 0) return null;
+
+      await tx.userProfile.upsert({
+        where: { userId },
+        create: { userId, ...profileData },
+        update: profileData,
+      });
+
+      const user = await tx.user.findUnique({
         where: { id: userId },
-        data: {
-          profile: {
-            upsert: {
-              create: profileData,
-              update: profileData,
-            },
-          },
-        },
         select: {
           id: true,
           email: true,
@@ -163,12 +159,10 @@ export class PrismaUsersRepository implements UsersRepository {
           externalIdentities: { select: { provider: true } },
         },
       });
+      if (!user || user.status === PrismaUserStatus.DELETED) return null;
 
       return toUserRecord(user);
-    } catch (err: unknown) {
-      if (isRecordNotFoundError(err)) return null;
-      throw err;
-    }
+    });
   }
 
   async requestAccountDeletion(input: {

@@ -1,14 +1,10 @@
 import { createHash } from 'crypto';
 import type { RedisService } from '../../../../platform/redis/redis.service';
 
+export { asPositiveInt } from '../../../../platform/config/env-parsing';
+
 export function hashKey(value: string): string {
   return createHash('sha256').update(value).digest('base64url');
-}
-
-export function asPositiveInt(value: unknown, fallback: number): number {
-  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return fallback;
-  return n;
 }
 
 export function asNonEmptyString(value: unknown): string | undefined {

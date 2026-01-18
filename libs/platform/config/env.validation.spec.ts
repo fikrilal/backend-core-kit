@@ -21,6 +21,12 @@ describe('validateEnv', () => {
     );
   });
 
+  it('throws on invalid USERS_PROFILE_IMAGE_UPLOAD_USER_MAX_ATTEMPTS', () => {
+    expect(() => validateEnv({ USERS_PROFILE_IMAGE_UPLOAD_USER_MAX_ATTEMPTS: 'nope' })).toThrow(
+      /USERS_PROFILE_IMAGE_UPLOAD_USER_MAX_ATTEMPTS/i,
+    );
+  });
+
   it('throws when production required env is missing', () => {
     expect(() => validateEnv({ NODE_ENV: NodeEnv.Production })).toThrow(/DATABASE_URL/i);
   });
