@@ -65,3 +65,11 @@ x-error-codes:
 ```
 
 The set must match reality; CI will treat this as contract.
+
+## Implementation (TypeScript)
+
+Rules:
+
+- Use `ErrorCode` from `libs/shared/error-codes.ts` for global codes.
+- Use a feature enum (e.g., `AuthErrorCode`, `UsersErrorCode`) for feature-specific codes.
+- Feature error classes must type `code` as a union of global + feature codes (e.g., `AuthErrorCode | ErrorCode`) and must not accept raw strings.

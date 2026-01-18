@@ -90,13 +90,12 @@ Implemented (2026-01-18):
 
 ### P2 — Contract/typing: error codes are partially untyped + raw strings still exist
 
-Evidence:
+Implemented (2026-01-18):
 
-- `UsersError.code` is `string` (`libs/features/users/app/users.errors.ts:9`).
-- `UserProfileImageService` uses raw global codes as string literals:
-  - `code: 'VALIDATION_FAILED'`
-  - `code: 'NOT_FOUND'`
-  - (`libs/features/users/app/user-profile-image.service.ts:52`, `libs/features/users/app/user-profile-image.service.ts:126`)
+- `UsersError.code` is now typed as `UsersErrorCodeValue` (`UsersErrorCode | ErrorCode`) (`libs/features/users/app/users.errors.ts:12`).
+- Removed remaining raw string codes in `UserProfileImageService`:
+  - `ErrorCode.VALIDATION_FAILED` (input validation)
+  - `ErrorCode.NOT_FOUND` (missing file) (`libs/features/users/app/user-profile-image.service.ts:133`)
 
 Why this matters:
 
@@ -105,8 +104,7 @@ Why this matters:
 
 Recommendation:
 
-- Tighten `UsersError.code` to `UsersErrorCode | ErrorCode` (global codes) and replace string literals with the enum values:
-  - `ErrorCode.VALIDATION_FAILED`, `ErrorCode.NOT_FOUND`, etc.
+- Tighten `UsersError.code` to `UsersErrorCode | ErrorCode` (global codes) and replace string literals with the enum values.
 - Keep feature-specific codes in `UsersErrorCode` as-is.
 
 ### P2 — Boundary purity: app layer returns JSON-ready “view models” (Date → string)
@@ -144,16 +142,16 @@ Recommendation:
 
 ## Suggested next steps (smallest-first)
 
-1. Add unit tests for `UsersService` + `UserProfileImageService` using fakes.
-2. Standardize time source within users app services (Clock injection or explicit `now` params).
-3. Type error codes (`UsersErrorCode | ErrorCode`) and remove remaining raw string codes.
+1. (Done) Add unit tests for `UsersService` + `UserProfileImageService` using fakes.
+2. (Done) Standardize time source within users app services (Clock injection or explicit `now` params).
+3. (Done) Type error codes (`UsersErrorCode | ErrorCode`) and remove remaining raw string codes.
 4. (Later, when infra is in-scope) decide whether Date serialization belongs in app vs infra, then refactor accordingly.
 
 ## Notes on checks
 
 Audit findings were produced via manual review + targeted searches.
 
-Checks run while implementing P1 remediations:
+Checks run while implementing P1/P2 remediations:
 
 - `npm run format:check`
 - `npm run lint`

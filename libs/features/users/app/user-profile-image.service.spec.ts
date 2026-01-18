@@ -8,6 +8,7 @@ import type {
   PresignedGetObject,
   PresignedPutObject,
 } from '../../../platform/storage/object-storage.types';
+import { ErrorCode } from '../../../shared/error-codes';
 import {
   PROFILE_IMAGE_GET_URL_TTL_SECONDS,
   PROFILE_IMAGE_MAX_BYTES,
@@ -194,7 +195,7 @@ describe('UserProfileImageService', () => {
       }),
     ).rejects.toMatchObject({
       status: 400,
-      code: 'VALIDATION_FAILED',
+      code: ErrorCode.VALIDATION_FAILED,
       issues: expect.arrayContaining([{ field: 'contentType', message: expect.any(String) }]),
     });
   });
@@ -221,7 +222,7 @@ describe('UserProfileImageService', () => {
       }),
     ).rejects.toMatchObject({
       status: 400,
-      code: 'VALIDATION_FAILED',
+      code: ErrorCode.VALIDATION_FAILED,
       issues: expect.arrayContaining([{ field: 'sizeBytes', message: expect.any(String) }]),
     });
   });

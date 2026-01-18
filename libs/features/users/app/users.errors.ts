@@ -1,3 +1,6 @@
+import type { ErrorCode } from '../../../shared/error-codes';
+import type { UsersErrorCode } from './users.error-codes';
+
 export class UserNotFoundError extends Error {
   constructor() {
     super('User not found');
@@ -6,14 +9,16 @@ export class UserNotFoundError extends Error {
 
 export type UsersIssue = Readonly<{ field?: string; message: string }>;
 
+export type UsersErrorCodeValue = UsersErrorCode | ErrorCode;
+
 export class UsersError extends Error {
   readonly status: number;
-  readonly code: string;
+  readonly code: UsersErrorCodeValue;
   readonly issues?: ReadonlyArray<UsersIssue>;
 
   constructor(params: {
     status: number;
-    code: string;
+    code: UsersErrorCodeValue;
     message?: string;
     issues?: ReadonlyArray<UsersIssue>;
   }) {

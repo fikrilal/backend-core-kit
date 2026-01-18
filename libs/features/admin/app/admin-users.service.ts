@@ -9,6 +9,7 @@ import type {
 } from './admin-users.types';
 import { AdminError } from './admin.errors';
 import { AdminErrorCode } from './admin.error-codes';
+import { ErrorCode } from '../../../shared/error-codes';
 
 export class AdminUsersService {
   constructor(private readonly users: AdminUsersRepository) {}
@@ -25,7 +26,7 @@ export class AdminUsersService {
     if (res.kind === 'not_found') {
       throw new AdminError({
         status: 404,
-        code: 'NOT_FOUND',
+        code: ErrorCode.NOT_FOUND,
         message: 'User not found',
       });
     }
@@ -47,7 +48,7 @@ export class AdminUsersService {
     if (res.kind === 'not_found') {
       throw new AdminError({
         status: 404,
-        code: 'NOT_FOUND',
+        code: ErrorCode.NOT_FOUND,
         message: 'User not found',
       });
     }

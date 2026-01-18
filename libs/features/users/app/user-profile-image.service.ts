@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { ObjectStorageService } from '../../../platform/storage/object-storage.service';
 import type { PresignedPutObject } from '../../../platform/storage/object-storage.types';
+import { ErrorCode } from '../../../shared/error-codes';
 import { UserNotFoundError, UsersError } from './users.errors';
 import { UsersErrorCode } from './users.error-codes';
 import type { ProfileImageRepository, StoredFileRecord } from './ports/profile-image.repository';
@@ -55,7 +56,7 @@ export class UserProfileImageService {
     if (!isAllowedContentType(contentType)) {
       throw new UsersError({
         status: 400,
-        code: 'VALIDATION_FAILED',
+        code: ErrorCode.VALIDATION_FAILED,
         message: 'Unsupported contentType',
         issues: [
           {
@@ -70,7 +71,7 @@ export class UserProfileImageService {
     if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > PROFILE_IMAGE_MAX_BYTES) {
       throw new UsersError({
         status: 400,
-        code: 'VALIDATION_FAILED',
+        code: ErrorCode.VALIDATION_FAILED,
         message: 'Invalid sizeBytes',
         issues: [
           { field: 'sizeBytes', message: `Must be between 1 and ${PROFILE_IMAGE_MAX_BYTES}` },
@@ -129,7 +130,7 @@ export class UserProfileImageService {
     if (!record) {
       throw new UsersError({
         status: 404,
-        code: 'NOT_FOUND',
+        code: ErrorCode.NOT_FOUND,
         message: 'File not found',
       });
     }

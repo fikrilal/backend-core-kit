@@ -22,6 +22,8 @@ If you are changing behavior, standards, or architecture, update docs + add an A
   - errors are RFC7807 (`application/problem+json`) with stable `code` and `traceId`
   - OpenAPI snapshot is committed and linted (Spectral) on every API change
 - **Two-process baseline**: API and BullMQ worker are separate processes by default.
+- **Error code hygiene**: no raw string `code` values; use `ErrorCode` + feature enums and typed unions (ADR `docs/adr/0017-standardize-app-errors-and-clock.md`).
+- **Time handling hygiene**: app services must not use ad-hoc `new Date()` / `Date.now()`; use `Clock` (`libs/shared/time.ts`) (ADR `docs/adr/0017-standardize-app-errors-and-clock.md`).
 - No secrets in git; secrets injected at runtime (env/secret manager/mounted files).
 
 See ADRs: `docs/adr/0013-typescript-strict-no-any.md`, `docs/adr/0014-enforce-architecture-boundaries.md`.

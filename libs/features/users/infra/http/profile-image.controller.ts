@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Post,
+  Req,
+  Res,
+  UseFilters,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiNoContentResponse,
@@ -7,19 +18,17 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { PinoLogger } from 'nestjs-pino';
 import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
-import { ProblemException } from '../../../../platform/http/errors/problem.exception';
 import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { PROFILE_IMAGE_PRESIGN_TTL_SECONDS } from '../../app/profile-image.policy';
 import { UserProfileImageService } from '../../app/user-profile-image.service';
 import { UsersErrorCode } from '../../app/users.error-codes';
-import { UserNotFoundError, UsersError } from '../../app/users.errors';
-import { PinoLogger } from 'nestjs-pino';
 import { ProfileImageCleanupJobs } from '../jobs/profile-image-cleanup.jobs';
 import { RedisProfileImageUploadRateLimiter } from '../rate-limit/redis-profile-image-upload-rate-limiter';
 import {
@@ -28,9 +37,11 @@ import {
   ProfileImageUploadPlanEnvelopeDto,
   ProfileImageUrlEnvelopeDto,
 } from './dtos/profile-image.dto';
+import { UsersErrorFilter } from './users-error.filter';
 
 @ApiTags('Users')
 @Controller()
+@UseFilters(UsersErrorFilter)
 export class ProfileImageController {
   constructor(
     private readonly images: UserProfileImageService,
@@ -71,28 +82,24 @@ export class ProfileImageController {
     @Req() req: FastifyRequest,
     @Body() body: CreateProfileImageUploadRequestDto,
   ) {
+    await this.rateLimiter.assertAllowed({ userId: principal.userId, ip: req.ip });
+    const plan = await this.images.createUploadPlan({
+      userId: principal.userId,
+      contentType: body.contentType,
+      sizeBytes: body.sizeBytes,
+      traceId: req.requestId ?? 'unknown',
+    });
+
     try {
-      await this.rateLimiter.assertAllowed({ userId: principal.userId, ip: req.ip });
-      const plan = await this.images.createUploadPlan({
-        userId: principal.userId,
-        contentType: body.contentType,
-        sizeBytes: body.sizeBytes,
-        traceId: req.requestId ?? 'unknown',
-      });
-
-      try {
-        await this.jobs.scheduleExpireUpload(principal.userId, plan.fileId);
-      } catch (err: unknown) {
-        this.logger.error(
-          { err, userId: principal.userId, fileId: plan.fileId },
-          'Failed to schedule profile image upload expiry job',
-        );
-      }
-
-      return plan;
+      await this.jobs.scheduleExpireUpload(principal.userId, plan.fileId);
     } catch (err: unknown) {
-      throw this.mapUsersError(err);
+      this.logger.error(
+        { err, userId: principal.userId, fileId: plan.fileId },
+        'Failed to schedule profile image upload expiry job',
+      );
     }
+
+    return plan;
   }
 
   @Post('me/profile-image/complete')
@@ -120,25 +127,21 @@ export class ProfileImageController {
     @Req() req: FastifyRequest,
     @Body() body: CompleteProfileImageUploadRequestDto,
   ): Promise<void> {
-    try {
-      const previousFileId = await this.images.completeUpload({
-        userId: principal.userId,
-        fileId: body.fileId,
-        traceId: req.requestId ?? 'unknown',
-      });
+    const previousFileId = await this.images.completeUpload({
+      userId: principal.userId,
+      fileId: body.fileId,
+      traceId: req.requestId ?? 'unknown',
+    });
 
-      if (previousFileId) {
-        try {
-          await this.jobs.enqueueDeleteStoredFile(principal.userId, previousFileId);
-        } catch (err: unknown) {
-          this.logger.error(
-            { err, userId: principal.userId, fileId: previousFileId },
-            'Failed to enqueue profile image cleanup job',
-          );
-        }
+    if (previousFileId) {
+      try {
+        await this.jobs.enqueueDeleteStoredFile(principal.userId, previousFileId);
+      } catch (err: unknown) {
+        this.logger.error(
+          { err, userId: principal.userId, fileId: previousFileId },
+          'Failed to enqueue profile image cleanup job',
+        );
       }
-    } catch (err: unknown) {
-      throw this.mapUsersError(err);
     }
   }
 
@@ -158,24 +161,20 @@ export class ProfileImageController {
     @CurrentPrincipal() principal: AuthPrincipal,
     @Req() req: FastifyRequest,
   ): Promise<void> {
-    try {
-      const clearedFileId = await this.images.clearProfileImage({
-        userId: principal.userId,
-        traceId: req.requestId ?? 'unknown',
-      });
+    const clearedFileId = await this.images.clearProfileImage({
+      userId: principal.userId,
+      traceId: req.requestId ?? 'unknown',
+    });
 
-      if (clearedFileId) {
-        try {
-          await this.jobs.enqueueDeleteStoredFile(principal.userId, clearedFileId);
-        } catch (err: unknown) {
-          this.logger.error(
-            { err, userId: principal.userId, fileId: clearedFileId },
-            'Failed to enqueue profile image cleanup job',
-          );
-        }
+    if (clearedFileId) {
+      try {
+        await this.jobs.enqueueDeleteStoredFile(principal.userId, clearedFileId);
+      } catch (err: unknown) {
+        this.logger.error(
+          { err, userId: principal.userId, fileId: clearedFileId },
+          'Failed to enqueue profile image cleanup job',
+        );
       }
-    } catch (err: unknown) {
-      throw this.mapUsersError(err);
     }
   }
 
@@ -200,58 +199,16 @@ export class ProfileImageController {
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<unknown> {
-    try {
-      const url = await this.images.getProfileImageUrl({
-        userId: principal.userId,
-        traceId: req.requestId ?? 'unknown',
-      });
+    const url = await this.images.getProfileImageUrl({
+      userId: principal.userId,
+      traceId: req.requestId ?? 'unknown',
+    });
 
-      if (!url) {
-        reply.status(204);
-        return undefined;
-      }
-
-      return url;
-    } catch (err: unknown) {
-      throw this.mapUsersError(err);
-    }
-  }
-
-  private mapUsersError(err: unknown): ProblemException {
-    if (err instanceof UserNotFoundError) {
-      return new ProblemException(401, { title: 'Unauthorized', code: ErrorCode.UNAUTHORIZED });
+    if (!url) {
+      reply.status(204);
+      return undefined;
     }
 
-    if (err instanceof UsersError) {
-      return new ProblemException(err.status, {
-        title: this.titleForStatus(err.status, err.code),
-        detail: err.message,
-        code: err.code,
-        errors: err.issues ? [...err.issues] : undefined,
-      });
-    }
-
-    throw err;
-  }
-
-  private titleForStatus(status: number, code: string): string {
-    if (code === ErrorCode.VALIDATION_FAILED) return 'Validation Failed';
-
-    switch (status) {
-      case 400:
-        return 'Bad Request';
-      case 401:
-        return 'Unauthorized';
-      case 403:
-        return 'Forbidden';
-      case 404:
-        return 'Not Found';
-      case 409:
-        return 'Conflict';
-      case 501:
-        return 'Not Implemented';
-      default:
-        return status >= 500 ? 'Internal Server Error' : 'Error';
-    }
+    return url;
   }
 }
