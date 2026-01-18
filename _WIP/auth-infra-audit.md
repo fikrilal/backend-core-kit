@@ -88,6 +88,15 @@ Recommendation (low-risk):
   - uses a consistent title strategy (ideally aligning with `ProblemDetailsFilter.statusTitle`)
 - Apply it via `@UseFilters(AuthProblemExceptionFilter)` at the controller level to stay explicit (minimizes “magic”).
 
+Implemented (2026-01-18):
+
+- Added `AuthErrorFilter` to map `AuthError` → `ProblemException` and delegate rendering to `ProblemDetailsFilter`:
+  - `libs/features/auth/infra/http/auth-error.filter.ts`
+- Applied it at the controller level and removed duplicated `mapAuthError/titleForStatus` helpers:
+  - `libs/features/auth/infra/http/auth.controller.ts`
+  - `libs/features/auth/infra/http/me-sessions.controller.ts`
+  - `libs/features/auth/infra/http/me-push-token.controller.ts`
+
 ### P1 — Maintainability: `PrismaAuthRepository` is a 1.1k LOC “mega-repo”
 
 Evidence:
@@ -166,7 +175,7 @@ Recommendation:
 ## Proposed backlog (infra-focused)
 
 1. **P0 (done):** Skip auth emails for `DELETED` users in `AuthEmailsWorker` (and optionally upstream prevent enqueue).
-2. **P1:** Add `AuthProblemExceptionFilter` to delete duplicate `mapAuthError/titleForStatus` boilerplate.
+2. **P1 (done):** Add an auth error filter to delete duplicate `mapAuthError/titleForStatus` boilerplate.
 3. **P1:** Split `PrismaAuthRepository` by responsibility + add a shared serializable retry helper.
 4. **P1:** Align DTO password constraints with configured policy (or document why not).
 5. **P2:** Optional ergonomics (`Retry-After` for 429, shared parsing helpers).

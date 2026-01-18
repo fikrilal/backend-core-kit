@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post, Req, UseFilters, UseGuards } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import {
   ApiBearerAuth,
@@ -15,7 +15,6 @@ import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
-import { ProblemException } from '../../../../platform/http/errors/problem.exception';
 import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
@@ -36,6 +35,7 @@ import {
   RefreshRequestDto,
   VerifyEmailRequestDto,
 } from './dtos/auth.dto';
+import { AuthErrorFilter } from './auth-error.filter';
 
 const SESSION_USER_AGENT_MAX_LENGTH = 512;
 
@@ -58,6 +58,7 @@ function normalizeUserAgent(value: unknown): string | undefined {
 
 @ApiTags('Auth')
 @Controller('auth')
+@UseFilters(AuthErrorFilter)
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
@@ -84,29 +85,22 @@ export class AuthController {
   ])
   @ApiOkResponse({ type: AuthResultEnvelopeDto })
   async register(@Body() body: PasswordRegisterRequestDto, @Req() req: FastifyRequest) {
+    const result = await this.auth.registerWithPassword({
+      email: body.email,
+      password: body.password,
+      deviceId: body.deviceId,
+      deviceName: body.deviceName,
+      ip: req.ip,
+      userAgent: normalizeUserAgent(req.headers['user-agent']),
+    });
+
     try {
-      const result = await this.auth.registerWithPassword({
-        email: body.email,
-        password: body.password,
-        deviceId: body.deviceId,
-        deviceName: body.deviceName,
-        ip: req.ip,
-        userAgent: normalizeUserAgent(req.headers['user-agent']),
-      });
-
-      try {
-        await this.emailVerificationJobs.enqueueSendVerificationEmail(result.user.id);
-      } catch (err: unknown) {
-        this.logger.error(
-          { err, userId: result.user.id },
-          'Failed to enqueue verification email job',
-        );
-      }
-
-      return result;
+      await this.emailVerificationJobs.enqueueSendVerificationEmail(result.user.id);
     } catch (err: unknown) {
-      throw this.mapAuthError(err);
+      this.logger.error({ err, userId: result.user.id }, 'Failed to enqueue verification email job');
     }
+
+    return result;
   }
 
   @Post('oidc/exchange')
@@ -128,18 +122,14 @@ export class AuthController {
   ])
   @ApiOkResponse({ type: AuthResultEnvelopeDto })
   async exchangeOidc(@Body() body: OidcExchangeRequestDto, @Req() req: FastifyRequest) {
-    try {
-      return await this.auth.exchangeOidc({
-        provider: body.provider,
-        idToken: body.idToken,
-        deviceId: body.deviceId,
-        deviceName: body.deviceName,
-        ip: req.ip,
-        userAgent: normalizeUserAgent(req.headers['user-agent']),
-      });
-    } catch (err: unknown) {
-      throw this.mapAuthError(err);
-    }
+    return await this.auth.exchangeOidc({
+      provider: body.provider,
+      idToken: body.idToken,
+      deviceId: body.deviceId,
+      deviceName: body.deviceName,
+      ip: req.ip,
+      userAgent: normalizeUserAgent(req.headers['user-agent']),
+    });
   }
 
   @Post('oidc/connect')
@@ -171,15 +161,11 @@ export class AuthController {
     @CurrentPrincipal() principal: AuthPrincipal,
     @Body() body: OidcConnectRequestDto,
   ): Promise<void> {
-    try {
-      await this.auth.connectOidc({
-        userId: principal.userId,
-        provider: body.provider,
-        idToken: body.idToken,
-      });
-    } catch (err: unknown) {
-      throw this.mapAuthError(err);
-    }
+    await this.auth.connectOidc({
+      userId: principal.userId,
+      provider: body.provider,
+      idToken: body.idToken,
+    });
   }
 
   @Post('email/verify')
@@ -197,11 +183,7 @@ export class AuthController {
   ])
   @ApiNoContentResponse()
   async verifyEmail(@Body() body: VerifyEmailRequestDto): Promise<void> {
-    try {
-      await this.auth.verifyEmail({ token: body.token });
-    } catch (err: unknown) {
-      throw this.mapAuthError(err);
-    }
+    await this.auth.verifyEmail({ token: body.token });
   }
 
   @Post('email/verification/resend')
@@ -219,35 +201,29 @@ export class AuthController {
     @CurrentPrincipal() principal: AuthPrincipal,
     @Req() req: FastifyRequest,
   ): Promise<void> {
-    try {
-      if (!this.emailVerificationJobs.isEnabled()) {
-        throw new AuthError({
-          status: 500,
-          code: ErrorCode.INTERNAL,
-          message: 'Email is not configured',
-        });
-      }
-
-      const status = await this.auth.getEmailVerificationStatus(principal.userId);
-      if (status === 'verified') return;
-
-      await this.emailVerificationRateLimiter.assertResendAllowed({
-        userId: principal.userId,
-        ip: req.ip,
+    if (!this.emailVerificationJobs.isEnabled()) {
+      throw new AuthError({
+        status: 500,
+        code: ErrorCode.INTERNAL,
+        message: 'Email is not configured',
       });
+    }
 
-      const enqueued = await this.emailVerificationJobs.enqueueSendVerificationEmail(
-        principal.userId,
-      );
-      if (!enqueued) {
-        throw new AuthError({
-          status: 500,
-          code: ErrorCode.INTERNAL,
-          message: 'Email is not configured',
-        });
-      }
-    } catch (err: unknown) {
-      throw this.mapAuthError(err);
+    const status = await this.auth.getEmailVerificationStatus(principal.userId);
+    if (status === 'verified') return;
+
+    await this.emailVerificationRateLimiter.assertResendAllowed({
+      userId: principal.userId,
+      ip: req.ip,
+    });
+
+    const enqueued = await this.emailVerificationJobs.enqueueSendVerificationEmail(principal.userId);
+    if (!enqueued) {
+      throw new AuthError({
+        status: 500,
+        code: ErrorCode.INTERNAL,
+        message: 'Email is not configured',
+      });
     }
   }
 
@@ -265,30 +241,26 @@ export class AuthController {
     @Body() body: PasswordResetRequestDto,
     @Req() req: FastifyRequest,
   ): Promise<void> {
+    if (!this.passwordResetJobs.isEnabled()) {
+      throw new AuthError({
+        status: 500,
+        code: ErrorCode.INTERNAL,
+        message: 'Password reset email is not configured',
+      });
+    }
+
+    await this.passwordResetRateLimiter.assertRequestAllowed({ email: body.email, ip: req.ip });
+
+    const target = await this.auth.requestPasswordReset({ email: body.email });
+    if (!target) return;
+
     try {
-      if (!this.passwordResetJobs.isEnabled()) {
-        throw new AuthError({
-          status: 500,
-          code: ErrorCode.INTERNAL,
-          message: 'Password reset email is not configured',
-        });
-      }
-
-      await this.passwordResetRateLimiter.assertRequestAllowed({ email: body.email, ip: req.ip });
-
-      const target = await this.auth.requestPasswordReset({ email: body.email });
-      if (!target) return;
-
-      try {
-        await this.passwordResetJobs.enqueueSendPasswordResetEmail(target.userId);
-      } catch (err: unknown) {
-        this.logger.error(
-          { err, userId: target.userId },
-          'Failed to enqueue password reset email job',
-        );
-      }
+      await this.passwordResetJobs.enqueueSendPasswordResetEmail(target.userId);
     } catch (err: unknown) {
-      throw this.mapAuthError(err);
+      this.logger.error(
+        { err, userId: target.userId },
+        'Failed to enqueue password reset email job',
+      );
     }
   }
 
@@ -307,11 +279,7 @@ export class AuthController {
   ])
   @ApiNoContentResponse()
   async confirmPasswordReset(@Body() body: PasswordResetConfirmRequestDto): Promise<void> {
-    try {
-      await this.auth.confirmPasswordReset({ token: body.token, newPassword: body.newPassword });
-    } catch (err: unknown) {
-      throw this.mapAuthError(err);
-    }
+    await this.auth.confirmPasswordReset({ token: body.token, newPassword: body.newPassword });
   }
 
   @Post('password/login')
@@ -330,18 +298,14 @@ export class AuthController {
   ])
   @ApiOkResponse({ type: AuthResultEnvelopeDto })
   async login(@Body() body: PasswordLoginRequestDto, @Req() req: FastifyRequest) {
-    try {
-      return await this.auth.loginWithPassword({
-        email: body.email,
-        password: body.password,
-        deviceId: body.deviceId,
-        deviceName: body.deviceName,
-        ip: req.ip,
-        userAgent: normalizeUserAgent(req.headers['user-agent']),
-      });
-    } catch (err: unknown) {
-      throw this.mapAuthError(err);
-    }
+    return await this.auth.loginWithPassword({
+      email: body.email,
+      password: body.password,
+      deviceId: body.deviceId,
+      deviceName: body.deviceName,
+      ip: req.ip,
+      userAgent: normalizeUserAgent(req.headers['user-agent']),
+    });
   }
 
   @Post('password/change')
@@ -370,16 +334,12 @@ export class AuthController {
     @CurrentPrincipal() principal: AuthPrincipal,
     @Body() body: ChangePasswordRequestDto,
   ): Promise<void> {
-    try {
-      await this.auth.changePassword({
-        userId: principal.userId,
-        sessionId: principal.sessionId,
-        currentPassword: body.currentPassword,
-        newPassword: body.newPassword,
-      });
-    } catch (err: unknown) {
-      throw this.mapAuthError(err);
-    }
+    await this.auth.changePassword({
+      userId: principal.userId,
+      sessionId: principal.sessionId,
+      currentPassword: body.currentPassword,
+      newPassword: body.newPassword,
+    });
   }
 
   @Post('refresh')
@@ -400,15 +360,11 @@ export class AuthController {
   ])
   @ApiOkResponse({ type: AuthResultEnvelopeDto })
   async refresh(@Body() body: RefreshRequestDto, @Req() req: FastifyRequest) {
-    try {
-      return await this.auth.refresh({
-        refreshToken: body.refreshToken,
-        ip: req.ip,
-        userAgent: normalizeUserAgent(req.headers['user-agent']),
-      });
-    } catch (err: unknown) {
-      throw this.mapAuthError(err);
-    }
+    return await this.auth.refresh({
+      refreshToken: body.refreshToken,
+      ip: req.ip,
+      userAgent: normalizeUserAgent(req.headers['user-agent']),
+    });
   }
 
   @Post('logout')
@@ -425,40 +381,6 @@ export class AuthController {
   ])
   @ApiNoContentResponse()
   async logout(@Body() body: LogoutRequestDto) {
-    try {
-      await this.auth.logout({ refreshToken: body.refreshToken });
-    } catch (err: unknown) {
-      throw this.mapAuthError(err);
-    }
-  }
-
-  private mapAuthError(err: unknown): ProblemException {
-    if (err instanceof AuthError) {
-      const title = this.titleForStatus(err.status, err.code);
-      return new ProblemException(err.status, {
-        title,
-        detail: err.message,
-        code: err.code,
-        errors: err.issues ? [...err.issues] : undefined,
-      });
-    }
-    throw err;
-  }
-
-  private titleForStatus(status: number, code: string): string {
-    if (code === ErrorCode.VALIDATION_FAILED) return 'Validation Failed';
-
-    switch (status) {
-      case 400:
-        return 'Bad Request';
-      case 401:
-        return 'Unauthorized';
-      case 409:
-        return 'Conflict';
-      case 429:
-        return 'Too Many Requests';
-      default:
-        return status >= 500 ? 'Internal Server Error' : 'Error';
-    }
+    await this.auth.logout({ refreshToken: body.refreshToken });
   }
 }
