@@ -8,9 +8,14 @@ import type {
   UsersRepository,
 } from './ports/users.repository';
 import type { MeView, UpdateMeProfilePatch, UserRecord } from './users.types';
+import type { Clock } from './time';
 
 function unimplemented(): never {
   throw new Error('Not implemented');
+}
+
+function fixedClock(now: Date): Clock {
+  return { now: () => new Date(now.getTime()) };
 }
 
 function makeUser(partial?: Partial<UserRecord>): UserRecord {
@@ -61,10 +66,12 @@ function makeScheduler(): {
 }
 
 describe('UsersService', () => {
+  const clock = fixedClock(new Date('2026-01-01T00:00:00.000Z'));
+
   it('getMe returns a MeView with a non-null profile', async () => {
     const repo = makeRepo({ findById: async () => makeUser({ profile: null }) });
     const { scheduler } = makeScheduler();
-    const service = new UsersService(repo, scheduler);
+    const service = new UsersService(repo, scheduler, clock);
 
     const res = await service.getMe('user-1');
 
@@ -87,7 +94,7 @@ describe('UsersService', () => {
   it('getMe throws UserNotFoundError when repo returns null', async () => {
     const repo = makeRepo({ findById: async () => null });
     const { scheduler } = makeScheduler();
-    const service = new UsersService(repo, scheduler);
+    const service = new UsersService(repo, scheduler, clock);
 
     await expect(service.getMe('missing')).rejects.toBeInstanceOf(UserNotFoundError);
   });
@@ -97,7 +104,7 @@ describe('UsersService', () => {
       updateProfile: async () => null,
     });
     const { scheduler } = makeScheduler();
-    const service = new UsersService(repo, scheduler);
+    const service = new UsersService(repo, scheduler, clock);
 
     const patch: UpdateMeProfilePatch = { displayName: 'Alice' };
     await expect(service.updateMeProfile('missing', patch)).rejects.toBeInstanceOf(
@@ -106,9 +113,6 @@ describe('UsersService', () => {
   });
 
   it('requestAccountDeletion passes deterministic now + scheduledFor to the repository and schedules the job', async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
-
     const expectedNow = new Date('2026-01-01T00:00:00.000Z');
     const expectedScheduledFor = new Date('2026-01-31T00:00:00.000Z');
 
@@ -132,7 +136,7 @@ describe('UsersService', () => {
     });
 
     const { scheduler, scheduleCalls } = makeScheduler();
-    const service = new UsersService(repo, scheduler);
+    const service = new UsersService(repo, scheduler, fixedClock(expectedNow));
 
     const res = await service.requestAccountDeletion({
       userId: 'user-1',
@@ -150,8 +154,6 @@ describe('UsersService', () => {
 
     expect(res.scheduledFor.getTime()).toBe(expectedScheduledFor.getTime());
     expect(res.newlyRequested).toBe(true);
-
-    jest.useRealTimers();
   });
 
   it('requestAccountDeletion uses the stored due date when already requested', async () => {
@@ -166,7 +168,7 @@ describe('UsersService', () => {
     });
 
     const { scheduler, scheduleCalls } = makeScheduler();
-    const service = new UsersService(repo, scheduler);
+    const service = new UsersService(repo, scheduler, clock);
 
     const res = await service.requestAccountDeletion({
       userId: 'user-1',
@@ -185,7 +187,7 @@ describe('UsersService', () => {
       requestAccountDeletion: async () => ({ kind: 'not_found' }),
     });
     const { scheduler, scheduleCalls } = makeScheduler();
-    const service = new UsersService(repo, scheduler);
+    const service = new UsersService(repo, scheduler, clock);
 
     await expect(
       service.requestAccountDeletion({ userId: 'missing', sessionId: 's', traceId: 't' }),
@@ -199,7 +201,7 @@ describe('UsersService', () => {
       requestAccountDeletion: async () => ({ kind: 'last_admin' }),
     });
     const { scheduler, scheduleCalls } = makeScheduler();
-    const service = new UsersService(repo, scheduler);
+    const service = new UsersService(repo, scheduler, clock);
 
     await expect(
       service.requestAccountDeletion({ userId: 'user-1', sessionId: 's', traceId: 't' }),
@@ -212,9 +214,7 @@ describe('UsersService', () => {
   });
 
   it('cancelAccountDeletion cancels the scheduled job (idempotent)', async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
-
+    const expectedNow = new Date('2026-01-01T00:00:00.000Z');
     let capturedNow: Date | undefined;
 
     const repo = makeRepo({
@@ -227,14 +227,12 @@ describe('UsersService', () => {
     });
 
     const { scheduler, cancelCalls } = makeScheduler();
-    const service = new UsersService(repo, scheduler);
+    const service = new UsersService(repo, scheduler, fixedClock(expectedNow));
 
     await service.cancelAccountDeletion({ userId: 'user-1', sessionId: 's', traceId: 't' });
 
-    expect(capturedNow?.getTime()).toBe(new Date('2026-01-01T00:00:00.000Z').getTime());
+    expect(capturedNow?.getTime()).toBe(expectedNow.getTime());
     expect(cancelCalls).toEqual([{ userId: 'user-1' }]);
-
-    jest.useRealTimers();
   });
 
   it('cancelAccountDeletion throws UserNotFoundError when repo returns not_found', async () => {
@@ -243,7 +241,7 @@ describe('UsersService', () => {
     });
 
     const { scheduler, cancelCalls } = makeScheduler();
-    const service = new UsersService(repo, scheduler);
+    const service = new UsersService(repo, scheduler, clock);
 
     await expect(
       service.cancelAccountDeletion({ userId: 'missing', sessionId: 's', traceId: 't' }),

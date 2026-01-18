@@ -4,6 +4,7 @@ import { UserNotFoundError, UsersError } from './users.errors';
 import { UsersErrorCode } from './users.error-codes';
 import type { MeView } from './users.types';
 import type { UpdateMeProfilePatch, UserProfileRecord, UserRecord } from './users.types';
+import type { Clock } from './time';
 
 const ACCOUNT_DELETION_GRACE_PERIOD_DAYS = 30;
 
@@ -11,6 +12,7 @@ export class UsersService {
   constructor(
     private readonly users: UsersRepository,
     private readonly accountDeletion: AccountDeletionScheduler,
+    private readonly clock: Clock,
   ) {}
 
   async getMe(userId: string): Promise<MeView> {
@@ -36,7 +38,7 @@ export class UsersService {
     sessionId: string;
     traceId: string;
   }): Promise<Readonly<{ scheduledFor: Date; newlyRequested: boolean }>> {
-    const now = new Date();
+    const now = this.clock.now();
     const scheduledFor = new Date(
       now.getTime() + ACCOUNT_DELETION_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000,
     );
@@ -72,7 +74,7 @@ export class UsersService {
     sessionId: string;
     traceId: string;
   }): Promise<void> {
-    const now = new Date();
+    const now = this.clock.now();
     const res = await this.users.cancelAccountDeletion({
       userId: input.userId,
       sessionId: input.sessionId,

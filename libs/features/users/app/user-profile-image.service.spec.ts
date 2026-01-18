@@ -13,19 +13,14 @@ import {
   PROFILE_IMAGE_MAX_BYTES,
   PROFILE_IMAGE_PRESIGN_TTL_SECONDS,
 } from './profile-image.policy';
+import type { Clock } from './time';
 
 function unimplemented(): never {
   throw new Error('Not implemented');
 }
 
-async function withFakeTime<T>(now: Date, fn: () => Promise<T> | T): Promise<T> {
-  jest.useFakeTimers();
-  jest.setSystemTime(now);
-  try {
-    return await fn();
-  } finally {
-    jest.useRealTimers();
-  }
+function fixedClock(now: Date): Clock {
+  return { now: () => new Date(now.getTime()) };
 }
 
 function makeRepo(overrides: Partial<ProfileImageRepository>): ProfileImageRepository {
@@ -75,6 +70,9 @@ function makeStoredFile(partial?: Partial<StoredFileRecord>): StoredFileRecord {
 }
 
 describe('UserProfileImageService', () => {
+  const now = new Date('2026-01-01T00:00:00.000Z');
+  const clock = fixedClock(now);
+
   it('createUploadPlan throws USERS_OBJECT_STORAGE_NOT_CONFIGURED when storage is disabled', async () => {
     const repo = makeRepo({});
     const storage = asObjectStorageService({
@@ -86,7 +84,7 @@ describe('UserProfileImageService', () => {
       deleteObject: async () => unimplemented(),
     });
 
-    const service = new UserProfileImageService(repo, storage);
+    const service = new UserProfileImageService(repo, storage, clock);
 
     await expect(
       service.createUploadPlan({
@@ -141,39 +139,37 @@ describe('UserProfileImageService', () => {
       deleteObject: async () => unimplemented(),
     });
 
-    const service = new UserProfileImageService(repo, storage);
+    const service = new UserProfileImageService(repo, storage, clock);
 
-    await withFakeTime(new Date('2026-01-01T00:00:00.000Z'), async () => {
-      const res = await service.createUploadPlan({
-        userId: 'user-1',
-        contentType: ' image/png ',
-        sizeBytes: 123.9,
-        traceId: 'trace-1',
-      });
-
-      expect(res.upload).toEqual(presigned);
-
-      expect(presignInput).toBeDefined();
-      expect(presignInput?.contentType).toBe('image/png');
-      expect(presignInput?.expiresInSeconds).toBe(PROFILE_IMAGE_PRESIGN_TTL_SECONDS);
-
-      expect(createdInput).toBeDefined();
-      expect(createdInput?.ownerUserId).toBe('user-1');
-      expect(createdInput?.bucket).toBe('bucket-1');
-      expect(createdInput?.contentType).toBe('image/png');
-      expect(createdInput?.sizeBytes).toBe(123);
-      expect(createdInput?.traceId).toBe('trace-1');
-      expect(createdInput?.now.getTime()).toBe(new Date('2026-01-01T00:00:00.000Z').getTime());
-
-      expect(res.fileId).toBe(createdInput?.fileId);
-      expect(presignInput?.key).toBe(`users/user-1/profile-images/${res.fileId}`);
-      expect(createdInput?.objectKey).toBe(`users/user-1/profile-images/${res.fileId}`);
-
-      const expectedExpiresAt = new Date(
-        new Date('2026-01-01T00:00:00.000Z').getTime() + PROFILE_IMAGE_PRESIGN_TTL_SECONDS * 1000,
-      ).toISOString();
-      expect(res.expiresAt).toBe(expectedExpiresAt);
+    const res = await service.createUploadPlan({
+      userId: 'user-1',
+      contentType: ' image/png ',
+      sizeBytes: 123.9,
+      traceId: 'trace-1',
     });
+
+    expect(res.upload).toEqual(presigned);
+
+    expect(presignInput).toBeDefined();
+    expect(presignInput?.contentType).toBe('image/png');
+    expect(presignInput?.expiresInSeconds).toBe(PROFILE_IMAGE_PRESIGN_TTL_SECONDS);
+
+    expect(createdInput).toBeDefined();
+    expect(createdInput?.ownerUserId).toBe('user-1');
+    expect(createdInput?.bucket).toBe('bucket-1');
+    expect(createdInput?.contentType).toBe('image/png');
+    expect(createdInput?.sizeBytes).toBe(123);
+    expect(createdInput?.traceId).toBe('trace-1');
+    expect(createdInput?.now.getTime()).toBe(now.getTime());
+
+    expect(res.fileId).toBe(createdInput?.fileId);
+    expect(presignInput?.key).toBe(`users/user-1/profile-images/${res.fileId}`);
+    expect(createdInput?.objectKey).toBe(`users/user-1/profile-images/${res.fileId}`);
+
+    const expectedExpiresAt = new Date(
+      now.getTime() + PROFILE_IMAGE_PRESIGN_TTL_SECONDS * 1000,
+    ).toISOString();
+    expect(res.expiresAt).toBe(expectedExpiresAt);
   });
 
   it('createUploadPlan rejects unsupported contentType with VALIDATION_FAILED', async () => {
@@ -187,7 +183,7 @@ describe('UserProfileImageService', () => {
       deleteObject: async () => unimplemented(),
     });
 
-    const service = new UserProfileImageService(repo, storage);
+    const service = new UserProfileImageService(repo, storage, clock);
 
     await expect(
       service.createUploadPlan({
@@ -214,7 +210,7 @@ describe('UserProfileImageService', () => {
       deleteObject: async () => unimplemented(),
     });
 
-    const service = new UserProfileImageService(repo, storage);
+    const service = new UserProfileImageService(repo, storage, clock);
 
     await expect(
       service.createUploadPlan({
@@ -247,7 +243,7 @@ describe('UserProfileImageService', () => {
       deleteObject: async () => unimplemented(),
     });
 
-    const service = new UserProfileImageService(repo, storage);
+    const service = new UserProfileImageService(repo, storage, clock);
 
     await expect(
       service.createUploadPlan({
@@ -286,7 +282,7 @@ describe('UserProfileImageService', () => {
       deleteObject: async () => unimplemented(),
     });
 
-    const service = new UserProfileImageService(repo, storage);
+    const service = new UserProfileImageService(repo, storage, clock);
 
     const res = await service.completeUpload({ userId: 'user-1', fileId: 'file-1', traceId: 't' });
 
@@ -336,21 +332,19 @@ describe('UserProfileImageService', () => {
       },
     });
 
-    const service = new UserProfileImageService(repo, storage);
+    const service = new UserProfileImageService(repo, storage, clock);
 
-    await withFakeTime(new Date('2026-01-01T00:00:00.000Z'), async () => {
-      await expect(
-        service.completeUpload({ userId: 'user-1', fileId: 'file-1', traceId: 't' }),
-      ).rejects.toMatchObject({
-        status: 409,
-        code: UsersErrorCode.USERS_PROFILE_IMAGE_SIZE_MISMATCH,
-      } satisfies Partial<UsersError>);
-    });
+    await expect(
+      service.completeUpload({ userId: 'user-1', fileId: 'file-1', traceId: 't' }),
+    ).rejects.toMatchObject({
+      status: 409,
+      code: UsersErrorCode.USERS_PROFILE_IMAGE_SIZE_MISMATCH,
+    } satisfies Partial<UsersError>);
 
     expect(deletedKeys).toEqual(['users/user-1/profile-images/file-1']);
     expect(deletedRecord?.fileId).toBe('file-1');
     expect(deletedRecord?.ownerUserId).toBe('user-1');
-    expect(deletedRecord?.now.getTime()).toBe(new Date('2026-01-01T00:00:00.000Z').getTime());
+    expect(deletedRecord?.now.getTime()).toBe(now.getTime());
   });
 
   it('completeUpload attaches the uploaded file and returns previousFileId when it changes', async () => {
@@ -386,18 +380,16 @@ describe('UserProfileImageService', () => {
       deleteObject: async () => unimplemented(),
     });
 
-    const service = new UserProfileImageService(repo, storage);
+    const service = new UserProfileImageService(repo, storage, clock);
 
-    await withFakeTime(new Date('2026-01-01T00:00:00.000Z'), async () => {
-      const res = await service.completeUpload({
-        userId: 'user-1',
-        fileId: 'file-2',
-        traceId: 't',
-      });
-      expect(res).toBe('file-1');
+    const res = await service.completeUpload({
+      userId: 'user-1',
+      fileId: 'file-2',
+      traceId: 't',
     });
+    expect(res).toBe('file-1');
 
-    expect(attachNow?.getTime()).toBe(new Date('2026-01-01T00:00:00.000Z').getTime());
+    expect(attachNow?.getTime()).toBe(now.getTime());
   });
 
   it('getProfileImageUrl returns null when no profile image is set (even if storage is disabled)', async () => {
@@ -413,7 +405,7 @@ describe('UserProfileImageService', () => {
       deleteObject: async () => unimplemented(),
     });
 
-    const service = new UserProfileImageService(repo, storage);
+    const service = new UserProfileImageService(repo, storage, clock);
 
     await expect(
       service.getProfileImageUrl({ userId: 'user-1', traceId: 't' }),
@@ -444,18 +436,16 @@ describe('UserProfileImageService', () => {
       deleteObject: async () => unimplemented(),
     });
 
-    const service = new UserProfileImageService(repo, storage);
+    const service = new UserProfileImageService(repo, storage, clock);
 
-    await withFakeTime(new Date('2026-01-01T00:00:00.000Z'), async () => {
-      const res = await service.getProfileImageUrl({ userId: 'user-1', traceId: 't' });
-      expect(res).toBeDefined();
-      expect(res?.url).toBe('https://example.com/get');
+    const res = await service.getProfileImageUrl({ userId: 'user-1', traceId: 't' });
+    expect(res).toBeDefined();
+    expect(res?.url).toBe('https://example.com/get');
 
-      const expectedExpiresAt = new Date(
-        new Date('2026-01-01T00:00:00.000Z').getTime() + PROFILE_IMAGE_GET_URL_TTL_SECONDS * 1000,
-      ).toISOString();
-      expect(res?.expiresAt).toBe(expectedExpiresAt);
-    });
+    const expectedExpiresAt = new Date(
+      now.getTime() + PROFILE_IMAGE_GET_URL_TTL_SECONDS * 1000,
+    ).toISOString();
+    expect(res?.expiresAt).toBe(expectedExpiresAt);
 
     expect(presignGetKey).toBe('users/user-1/profile-images/file-1');
   });

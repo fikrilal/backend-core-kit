@@ -81,6 +81,13 @@ Recommendation (pick one and standardize within Users):
 - **Option A (preferred, consistent with Auth):** inject a platform `Clock` into Users app services and derive `now` from it.
 - **Option B:** push `now`/`expiresAt` calculation to the edge (infra) and make app methods accept `now` explicitly (similar to how `UsersRepository` is shaped today).
 
+Implemented (2026-01-18):
+
+- Added `libs/features/users/app/time.ts` (`Clock` + `SystemClock`).
+- Injected `Clock` into `UsersService` + `UserProfileImageService` and replaced direct `new Date()` / `Date.now()` usage with `clock.now()`.
+- Updated unit tests to use a fixed clock instead of Jest fake timers.
+- Minimal wiring added in `libs/features/users/infra/users.module.ts` to provide `SystemClock` to the app services.
+
 ### P2 — Contract/typing: error codes are partially untyped + raw strings still exist
 
 Evidence:
@@ -144,4 +151,11 @@ Recommendation:
 
 ## Notes on checks
 
-This is a manual audit + targeted searches; no new tests were added or executed as part of this report.
+Audit findings were produced via manual review + targeted searches.
+
+Checks run while implementing P1 remediations:
+
+- `npm run format:check`
+- `npm run lint`
+- `npm run typecheck`
+- `npm test -- libs/features/users/app`
