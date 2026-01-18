@@ -16,4 +16,3 @@ export class CursorPaginationMetaDto {
   @IsString()
   nextCursor?: string;
 }
-

@@ -90,7 +90,10 @@ function makeService(params: {
 describe('AuthService (deleted user semantics)', () => {
   it('blocks password login for DELETED users', async () => {
     const repo = makeRepo({
-      findUserForLogin: async () => ({ user: makeUser({ status: 'DELETED' }), passwordHash: 'hash' }),
+      findUserForLogin: async () => ({
+        user: makeUser({ status: 'DELETED' }),
+        passwordHash: 'hash',
+      }),
     });
     const oidcVerifier: OidcIdTokenVerifier = {
       verifyIdToken: async () => unimplemented(),

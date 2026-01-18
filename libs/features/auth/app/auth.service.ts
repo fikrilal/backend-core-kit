@@ -234,10 +234,7 @@ export class AuthService {
     const now = this.clock.now();
     const email = normalizeEmail(identity.email);
 
-    let user = await this.repo.findUserByExternalIdentity(
-      identity.provider,
-      identity.subject,
-    );
+    let user = await this.repo.findUserByExternalIdentity(identity.provider, identity.subject);
     let createdNewUser = false;
 
     if (!user) {
