@@ -171,6 +171,10 @@ Recommendation:
 
 - Either validate UUID (strict), or update the decorator to document it as an opaque string.
 
+Status:
+
+- Implemented (2026-01-19): OpenAPI now documents `Idempotency-Key` as an opaque string with `minLength: 1` and `maxLength: 128` (recommended UUIDv4), matching runtime behavior.
+
 ### P2 — Maintainability: repeated “flatten validation errors” helpers across bootstraps and list-query pipe
 
 Evidence:
@@ -183,6 +187,10 @@ Evidence:
 Recommendation:
 
 - Centralize a single helper under `libs/platform/http/validation/validation-errors.ts` (or `libs/shared/validation/**`) and reuse it in bootstraps and pipes.
+
+Status:
+
+- Implemented (2026-01-19): extracted `flattenValidationErrors` into `libs/platform/http/validation/validation-errors.ts` and reused it in both app bootstraps and `ListQueryPipe`.
 
 ## Suggested next backlog (smallest-first)
 

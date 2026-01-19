@@ -9,7 +9,12 @@ export function ApiIdempotencyKeyHeader(options: { required?: boolean } = {}): M
       required,
       description:
         'Idempotency key for safe retries of write requests. Replays return `Idempotency-Replayed: true`.',
-      schema: { type: 'string', format: 'uuid' },
+      schema: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 128,
+        description: 'Opaque string (recommended: UUIDv4).',
+      },
     }),
   );
 }

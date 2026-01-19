@@ -116,7 +116,9 @@ paths:
           required: false
           schema:
             type: string
-            format: uuid
+            minLength: 1
+            maxLength: 128
+            description: "Opaque string (recommended: UUIDv4)."
       requestBody:
         required: true
         content:
@@ -260,7 +262,9 @@ paths:
           required: false
           schema:
             type: string
-            format: uuid
+            minLength: 1
+            maxLength: 128
+            description: "Opaque string (recommended: UUIDv4)."
       requestBody:
         required: true
         content:
@@ -494,7 +498,9 @@ paths:
           required: false
           schema:
             type: string
-            format: uuid
+            minLength: 1
+            maxLength: 128
+            description: "Opaque string (recommended: UUIDv4)."
       requestBody:
         required: true
         content:
@@ -531,7 +537,9 @@ paths:
           required: false
           schema:
             type: string
-            format: uuid
+            minLength: 1
+            maxLength: 128
+            description: "Opaque string (recommended: UUIDv4)."
       requestBody:
         required: true
         content:
@@ -639,7 +647,9 @@ paths:
           required: false
           schema:
             type: string
-            format: uuid
+            minLength: 1
+            maxLength: 128
+            description: "Opaque string (recommended: UUIDv4)."
       responses:
         "204":
           description: ""
@@ -666,7 +676,9 @@ paths:
           required: false
           schema:
             type: string
-            format: uuid
+            minLength: 1
+            maxLength: 128
+            description: "Opaque string (recommended: UUIDv4)."
       responses:
         "204":
           description: ""
@@ -810,7 +822,9 @@ paths:
           required: false
           schema:
             type: string
-            format: uuid
+            minLength: 1
+            maxLength: 128
+            description: "Opaque string (recommended: UUIDv4)."
       requestBody:
         required: true
         content:
@@ -855,7 +869,9 @@ paths:
           required: false
           schema:
             type: string
-            format: uuid
+            minLength: 1
+            maxLength: 128
+            description: "Opaque string (recommended: UUIDv4)."
       requestBody:
         required: true
         content:

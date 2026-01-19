@@ -7,31 +7,8 @@ import { ErrorCode } from '../../../libs/platform/http/errors/error-codes';
 import { ProblemException } from '../../../libs/platform/http/errors/problem.exception';
 import { createFastifyAdapter } from '../../../libs/platform/http/fastify-adapter';
 import { registerFastifyHttpPlatform } from '../../../libs/platform/http/fastify-hooks';
-import type { ValidationError } from 'class-validator';
 import { loadDotEnvOnce } from '../../../libs/platform/config/dotenv';
-
-function flattenValidationErrors(
-  errors: ValidationError[],
-  prefix = '',
-): Array<{ field?: string; message: string }> {
-  const out: Array<{ field?: string; message: string }> = [];
-
-  for (const error of errors) {
-    const path = prefix ? `${prefix}.${error.property}` : error.property;
-
-    if (error.constraints) {
-      for (const message of Object.values(error.constraints)) {
-        out.push({ field: path, message });
-      }
-    }
-
-    if (error.children && error.children.length > 0) {
-      out.push(...flattenValidationErrors(error.children, path));
-    }
-  }
-
-  return out;
-}
+import { flattenValidationErrors } from '../../../libs/platform/http/validation/validation-errors';
 
 export async function createApiApp(): Promise<NestFastifyApplication> {
   await loadDotEnvOnce();
