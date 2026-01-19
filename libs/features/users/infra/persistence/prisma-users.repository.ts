@@ -41,6 +41,26 @@ type PrismaUserWithProfile = Pick<
   externalIdentities: Array<Pick<ExternalIdentity, 'provider'>>;
 };
 
+const USER_WITH_PROFILE_SELECT = {
+  id: true,
+  email: true,
+  emailVerifiedAt: true,
+  role: true,
+  status: true,
+  deletionRequestedAt: true,
+  deletionScheduledFor: true,
+  profile: {
+    select: {
+      profileImageFileId: true,
+      displayName: true,
+      givenName: true,
+      familyName: true,
+    },
+  },
+  passwordCredential: { select: { userId: true } },
+  externalIdentities: { select: { provider: true } },
+} as const satisfies Prisma.UserSelect;
+
 function toProfileRecord(profile: PrismaUserWithProfile['profile']): UserProfileRecord | null {
   if (!profile) return null;
   return {
@@ -89,25 +109,7 @@ export class PrismaUsersRepository implements UsersRepository {
     const client = this.prisma.getClient();
     const user = await client.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        emailVerifiedAt: true,
-        role: true,
-        status: true,
-        deletionRequestedAt: true,
-        deletionScheduledFor: true,
-        profile: {
-          select: {
-            profileImageFileId: true,
-            displayName: true,
-            givenName: true,
-            familyName: true,
-          },
-        },
-        passwordCredential: { select: { userId: true } },
-        externalIdentities: { select: { provider: true } },
-      },
+      select: USER_WITH_PROFILE_SELECT,
     });
     if (!user) return null;
     if (user.status === PrismaUserStatus.DELETED) return null;
@@ -144,25 +146,7 @@ export class PrismaUsersRepository implements UsersRepository {
 
       const user = await tx.user.findUnique({
         where: { id: userId },
-        select: {
-          id: true,
-          email: true,
-          emailVerifiedAt: true,
-          role: true,
-          status: true,
-          deletionRequestedAt: true,
-          deletionScheduledFor: true,
-          profile: {
-            select: {
-              profileImageFileId: true,
-              displayName: true,
-              givenName: true,
-              familyName: true,
-            },
-          },
-          passwordCredential: { select: { userId: true } },
-          externalIdentities: { select: { provider: true } },
-        },
+        select: USER_WITH_PROFILE_SELECT,
       });
       if (!user || user.status === PrismaUserStatus.DELETED) return null;
 
@@ -186,25 +170,7 @@ export class PrismaUsersRepository implements UsersRepository {
           async (tx) => {
             const user = await tx.user.findUnique({
               where: { id: input.userId },
-              select: {
-                id: true,
-                email: true,
-                emailVerifiedAt: true,
-                role: true,
-                status: true,
-                deletionRequestedAt: true,
-                deletionScheduledFor: true,
-                profile: {
-                  select: {
-                    profileImageFileId: true,
-                    displayName: true,
-                    givenName: true,
-                    familyName: true,
-                  },
-                },
-                passwordCredential: { select: { userId: true } },
-                externalIdentities: { select: { provider: true } },
-              },
+              select: USER_WITH_PROFILE_SELECT,
             });
             if (!user) return { kind: 'not_found' } as const;
             if (user.status === PrismaUserStatus.DELETED) return { kind: 'not_found' } as const;
@@ -230,25 +196,7 @@ export class PrismaUsersRepository implements UsersRepository {
                 deletionRequestedSessionId: input.sessionId,
                 deletionRequestedTraceId: input.traceId,
               },
-              select: {
-                id: true,
-                email: true,
-                emailVerifiedAt: true,
-                role: true,
-                status: true,
-                deletionRequestedAt: true,
-                deletionScheduledFor: true,
-                profile: {
-                  select: {
-                    profileImageFileId: true,
-                    displayName: true,
-                    givenName: true,
-                    familyName: true,
-                  },
-                },
-                passwordCredential: { select: { userId: true } },
-                externalIdentities: { select: { provider: true } },
-              },
+              select: USER_WITH_PROFILE_SELECT,
             });
 
             await tx.userAccountDeletionAudit.create({
@@ -292,25 +240,7 @@ export class PrismaUsersRepository implements UsersRepository {
           async (tx) => {
             const user = await tx.user.findUnique({
               where: { id: input.userId },
-              select: {
-                id: true,
-                email: true,
-                emailVerifiedAt: true,
-                role: true,
-                status: true,
-                deletionRequestedAt: true,
-                deletionScheduledFor: true,
-                profile: {
-                  select: {
-                    profileImageFileId: true,
-                    displayName: true,
-                    givenName: true,
-                    familyName: true,
-                  },
-                },
-                passwordCredential: { select: { userId: true } },
-                externalIdentities: { select: { provider: true } },
-              },
+              select: USER_WITH_PROFILE_SELECT,
             });
             if (!user) return { kind: 'not_found' } as const;
             if (user.status === PrismaUserStatus.DELETED) return { kind: 'not_found' } as const;
@@ -327,25 +257,7 @@ export class PrismaUsersRepository implements UsersRepository {
                 deletionRequestedSessionId: null,
                 deletionRequestedTraceId: null,
               },
-              select: {
-                id: true,
-                email: true,
-                emailVerifiedAt: true,
-                role: true,
-                status: true,
-                deletionRequestedAt: true,
-                deletionScheduledFor: true,
-                profile: {
-                  select: {
-                    profileImageFileId: true,
-                    displayName: true,
-                    givenName: true,
-                    familyName: true,
-                  },
-                },
-                passwordCredential: { select: { userId: true } },
-                externalIdentities: { select: { provider: true } },
-              },
+              select: USER_WITH_PROFILE_SELECT,
             });
 
             await tx.userAccountDeletionAudit.create({

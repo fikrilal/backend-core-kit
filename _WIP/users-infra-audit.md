@@ -180,6 +180,11 @@ Recommendation:
 - Introduce a shared `const USER_WITH_PROFILE_SELECT = { ... }` and reuse it.
 - If the select grows, consider extracting to a small helper module next to the repository.
 
+Implemented (2026-01-19):
+
+- Introduced `USER_WITH_PROFILE_SELECT` and reused it across `findById`, `updateProfile`, `requestAccountDeletion`, and `cancelAccountDeletion`:
+  - `libs/features/users/infra/persistence/prisma-users.repository.ts`
+
 ### P2 — API ergonomics: `429` title + optional `Retry-After`
 
 Evidence:
@@ -228,6 +233,5 @@ Recommendation:
 ## Suggested next backlog (smallest-first)
 
 1. Add `429` title mapping (and optionally `Retry-After`) for `RATE_LIMITED`.
-2. Extract shared Prisma user select shape(s) to reduce duplication.
-3. Fix controller return types (`Promise<unknown>` → precise DTO/union).
-4. Consider renaming/splitting the email worker once it grows further.
+2. Fix controller return types (`Promise<unknown>` → precise DTO/union).
+3. Consider renaming/splitting the email worker once it grows further.
