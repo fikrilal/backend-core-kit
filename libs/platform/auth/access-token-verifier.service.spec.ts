@@ -376,11 +376,31 @@ describe('AccessTokenVerifier', () => {
   });
 
   it('rejects oversized tokens', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const kid = 'kid-oversized';
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
     const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
-      getPublicKeyForKid: async () => undefined,
+      getPublicKeyForKid: async (requestedKid: string) =>
+        requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
     } as unknown as AuthKeyRing);
 
-    const token = 'a'.repeat(20_000);
+    const token = createSignedJwt({
+      alg: 'RS256',
+      privateKey,
+      header: { kid, alg: 'RS256' },
+      payload: {
+        typ: 'access',
+        sub: 'user-1',
+        sid: 'session-1',
+        iat: nowSeconds,
+        exp: nowSeconds + 60,
+        jti: 'jti-oversized',
+        pad: 'x'.repeat(20_000),
+      },
+    });
+    expect(token.length).toBeGreaterThan(16_384);
+
     await expect(verifier.verifyAccessToken(token)).rejects.toBeInstanceOf(AccessTokenInvalidError);
   });
 });
