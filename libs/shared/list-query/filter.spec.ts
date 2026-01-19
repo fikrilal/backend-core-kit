@@ -48,6 +48,20 @@ describe('parseFilters', () => {
     expect(() => parseFilters({ status: 'NOPE' }, FILTERS)).toThrow(ListQueryValidationError);
   });
 
+  it('rejects non-ISO datetime values', () => {
+    expect(() => parseFilters({ createdAt: { gte: '2026-01-01T00:00:00' } }, FILTERS)).toThrow(
+      ListQueryValidationError,
+    );
+    expect(() => parseFilters({ createdAt: { gte: '2026-01-01 00:00:00Z' } }, FILTERS)).toThrow(
+      ListQueryValidationError,
+    );
+  });
+
+  it('accepts ISO datetime values with offsets and normalizes to UTC', () => {
+    const res = parseFilters({ createdAt: { gte: '2026-01-01T00:00:00+07:00' } }, FILTERS);
+    expect(res).toEqual([{ field: 'createdAt', op: 'gte', value: '2025-12-31T17:00:00.000Z' }]);
+  });
+
   it('rejects filter when not an object', () => {
     expect(() => parseFilters('ACTIVE', FILTERS)).toThrow(ListQueryValidationError);
   });

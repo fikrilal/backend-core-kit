@@ -71,3 +71,62 @@ Use `q` for free-text search when supported:
 Rules:
 
 - `q` semantics must be documented per endpoint.
+
+## Implementation (Core Kit)
+
+This repo provides a standard implementation for cursor pagination + filtering + sorting.
+
+### HTTP (NestJS)
+
+**Always** parse list query params via the platform pipe/decorator (not by calling the shared parser directly on `req.query`).
+
+Use:
+
+- `ListQueryParam(...)`: `libs/platform/http/list-query/list-query.decorator.ts`
+  - Validates/coerces query params via `CursorPaginationQueryDto`.
+  - Produces a typed `ListQuery` by calling `parseListQuery(...)` from `libs/shared/list-query`.
+  - Maps validation failures to RFC7807 with `code: VALIDATION_FAILED` and `errors[]`.
+
+Example:
+
+```ts
+import { Controller, Get } from '@nestjs/common';
+import { ListQueryParam } from '../../libs/platform/http/list-query/list-query.decorator';
+import type { ListQuery } from '../../libs/shared/list-query';
+
+type SortField = 'createdAt' | 'email';
+type FilterField = 'status' | 'createdAt';
+
+@Controller()
+export class UsersController {
+  @Get('users')
+  async listUsers(
+    @ListQueryParam<SortField, FilterField>({
+      defaultLimit: 25,
+      maxLimit: 250,
+      search: true,
+      sort: {
+        allowed: { createdAt: { type: 'datetime' }, email: { type: 'string' } },
+        default: [{ field: 'createdAt', direction: 'desc' }],
+        tieBreaker: { field: 'email', direction: 'asc' },
+      },
+      filters: {
+        status: { type: 'enum', ops: ['eq', 'in'], enumValues: ['ACTIVE', 'SUSPENDED'] },
+        createdAt: { type: 'datetime', ops: ['gte', 'lte'] },
+      },
+    })
+    query: ListQuery<SortField, FilterField>,
+  ) {
+    return query;
+  }
+}
+```
+
+### Shared parsing (`libs/shared/list-query`)
+
+`parseListQuery(...)` is a lower-level parser intended for already-validated inputs (e.g., after DTO validation).
+
+Notes:
+
+- It accepts `unknown` inputs so it can be used by non-HTTP callers.
+- Some fields are permissive by design (for example, a non-parseable `limit` can fall back to the default). This is why HTTP code should go through `ListQueryParam` / `ListQueryPipe`, which fails fast and returns consistent `VALIDATION_FAILED` problem details.
