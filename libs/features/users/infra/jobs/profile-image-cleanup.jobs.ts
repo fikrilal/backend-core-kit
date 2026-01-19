@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { QueueProducer } from '../../../../platform/queue/queue.producer';
 import { ObjectStorageService } from '../../../../platform/storage/object-storage.service';
+import type { Clock } from '../../app/time';
 import {
   deleteStoredFileJobId,
   expireUploadJobId,
@@ -12,6 +13,7 @@ import {
   type UsersProfileImageExpireUploadJobData,
 } from './profile-image-cleanup.job';
 import { PrismaProfileImageRepository } from '../persistence/prisma-profile-image.repository';
+import { USERS_CLOCK } from '../users.tokens';
 
 @Injectable()
 export class ProfileImageCleanupJobs {
@@ -22,6 +24,7 @@ export class ProfileImageCleanupJobs {
     private readonly config: ConfigService,
     private readonly repo: PrismaProfileImageRepository,
     private readonly storage: ObjectStorageService,
+    @Inject(USERS_CLOCK) private readonly clock: Clock,
   ) {
     this.expireDelaySeconds =
       this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_EXPIRE_DELAY_SECONDS') ?? 2 * 60 * 60;
@@ -36,7 +39,7 @@ export class ProfileImageCleanupJobs {
       const jobId = deleteStoredFileJobId(fileId);
       await this.queue.removeJob(USERS_QUEUE, jobId);
 
-      const now = new Date();
+      const now = this.clock.now();
       const data: UsersProfileImageDeleteStoredFileJobData = {
         fileId,
         ownerUserId,
@@ -56,7 +59,7 @@ export class ProfileImageCleanupJobs {
   async scheduleExpireUpload(ownerUserId: string, fileId: string): Promise<boolean> {
     if (!this.queue.isEnabled()) return false;
 
-    const now = new Date();
+    const now = this.clock.now();
     const expiresAt = new Date(now.getTime() + this.expireDelaySeconds * 1000);
     const jobId = expireUploadJobId(fileId);
 
@@ -90,7 +93,7 @@ export class ProfileImageCleanupJobs {
     }
 
     try {
-      await this.repo.markStoredFileDeleted({ fileId, ownerUserId, now: new Date() });
+      await this.repo.markStoredFileDeleted({ fileId, ownerUserId, now: this.clock.now() });
     } catch {
       // best-effort only; ignore failures
     }

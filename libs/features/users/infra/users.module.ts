@@ -17,7 +17,9 @@ import { UserProfileImageService } from '../app/user-profile-image.service';
 import { ObjectStorageService } from '../../../platform/storage/object-storage.service';
 import { RedisProfileImageUploadRateLimiter } from './rate-limit/redis-profile-image-upload-rate-limiter';
 import { ProfileImageCleanupJobs } from './jobs/profile-image-cleanup.jobs';
+import type { Clock } from '../app/time';
 import { SystemClock } from '../app/time';
+import { USERS_CLOCK } from './users.tokens';
 
 @Module({
   imports: [
@@ -36,17 +38,24 @@ import { SystemClock } from '../app/time';
     UserAccountDeletionEmailJobs,
     RedisProfileImageUploadRateLimiter,
     ProfileImageCleanupJobs,
+    { provide: USERS_CLOCK, useValue: new SystemClock() },
     {
       provide: UsersService,
-      inject: [PrismaUsersRepository, UserAccountDeletionJobs],
-      useFactory: (usersRepo: PrismaUsersRepository, deletion: UserAccountDeletionJobs) =>
-        new UsersService(usersRepo, deletion, new SystemClock()),
+      inject: [PrismaUsersRepository, UserAccountDeletionJobs, USERS_CLOCK],
+      useFactory: (
+        usersRepo: PrismaUsersRepository,
+        deletion: UserAccountDeletionJobs,
+        clock: Clock,
+      ) => new UsersService(usersRepo, deletion, clock),
     },
     {
       provide: UserProfileImageService,
-      inject: [PrismaProfileImageRepository, ObjectStorageService],
-      useFactory: (repo: PrismaProfileImageRepository, storage: ObjectStorageService) =>
-        new UserProfileImageService(repo, storage, new SystemClock()),
+      inject: [PrismaProfileImageRepository, ObjectStorageService, USERS_CLOCK],
+      useFactory: (
+        repo: PrismaProfileImageRepository,
+        storage: ObjectStorageService,
+        clock: Clock,
+      ) => new UserProfileImageService(repo, storage, clock),
     },
   ],
 })

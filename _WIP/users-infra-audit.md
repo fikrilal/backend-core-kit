@@ -150,6 +150,18 @@ Recommendation:
 - Provide a single clock provider in `UsersModule` (injectable token) and pass it into app services / jobs that need time.
 - Prefer `clock.now()` for generating timestamps and delays, even in infra, when time is business-relevant.
 
+Implemented (2026-01-18):
+
+- Added a single `USERS_CLOCK` provider in `UsersModule` and injected it everywhere time is needed:
+  - `libs/features/users/infra/users.tokens.ts`
+  - `libs/features/users/infra/users.module.ts`
+- Updated Users infra jobs to use `clock.now()` instead of ad-hoc `new Date()`:
+  - `libs/features/users/infra/jobs/user-account-deletion.jobs.ts`
+  - `libs/features/users/infra/jobs/user-account-deletion-email.jobs.ts`
+  - `libs/features/users/infra/jobs/profile-image-cleanup.jobs.ts`
+- Updated `PrismaUsersRepository.updateProfile(...)` to use the injected clock for `updatedAt` writes:
+  - `libs/features/users/infra/persistence/prisma-users.repository.ts`
+
 ### P1 — Maintainability: repeated Prisma `select` blocks in `PrismaUsersRepository`
 
 Evidence:
@@ -216,7 +228,6 @@ Recommendation:
 ## Suggested next backlog (smallest-first)
 
 1. Add `429` title mapping (and optionally `Retry-After`) for `RATE_LIMITED`.
-2. Fix the deleted-user write race in `PrismaUsersRepository.updateProfile` (transaction/isolation + retry, or stronger invariant).
-3. Extract shared Prisma user select shape(s) to reduce duplication.
-4. Centralize config parsing helpers (`asPositiveInt`) and (optionally) validate feature env overrides.
-5. Introduce a single injectable `Clock` provider for infra jobs and module wiring.
+2. Extract shared Prisma user select shape(s) to reduce duplication.
+3. Fix controller return types (`Promise<unknown>` → precise DTO/union).
+4. Consider renaming/splitting the email worker once it grows further.

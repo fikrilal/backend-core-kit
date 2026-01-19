@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   ExternalIdentityProvider as PrismaExternalIdentityProvider,
   Prisma,
@@ -20,6 +20,8 @@ import type {
 import { PrismaService } from '../../../../platform/db/prisma.service';
 import { lockActiveAdminInvariant } from '../../../../platform/db/advisory-locks';
 import type { AuthMethod } from '../../../../shared/auth/auth-method';
+import type { Clock } from '../../app/time';
+import { USERS_CLOCK } from '../users.tokens';
 
 type PrismaUserWithProfile = Pick<
   User,
@@ -78,7 +80,10 @@ function toUserRecord(user: PrismaUserWithProfile): UserRecord {
 
 @Injectable()
 export class PrismaUsersRepository implements UsersRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(USERS_CLOCK) private readonly clock: Clock,
+  ) {}
 
   async findById(userId: string): Promise<UserRecord | null> {
     const client = this.prisma.getClient();
@@ -123,7 +128,7 @@ export class PrismaUsersRepository implements UsersRepository {
     if (patch.familyName !== undefined) profileData.familyName = patch.familyName;
 
     return await client.$transaction(async (tx) => {
-      const now = new Date();
+      const now = this.clock.now();
 
       const locked = await tx.user.updateMany({
         where: { id: userId, status: { not: PrismaUserStatus.DELETED } },

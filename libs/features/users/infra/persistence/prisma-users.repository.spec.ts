@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { UserRole as PrismaUserRole, UserStatus as PrismaUserStatus } from '@prisma/client';
 import type { PrismaService } from '../../../../platform/db/prisma.service';
+import type { Clock } from '../../app/time';
 import { PrismaUsersRepository } from './prisma-users.repository';
 
 function createPrismaStub(params: {
@@ -66,7 +67,8 @@ describe('PrismaUsersRepository.updateProfile (unit)', () => {
   it('returns null and does not upsert when the user is deleted (or missing)', async () => {
     const { prisma, userUpdateManyCalls, profileUpsertCalls, userFindUniqueCalls } =
       createPrismaStub({ lockCount: 0, userRow: null });
-    const repo = new PrismaUsersRepository(prisma);
+    const clock = { now: () => new Date('2026-01-01T00:00:00.000Z') } satisfies Clock;
+    const repo = new PrismaUsersRepository(prisma, clock);
 
     const res = await repo.updateProfile('user-1', { displayName: 'Dante' });
 
@@ -103,7 +105,8 @@ describe('PrismaUsersRepository.updateProfile (unit)', () => {
           externalIdentities: [],
         },
       });
-    const repo = new PrismaUsersRepository(prisma);
+    const clock = { now: () => new Date('2026-01-01T00:00:00.000Z') } satisfies Clock;
+    const repo = new PrismaUsersRepository(prisma, clock);
 
     const res = await repo.updateProfile('user-1', { displayName: 'Dante' });
 
