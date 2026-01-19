@@ -15,6 +15,17 @@ function hashKey(value: string): string {
   return createHash('sha256').update(value).digest('base64url');
 }
 
+async function getRetryAfterSeconds(
+  client: ReturnType<RedisService['getClient']>,
+  key: string,
+  fallbackSeconds: number,
+): Promise<number> {
+  const ttl = await client.ttl(key);
+  if (ttl > 0) return ttl;
+  if (ttl === 0) return 1;
+  return fallbackSeconds;
+}
+
 @Injectable()
 export class RedisProfileImageUploadRateLimiter {
   private readonly userConfig: RateLimitConfig;
@@ -49,8 +60,15 @@ export class RedisProfileImageUploadRateLimiter {
     const userCountKey = `users:profile-image:upload:user:${ctx.userId}:requests`;
     const userBlockKey = `users:profile-image:upload:user:${ctx.userId}:blocked`;
 
+    let retryAfterSeconds = 0;
+
     const userBlocked = await client.get(userBlockKey);
-    if (userBlocked) throw this.rateLimited();
+    if (userBlocked) {
+      retryAfterSeconds = Math.max(
+        retryAfterSeconds,
+        await getRetryAfterSeconds(client, userBlockKey, this.userConfig.blockSeconds),
+      );
+    }
 
     const ip = typeof ctx.ip === 'string' && ctx.ip.trim() !== '' ? ctx.ip.trim() : undefined;
     const ipHash = ip ? hashKey(ip) : undefined;
@@ -59,8 +77,15 @@ export class RedisProfileImageUploadRateLimiter {
 
     if (ipBlockKey) {
       const ipBlocked = await client.get(ipBlockKey);
-      if (ipBlocked) throw this.rateLimited();
+      if (ipBlocked) {
+        retryAfterSeconds = Math.max(
+          retryAfterSeconds,
+          await getRetryAfterSeconds(client, ipBlockKey, this.ipConfig.blockSeconds),
+        );
+      }
     }
+
+    if (retryAfterSeconds > 0) throw this.rateLimited(retryAfterSeconds);
 
     await this.bump(client, userCountKey, userBlockKey, this.userConfig);
     if (ipCountKey && ipBlockKey) {
@@ -84,11 +109,12 @@ export class RedisProfileImageUploadRateLimiter {
     }
   }
 
-  private rateLimited(): UsersError {
+  private rateLimited(retryAfterSeconds: number): UsersError {
     return new UsersError({
       status: 429,
       code: ErrorCode.RATE_LIMITED,
       message: 'Too many profile image upload requests. Try again later.',
+      retryAfterSeconds,
     });
   }
 }

@@ -15,16 +15,19 @@ export class UsersError extends Error {
   readonly status: number;
   readonly code: UsersErrorCodeValue;
   readonly issues?: ReadonlyArray<UsersIssue>;
+  readonly retryAfterSeconds?: number;
 
   constructor(params: {
     status: number;
     code: UsersErrorCodeValue;
     message?: string;
     issues?: ReadonlyArray<UsersIssue>;
+    retryAfterSeconds?: number;
   }) {
     super(params.message ?? params.code);
     this.status = params.status;
     this.code = params.code;
     this.issues = params.issues;
+    this.retryAfterSeconds = params.retryAfterSeconds;
   }
 }

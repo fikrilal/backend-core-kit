@@ -27,6 +27,7 @@ import { Idempotent } from '../../../../platform/http/idempotency/idempotency.de
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { PROFILE_IMAGE_PRESIGN_TTL_SECONDS } from '../../app/profile-image.policy';
+import type { ProfileImageUrlView } from '../../app/user-profile-image.service';
 import { UserProfileImageService } from '../../app/user-profile-image.service';
 import { UsersErrorCode } from '../../app/users.error-codes';
 import { ProfileImageCleanupJobs } from '../jobs/profile-image-cleanup.jobs';
@@ -198,7 +199,7 @@ export class ProfileImageController {
     @CurrentPrincipal() principal: AuthPrincipal,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
-  ): Promise<unknown> {
+  ): Promise<ProfileImageUrlView | undefined> {
     const url = await this.images.getProfileImageUrl({
       userId: principal.userId,
       traceId: req.requestId ?? 'unknown',

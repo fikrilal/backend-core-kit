@@ -1,4 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
+import type { FastifyReply } from 'fastify';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { ProblemException } from '../../../../platform/http/errors/problem.exception';
 import { ProblemDetailsFilter } from '../../../../platform/http/filters/problem-details.filter';
@@ -17,6 +18,18 @@ export class UsersErrorFilter implements ExceptionFilter {
       });
       this.problemDetailsFilter.catch(mapped, host);
       return;
+    }
+
+    if (
+      exception.status === 429 &&
+      typeof exception.retryAfterSeconds === 'number' &&
+      Number.isInteger(exception.retryAfterSeconds) &&
+      exception.retryAfterSeconds > 0
+    ) {
+      host
+        .switchToHttp()
+        .getResponse<FastifyReply>()
+        .header('Retry-After', String(exception.retryAfterSeconds));
     }
 
     const mapped = new ProblemException(exception.status, {
@@ -43,6 +56,8 @@ export class UsersErrorFilter implements ExceptionFilter {
         return 'Not Found';
       case 409:
         return 'Conflict';
+      case 429:
+        return 'Too Many Requests';
       case 501:
         return 'Not Implemented';
       default:

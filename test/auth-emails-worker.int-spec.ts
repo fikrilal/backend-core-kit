@@ -6,7 +6,7 @@ import { PrismaService } from '../libs/platform/db/prisma.service';
 import type { EmailService } from '../libs/platform/email/email.service';
 import type { QueueWorkerFactory } from '../libs/platform/queue/queue.worker';
 import { AUTH_SEND_VERIFICATION_EMAIL_JOB } from '../libs/features/auth/infra/jobs/auth-email-verification.job';
-import { AuthEmailsWorker } from '../apps/worker/src/jobs/auth-email-verification.worker';
+import { EmailsWorker } from '../apps/worker/src/jobs/emails.worker';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
@@ -20,11 +20,11 @@ function stubConfig(values: Record<string, unknown>): ConfigService {
 
 type ProcessFn = (job: Job<unknown, unknown>) => Promise<unknown>;
 
-function getProcess(worker: AuthEmailsWorker): ProcessFn {
+function getProcess(worker: EmailsWorker): ProcessFn {
   return (worker as unknown as { process: ProcessFn }).process.bind(worker as unknown as object);
 }
 
-(shouldSkip ? describe.skip : describe)('AuthEmailsWorker (int)', () => {
+(shouldSkip ? describe.skip : describe)('EmailsWorker (int)', () => {
   let prisma: PrismaService;
   const createdUserIds: string[] = [];
 
@@ -56,7 +56,7 @@ function getProcess(worker: AuthEmailsWorker): ProcessFn {
       isEnabled: () => false,
     } as unknown as EmailService;
 
-    const worker = new AuthEmailsWorker(
+    const worker = new EmailsWorker(
       stubConfig({}),
       workers,
       { isEnabled: () => true } as unknown as PrismaService,
@@ -74,7 +74,7 @@ function getProcess(worker: AuthEmailsWorker): ProcessFn {
       send: jest.fn(),
     } as unknown as EmailService;
 
-    const worker = new AuthEmailsWorker(
+    const worker = new EmailsWorker(
       stubConfig({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
       { isEnabled: () => true } as unknown as QueueWorkerFactory,
       prisma,
@@ -118,7 +118,7 @@ function getProcess(worker: AuthEmailsWorker): ProcessFn {
       send: jest.fn(),
     } as unknown as EmailService;
 
-    const worker = new AuthEmailsWorker(
+    const worker = new EmailsWorker(
       stubConfig({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
       { isEnabled: () => true } as unknown as QueueWorkerFactory,
       prisma,
@@ -160,7 +160,7 @@ function getProcess(worker: AuthEmailsWorker): ProcessFn {
       send: jest.fn(async () => ({ id: `email-${randomUUID()}` })),
     } as unknown as EmailService;
 
-    const worker = new AuthEmailsWorker(
+    const worker = new EmailsWorker(
       stubConfig({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
       { isEnabled: () => true } as unknown as QueueWorkerFactory,
       prisma,
