@@ -102,7 +102,7 @@ describe('ProblemDetailsFilter', () => {
     });
   });
 
-  it('maps unknown errors to 500 and uses request.id fallback', () => {
+  it('maps unknown errors to 500 and uses request.id fallback without leaking internal detail', () => {
     const filter = new ProblemDetailsFilter();
     const { reply, headers, state } = createReply();
     const req = { id: 'req-4', headers: {} } as unknown as FastifyRequest;
@@ -114,9 +114,9 @@ describe('ProblemDetailsFilter', () => {
     expect(state.body).toMatchObject({
       title: 'Internal Server Error',
       status: 500,
-      detail: 'boom',
       code: ErrorCode.INTERNAL,
       traceId: 'req-4',
     });
+    expect(state.body).not.toHaveProperty('detail');
   });
 });

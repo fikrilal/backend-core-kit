@@ -52,8 +52,6 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       } else {
         title = this.statusTitle(status);
       }
-    } else if (exception instanceof Error) {
-      detail = exception.message;
     }
 
     if (!code) {
