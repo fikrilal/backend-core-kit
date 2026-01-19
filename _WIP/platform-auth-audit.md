@@ -124,6 +124,10 @@ Recommendation:
 - Centralize these under `libs/platform/config/**` or a small `libs/shared/strings.ts` + `libs/shared/objects.ts` (platform must not depend on features).
 - Keep helpers tiny and well-tested (don’t introduce a heavy utility layer).
 
+Status:
+
+- Implemented (2026-01-19): consolidated shared helpers into `libs/platform/auth/auth.utils.ts` and reused in verifier + keyring.
+
 ### P2 — Observability: guard maps unknown verifier errors to 500 without logging
 
 Evidence:
@@ -160,9 +164,13 @@ Recommendation:
 - If the minting side already includes these claims, validate them here (with a small skew allowance).
 - If not present, document the chosen minimal claim set (avoid partial/accidental adoption).
 
+Status:
+
+- Implemented (2026-01-19): `AccessTokenVerifier` now validates `iat` and requires `jti`; if `nbf` is present it is validated with a small skew allowance.
+
 ## Suggested next backlog (smallest-first)
 
 1. ✅ Add token max-length guard + unit test(s). (done)
 2. ✅ Validate alg/key compatibility in `AuthKeyRing` init + unit test(s). (done)
 3. ✅ Add safe logging for unexpected verifier errors in `AccessTokenGuard`. (done)
-4. Optional: consolidate helper functions shared between verifier/keyring.
+4. ✅ Consolidate helper functions shared between verifier/keyring. (done)

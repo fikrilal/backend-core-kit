@@ -10,6 +10,7 @@ import { Injectable, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NodeEnv } from '../config/env.validation';
 import type { JwtAlg } from './auth.types';
+import { asNonEmptyString, getNodeEnv, isObject, normalizeJwtAlg } from './auth.utils';
 
 type JwksKey = JsonWebKey & { kid: string; use?: string; alg?: string };
 
@@ -18,26 +19,6 @@ type SigningKey = Readonly<{
   alg: JwtAlg;
   privateKey: KeyObject;
 }>;
-
-function asNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed !== '' ? trimmed : undefined;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function normalizeAlg(raw: unknown): JwtAlg | undefined {
-  const v = asNonEmptyString(raw);
-  if (!v) return undefined;
-
-  const normalized = v.trim().toUpperCase();
-  if (normalized === 'EDDSA') return 'EdDSA';
-  if (normalized === 'RS256') return 'RS256';
-  return undefined;
-}
 
 function inferAlgFromJwk(jwk: JsonWebKey): JwtAlg | undefined {
   if (jwk.kty === 'OKP') return 'EdDSA';
@@ -52,19 +33,6 @@ function parseSigningKeysJson(raw: string): unknown[] {
   throw new Error(
     'AUTH_SIGNING_KEYS_JSON must be a JSON array or a JWK set object with { keys: [...] }',
   );
-}
-
-function getNodeEnv(config: Pick<ConfigService, 'get'>): NodeEnv {
-  const raw = config.get<string>('NODE_ENV');
-  switch (raw) {
-    case NodeEnv.Development:
-    case NodeEnv.Test:
-    case NodeEnv.Staging:
-    case NodeEnv.Production:
-      return raw;
-    default:
-      return NodeEnv.Development;
-  }
 }
 
 @Injectable()
@@ -108,7 +76,7 @@ export class AuthKeyRing implements OnModuleInit {
     const nodeEnv = getNodeEnv(this.config);
     const productionLike = nodeEnv === NodeEnv.Production || nodeEnv === NodeEnv.Staging;
 
-    const algConfig = normalizeAlg(this.config.get<string>('AUTH_JWT_ALG')) ?? 'EdDSA';
+    const algConfig = normalizeJwtAlg(this.config.get<string>('AUTH_JWT_ALG')) ?? 'EdDSA';
     const keysJson = asNonEmptyString(this.config.get<string>('AUTH_SIGNING_KEYS_JSON'));
 
     if (!keysJson) {
@@ -131,7 +99,7 @@ export class AuthKeyRing implements OnModuleInit {
       if (!kid) continue;
 
       const jwk = item as unknown as JsonWebKey;
-      const alg = inferAlgFromJwk(jwk) ?? normalizeAlg(item.alg) ?? algConfig;
+      const alg = inferAlgFromJwk(jwk) ?? normalizeJwtAlg(item.alg) ?? algConfig;
 
       let publicKey: KeyObject;
       try {

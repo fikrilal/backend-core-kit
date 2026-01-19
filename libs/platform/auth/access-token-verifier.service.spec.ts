@@ -39,6 +39,7 @@ describe('AccessTokenVerifier', () => {
   it('verifies a valid RS256 token and returns principal', async () => {
     const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
     const kid = 'kid-1';
+    const nowSeconds = Math.floor(Date.now() / 1000);
 
     const verifier = new AccessTokenVerifier(
       stubConfig({ AUTH_ISSUER: 'https://issuer.example', AUTH_AUDIENCE: 'api', NODE_ENV: 'test' }),
@@ -58,7 +59,9 @@ describe('AccessTokenVerifier', () => {
         sid: 'session-1',
         iss: 'https://issuer.example',
         aud: ['api'],
-        exp: Math.floor(Date.now() / 1000) + 60,
+        iat: nowSeconds,
+        exp: nowSeconds + 60,
+        jti: 'jti-1',
         email_verified: true,
         roles: ['USER', 'USER', '  ADMIN  '],
       },
@@ -75,6 +78,7 @@ describe('AccessTokenVerifier', () => {
   it('verifies a valid EdDSA token and returns principal', async () => {
     const { privateKey, publicKey } = generateKeyPairSync('ed25519');
     const kid = 'kid-eddsa';
+    const nowSeconds = Math.floor(Date.now() / 1000);
 
     const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
       getPublicKeyForKid: async (requestedKid: string) =>
@@ -89,7 +93,9 @@ describe('AccessTokenVerifier', () => {
         typ: 'access',
         sub: 'user-eddsa',
         sid: 'session-eddsa',
-        exp: Math.floor(Date.now() / 1000) + 60,
+        iat: nowSeconds,
+        exp: nowSeconds + 60,
+        jti: 'jti-eddsa',
         email_verified: false,
         roles: ['USER'],
       },
@@ -116,6 +122,7 @@ describe('AccessTokenVerifier', () => {
   it('rejects expired tokens', async () => {
     const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
     const kid = 'kid-exp';
+    const nowSeconds = Math.floor(Date.now() / 1000);
 
     const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
       getPublicKeyForKid: async (requestedKid: string) =>
@@ -130,7 +137,9 @@ describe('AccessTokenVerifier', () => {
         typ: 'access',
         sub: 'user-1',
         sid: 'session-1',
-        exp: Math.floor(Date.now() / 1000) - 1,
+        iat: nowSeconds - 60,
+        exp: nowSeconds - 1,
+        jti: 'jti-exp',
       },
     });
 
@@ -140,6 +149,7 @@ describe('AccessTokenVerifier', () => {
   it('enforces issuer and audience when configured', async () => {
     const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
     const kid = 'kid-issuer-aud';
+    const nowSeconds = Math.floor(Date.now() / 1000);
 
     const verifier = new AccessTokenVerifier(
       stubConfig({
@@ -163,7 +173,9 @@ describe('AccessTokenVerifier', () => {
         sid: 'session-1',
         iss: 'https://issuer.example',
         aud: ['not-api'],
-        exp: Math.floor(Date.now() / 1000) + 60,
+        iat: nowSeconds,
+        exp: nowSeconds + 60,
+        jti: 'jti-issuer-aud',
       },
     });
 
@@ -173,6 +185,7 @@ describe('AccessTokenVerifier', () => {
   it('rejects tokens missing required claims (sub/sid/exp)', async () => {
     const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
     const kid = 'kid-missing-claims';
+    const nowSeconds = Math.floor(Date.now() / 1000);
 
     const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
       getPublicKeyForKid: async (requestedKid: string) =>
@@ -186,7 +199,9 @@ describe('AccessTokenVerifier', () => {
       payload: {
         typ: 'access',
         sid: 'session-1',
-        exp: Math.floor(Date.now() / 1000) + 60,
+        iat: nowSeconds,
+        exp: nowSeconds + 60,
+        jti: 'jti-missing-sub',
       },
     });
 
@@ -197,7 +212,9 @@ describe('AccessTokenVerifier', () => {
       payload: {
         typ: 'access',
         sub: 'user-1',
-        exp: Math.floor(Date.now() / 1000) + 60,
+        iat: nowSeconds,
+        exp: nowSeconds + 60,
+        jti: 'jti-missing-sid',
       },
     });
 
@@ -209,6 +226,8 @@ describe('AccessTokenVerifier', () => {
         typ: 'access',
         sub: 'user-1',
         sid: 'session-1',
+        iat: nowSeconds,
+        jti: 'jti-missing-exp',
       },
     });
 
@@ -225,6 +244,7 @@ describe('AccessTokenVerifier', () => {
 
   it('rejects tokens with unknown kid', async () => {
     const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const nowSeconds = Math.floor(Date.now() / 1000);
 
     const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
       getPublicKeyForKid: async () => undefined,
@@ -238,7 +258,9 @@ describe('AccessTokenVerifier', () => {
         typ: 'access',
         sub: 'user-1',
         sid: 'session-1',
-        exp: Math.floor(Date.now() / 1000) + 60,
+        iat: nowSeconds,
+        exp: nowSeconds + 60,
+        jti: 'jti-unknown-kid',
       },
     });
 
@@ -248,6 +270,7 @@ describe('AccessTokenVerifier', () => {
   it('rejects tokens with non-access typ', async () => {
     const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
     const kid = 'kid-typ';
+    const nowSeconds = Math.floor(Date.now() / 1000);
 
     const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
       getPublicKeyForKid: async (requestedKid: string) =>
@@ -262,7 +285,90 @@ describe('AccessTokenVerifier', () => {
         typ: 'refresh',
         sub: 'user-1',
         sid: 'session-1',
-        exp: Math.floor(Date.now() / 1000) + 60,
+        iat: nowSeconds,
+        exp: nowSeconds + 60,
+        jti: 'jti-typ',
+      },
+    });
+
+    await expect(verifier.verifyAccessToken(token)).rejects.toBeInstanceOf(AccessTokenInvalidError);
+  });
+
+  it('rejects tokens missing jti', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const kid = 'kid-missing-jti';
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
+      getPublicKeyForKid: async (requestedKid: string) =>
+        requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
+    } as unknown as AuthKeyRing);
+
+    const token = createSignedJwt({
+      alg: 'RS256',
+      privateKey,
+      header: { kid, alg: 'RS256' },
+      payload: {
+        typ: 'access',
+        sub: 'user-1',
+        sid: 'session-1',
+        iat: nowSeconds,
+        exp: nowSeconds + 60,
+      },
+    });
+
+    await expect(verifier.verifyAccessToken(token)).rejects.toBeInstanceOf(AccessTokenInvalidError);
+  });
+
+  it('rejects tokens with iat far in the future', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const kid = 'kid-future-iat';
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
+      getPublicKeyForKid: async (requestedKid: string) =>
+        requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
+    } as unknown as AuthKeyRing);
+
+    const token = createSignedJwt({
+      alg: 'RS256',
+      privateKey,
+      header: { kid, alg: 'RS256' },
+      payload: {
+        typ: 'access',
+        sub: 'user-1',
+        sid: 'session-1',
+        iat: nowSeconds + 3600,
+        exp: nowSeconds + 3660,
+        jti: 'jti-future-iat',
+      },
+    });
+
+    await expect(verifier.verifyAccessToken(token)).rejects.toBeInstanceOf(AccessTokenInvalidError);
+  });
+
+  it('rejects tokens with nbf far in the future', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const kid = 'kid-future-nbf';
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
+      getPublicKeyForKid: async (requestedKid: string) =>
+        requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
+    } as unknown as AuthKeyRing);
+
+    const token = createSignedJwt({
+      alg: 'RS256',
+      privateKey,
+      header: { kid, alg: 'RS256' },
+      payload: {
+        typ: 'access',
+        sub: 'user-1',
+        sid: 'session-1',
+        iat: nowSeconds,
+        nbf: nowSeconds + 3600,
+        exp: nowSeconds + 3660,
+        jti: 'jti-future-nbf',
       },
     });
 

@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { NodeEnv } from '../config/env.validation';
 import type { AuthPrincipal, JwtAlg } from './auth.types';
 import { AuthKeyRing } from './auth-keyring.service';
+import { asNonEmptyString, getNodeEnv, isObject, normalizeJwtAlg } from './auth.utils';
 
 export class AccessTokenInvalidError extends Error {
   constructor() {
@@ -13,29 +14,8 @@ export class AccessTokenInvalidError extends Error {
 }
 
 const MAX_ACCESS_TOKEN_LENGTH = 16_384;
-
-function asNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed !== '' ? trimmed : undefined;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function getNodeEnv(config: Pick<ConfigService, 'get'>): NodeEnv {
-  const raw = config.get<string>('NODE_ENV');
-  switch (raw) {
-    case NodeEnv.Development:
-    case NodeEnv.Test:
-    case NodeEnv.Staging:
-    case NodeEnv.Production:
-      return raw;
-    default:
-      return NodeEnv.Development;
-  }
-}
+const JWT_CLOCK_SKEW_SECONDS = 60;
+const MAX_JTI_LENGTH = 128;
 
 function decodeBase64UrlJson(segment: string): unknown {
   let json: string;
@@ -82,15 +62,6 @@ function parseJwt(token: string): {
     signingInput: `${encodedHeader}.${encodedPayload}`,
     signature,
   };
-}
-
-function normalizeAlg(value: unknown): JwtAlg | undefined {
-  const v = asNonEmptyString(value);
-  if (!v) return undefined;
-  const normalized = v.trim().toUpperCase();
-  if (normalized === 'EDDSA') return 'EdDSA';
-  if (normalized === 'RS256') return 'RS256';
-  return undefined;
 }
 
 function verifySignature(
@@ -157,7 +128,7 @@ export class AccessTokenVerifier {
     const { header, payload, signingInput, signature } = parseJwt(token);
 
     const kid = asNonEmptyString(header.kid);
-    const alg = normalizeAlg(header.alg);
+    const alg = normalizeJwtAlg(header.alg);
     if (!kid || !alg) throw new AccessTokenInvalidError();
 
     const key = await this.keys.getPublicKeyForKid(kid);
@@ -168,8 +139,18 @@ export class AccessTokenVerifier {
     if (!ok) throw new AccessTokenInvalidError();
 
     const nowSeconds = Math.floor(Date.now() / 1000);
+    const iat = asNumber(payload.iat);
     const exp = asNumber(payload.exp);
     if (exp === undefined || exp <= nowSeconds) throw new AccessTokenInvalidError();
+    if (iat === undefined || iat > nowSeconds + JWT_CLOCK_SKEW_SECONDS)
+      throw new AccessTokenInvalidError();
+    if (iat > exp) throw new AccessTokenInvalidError();
+
+    const nbf = asNumber(payload.nbf);
+    if (nbf !== undefined) {
+      if (nbf > nowSeconds + JWT_CLOCK_SKEW_SECONDS) throw new AccessTokenInvalidError();
+      if (nbf > exp) throw new AccessTokenInvalidError();
+    }
 
     if (issuer && payload.iss !== issuer) throw new AccessTokenInvalidError();
     if (audience && !audMatches(payload.aud, audience)) throw new AccessTokenInvalidError();
@@ -178,7 +159,9 @@ export class AccessTokenVerifier {
 
     const userId = asNonEmptyString(payload.sub);
     const sessionId = asNonEmptyString(payload.sid);
-    if (!userId || !sessionId) throw new AccessTokenInvalidError();
+    const jti = asNonEmptyString(payload.jti);
+    if (!userId || !sessionId || !jti) throw new AccessTokenInvalidError();
+    if (jti.length > MAX_JTI_LENGTH) throw new AccessTokenInvalidError();
 
     const emailVerified = payload.email_verified === true;
     const roles = parseRoles(payload.roles);
