@@ -140,6 +140,10 @@ Recommendation:
 - Log verifier failures at error level with `requestId`/`traceId` and without sensitive payloads.
 - Keep the response generic (current behavior is correct externally).
 
+Status:
+
+- Implemented (2026-01-19): `AccessTokenGuard` now logs unexpected verifier errors (without token data) and still returns a generic RFC7807 500.
+
 ### P2 — Token semantics: verifier does not validate `iat`/`nbf`/`jti`
 
 Evidence:
@@ -160,5 +164,5 @@ Recommendation:
 
 1. ✅ Add token max-length guard + unit test(s). (done)
 2. ✅ Validate alg/key compatibility in `AuthKeyRing` init + unit test(s). (done)
-3. Add safe logging for unexpected verifier errors in `AccessTokenGuard`.
+3. ✅ Add safe logging for unexpected verifier errors in `AccessTokenGuard`. (done)
 4. Optional: consolidate helper functions shared between verifier/keyring.

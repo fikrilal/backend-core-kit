@@ -1,6 +1,7 @@
 import { Reflector } from '@nestjs/core';
 import type { ExecutionContext } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
+import type { PinoLogger } from 'nestjs-pino';
 import { ErrorCode } from '../http/errors/error-codes';
 import { ProblemException } from '../http/errors/problem.exception';
 import type { AuthPrincipal } from './auth.types';
@@ -35,6 +36,13 @@ function expectProblem(err: unknown, status: number, code: ErrorCode): void {
   expect(body).toMatchObject({ code });
 }
 
+function createLoggerStub(): PinoLogger {
+  return {
+    setContext: jest.fn(),
+    error: jest.fn(),
+  } as unknown as PinoLogger;
+}
+
 describe('AccessTokenGuard', () => {
   it('allows @Public() endpoints without requiring a token', async () => {
     @Public()
@@ -44,9 +52,13 @@ describe('AccessTokenGuard', () => {
 
     const reflector = new Reflector();
     const verifyAccessToken = jest.fn();
-    const guard = new AccessTokenGuard(reflector, {
-      verifyAccessToken,
-    } as unknown as AccessTokenVerifier);
+    const guard = new AccessTokenGuard(
+      reflector,
+      {
+        verifyAccessToken,
+      } as unknown as AccessTokenVerifier,
+      createLoggerStub(),
+    );
 
     const req = { headers: {} } as unknown as FastifyRequest;
     await expect(
@@ -64,9 +76,13 @@ describe('AccessTokenGuard', () => {
     }
 
     const reflector = new Reflector();
-    const guard = new AccessTokenGuard(reflector, {
-      verifyAccessToken: jest.fn(),
-    } as unknown as AccessTokenVerifier);
+    const guard = new AccessTokenGuard(
+      reflector,
+      {
+        verifyAccessToken: jest.fn(),
+      } as unknown as AccessTokenVerifier,
+      createLoggerStub(),
+    );
 
     const req = { headers: {} } as unknown as FastifyRequest;
 
@@ -87,9 +103,13 @@ describe('AccessTokenGuard', () => {
     }
 
     const reflector = new Reflector();
-    const guard = new AccessTokenGuard(reflector, {
-      verifyAccessToken: jest.fn(),
-    } as unknown as AccessTokenVerifier);
+    const guard = new AccessTokenGuard(
+      reflector,
+      {
+        verifyAccessToken: jest.fn(),
+      } as unknown as AccessTokenVerifier,
+      createLoggerStub(),
+    );
 
     const req = { headers: { authorization: 'Basic abc' } } as unknown as FastifyRequest;
 
@@ -117,9 +137,13 @@ describe('AccessTokenGuard', () => {
       roles: ['USER'],
     };
     const verifyAccessToken = jest.fn().mockResolvedValue(principal);
-    const guard = new AccessTokenGuard(reflector, {
-      verifyAccessToken,
-    } as unknown as AccessTokenVerifier);
+    const guard = new AccessTokenGuard(
+      reflector,
+      {
+        verifyAccessToken,
+      } as unknown as AccessTokenVerifier,
+      createLoggerStub(),
+    );
 
     const req = { headers: { authorization: 'Bearer token' } } as unknown as FastifyRequest;
     await expect(
@@ -135,9 +159,13 @@ describe('AccessTokenGuard', () => {
     }
 
     const reflector = new Reflector();
-    const guard = new AccessTokenGuard(reflector, {
-      verifyAccessToken: jest.fn().mockRejectedValue(new AccessTokenInvalidError()),
-    } as unknown as AccessTokenVerifier);
+    const guard = new AccessTokenGuard(
+      reflector,
+      {
+        verifyAccessToken: jest.fn().mockRejectedValue(new AccessTokenInvalidError()),
+      } as unknown as AccessTokenVerifier,
+      createLoggerStub(),
+    );
 
     const req = { headers: { authorization: 'Bearer token' } } as unknown as FastifyRequest;
 
@@ -158,9 +186,14 @@ describe('AccessTokenGuard', () => {
     }
 
     const reflector = new Reflector();
-    const guard = new AccessTokenGuard(reflector, {
-      verifyAccessToken: jest.fn().mockRejectedValue(new Error('boom')),
-    } as unknown as AccessTokenVerifier);
+    const logger = createLoggerStub();
+    const guard = new AccessTokenGuard(
+      reflector,
+      {
+        verifyAccessToken: jest.fn().mockRejectedValue(new Error('boom')),
+      } as unknown as AccessTokenVerifier,
+      logger,
+    );
 
     const req = { headers: { authorization: 'Bearer token' } } as unknown as FastifyRequest;
 
@@ -173,5 +206,6 @@ describe('AccessTokenGuard', () => {
       err = caught;
     }
     expectProblem(err, 500, ErrorCode.INTERNAL);
+    expect(logger.error).toHaveBeenCalled();
   });
 });
