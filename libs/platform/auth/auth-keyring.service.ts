@@ -131,7 +131,7 @@ export class AuthKeyRing implements OnModuleInit {
       if (!kid) continue;
 
       const jwk = item as unknown as JsonWebKey;
-      const alg = normalizeAlg(item.alg) ?? inferAlgFromJwk(jwk) ?? algConfig;
+      const alg = inferAlgFromJwk(jwk) ?? normalizeAlg(item.alg) ?? algConfig;
 
       let publicKey: KeyObject;
       try {
