@@ -15,7 +15,7 @@ import {
 } from '../../../../libs/features/auth/infra/jobs/auth-password-reset.job';
 import { hashEmailVerificationToken } from '../../../../libs/features/auth/app/email-verification-token';
 import { hashPasswordResetToken } from '../../../../libs/features/auth/app/password-reset-token';
-import { AuthEmailsWorker } from './auth-email-verification.worker';
+import { EmailsWorker } from './emails.worker';
 
 function stubConfig(values: Record<string, unknown>): ConfigService {
   return {
@@ -25,7 +25,7 @@ function stubConfig(values: Record<string, unknown>): ConfigService {
 
 type ProcessFn = (job: Job<unknown, unknown>) => Promise<unknown>;
 
-function getProcess(worker: AuthEmailsWorker): ProcessFn {
+function getProcess(worker: EmailsWorker): ProcessFn {
   return (worker as unknown as { process: ProcessFn }).process.bind(worker as unknown as object);
 }
 
@@ -37,7 +37,7 @@ function createLoggerStub(): PinoLogger {
   } as unknown as PinoLogger;
 }
 
-describe('AuthEmailsWorker (unit)', () => {
+describe('EmailsWorker (unit)', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
@@ -76,7 +76,7 @@ describe('AuthEmailsWorker (unit)', () => {
       },
     } as unknown as EmailService;
 
-    const worker = new AuthEmailsWorker(
+    const worker = new EmailsWorker(
       stubConfig({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
       { isEnabled: () => true } as unknown as QueueWorkerFactory,
       prisma,
@@ -142,7 +142,7 @@ describe('AuthEmailsWorker (unit)', () => {
       },
     } as unknown as EmailService;
 
-    const worker = new AuthEmailsWorker(
+    const worker = new EmailsWorker(
       stubConfig({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
       { isEnabled: () => true } as unknown as QueueWorkerFactory,
       prisma,
@@ -198,7 +198,7 @@ describe('AuthEmailsWorker (unit)', () => {
       },
     } as unknown as EmailService;
 
-    const worker = new AuthEmailsWorker(
+    const worker = new EmailsWorker(
       stubConfig({
         PUBLIC_APP_URL: 'https://app.example',
         AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: 1800,
@@ -279,7 +279,7 @@ describe('AuthEmailsWorker (unit)', () => {
       },
     } as unknown as EmailService;
 
-    const worker = new AuthEmailsWorker(
+    const worker = new EmailsWorker(
       stubConfig({ AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: 1800 }),
       { isEnabled: () => true } as unknown as QueueWorkerFactory,
       prisma,

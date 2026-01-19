@@ -71,13 +71,13 @@ type AuthSendPasswordResetEmailJobResult = Readonly<{
 }> &
   JsonObject;
 
-type AuthEmailsJobData =
+type EmailsJobData =
   | AuthSendVerificationEmailJobData
   | AuthSendPasswordResetEmailJobData
   | UsersSendAccountDeletionRequestedEmailJobData
   | UsersSendAccountDeletionReminderEmailJobData;
 
-type AuthEmailsJobResult =
+type EmailsJobResult =
   | AuthSendVerificationEmailJobResult
   | AuthSendPasswordResetEmailJobResult
   | UsersSendAccountDeletionRequestedEmailJobResult
@@ -90,7 +90,7 @@ function asNonEmptyString(value: unknown): string | undefined {
 }
 
 @Injectable()
-export class AuthEmailsWorker implements OnModuleInit {
+export class EmailsWorker implements OnModuleInit {
   constructor(
     private readonly config: ConfigService,
     private readonly workers: QueueWorkerFactory,
@@ -98,23 +98,21 @@ export class AuthEmailsWorker implements OnModuleInit {
     private readonly email: EmailService,
     private readonly logger: PinoLogger,
   ) {
-    this.logger.setContext(AuthEmailsWorker.name);
+    this.logger.setContext(EmailsWorker.name);
   }
 
   async onModuleInit(): Promise<void> {
     // Keep the worker process runnable in dev/test without Redis/DB/email unless configured.
     if (!this.workers.isEnabled() || !this.prisma.isEnabled() || !this.email.isEnabled()) return;
 
-    this.workers.createWorker<AuthEmailsJobData, AuthEmailsJobResult>(
+    this.workers.createWorker<EmailsJobData, EmailsJobResult>(
       EMAIL_QUEUE,
       async (job) => this.process(job),
       { concurrency: 5 },
     );
   }
 
-  private async process(
-    job: Job<AuthEmailsJobData, AuthEmailsJobResult>,
-  ): Promise<AuthEmailsJobResult> {
+  private async process(job: Job<EmailsJobData, EmailsJobResult>): Promise<EmailsJobResult> {
     if (job.name === AUTH_SEND_VERIFICATION_EMAIL_JOB) {
       return await this.processVerificationEmail(job.data.userId);
     }
