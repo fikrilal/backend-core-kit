@@ -19,7 +19,7 @@ export async function createApiApp(): Promise<NestFastifyApplication> {
   });
   app.useLogger(app.get(Logger));
 
-  // Ensure request-id and not-found behavior applies to all requests (including unmatched routes).
+  // Ensure request-id and safe URL span attributes apply to all requests (including unmatched routes).
   registerFastifyHttpPlatform(app);
 
   app.useGlobalPipes(

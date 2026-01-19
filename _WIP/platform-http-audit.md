@@ -121,6 +121,10 @@ Recommendation:
 - Centralize this under `libs/platform/config/**` and/or enforce validation (fail fast) in production-like envs.
 - At minimum: if `HTTP_TRUST_PROXY` is set but invalid, throw during bootstrap or surface a warning.
 
+Status:
+
+- Implemented (2026-01-19): `createFastifyAdapter()` now fails fast when `HTTP_TRUST_PROXY` is invalid, and requires it to be explicitly set in `staging`/`production` (matches `validateEnv` behavior); added unit coverage.
+
 ### P1 — Correctness: `registerFastifyHttpPlatform` comment claims not-found behavior but doesn’t implement it
 
 Evidence:
@@ -137,6 +141,10 @@ Recommendation:
 
 - Either implement a Fastify `setNotFoundHandler` that returns RFC7807 `NOT_FOUND` with `traceId`, or
 - Update the comment and add a small integration test/assertion (or a doc note) confirming the actual behavior.
+
+Status:
+
+- Implemented (2026-01-19): removed the misleading “not-found behavior” implication from bootstrap comments and added unit coverage that 404 errors map to `code: NOT_FOUND` in `ProblemDetailsFilter`.
 
 ### P1 — Abuse resistance: idempotency hashing + replay caching has no explicit size bounds
 
@@ -157,6 +165,10 @@ Recommendation:
   - request hash input size (or limit stableStringify output length)
   - cached response body size (or disable caching for large responses)
 - Consider documenting “idempotency is for small JSON bodies; do not use on uploads/streams”.
+
+Status:
+
+- Implemented (2026-01-19): added bounded request-hash stringification (depth/keys/arrays/strings) and a max replay-record size guard; oversized responses are not cached (lock is released). Added unit coverage for oversized replay records.
 
 ### P2 — Docs/contract: idempotency header is documented as `uuid` but not validated as such
 
@@ -194,10 +206,10 @@ Status:
 
 ## Suggested next backlog (smallest-first)
 
-1. P0: remove internal detail leakage for unexpected 5xx errors (and add tests).
-2. P0: remove/replace `extra` in `ResponseEnvelopeInterceptor` auto-list behavior to match `{ data, meta? }`.
-3. P1: make `HTTP_TRUST_PROXY` parsing fail-fast in production-like envs (align with config validation).
-4. P1: either implement a not-found handler that produces RFC7807 or correct the misleading comment + prove behavior.
-5. P1: add size bounds for idempotency hashing and cached response bodies.
-6. P2: align `ApiIdempotencyKeyHeader` docs with runtime behavior (uuid vs opaque string).
-7. P2: centralize `flattenValidationErrors` helper to reduce drift.
+1. ✅ P0: remove internal detail leakage for unexpected 5xx errors (and add tests). (done)
+2. ✅ P0: remove/replace `extra` in `ResponseEnvelopeInterceptor` auto-list behavior to match `{ data, meta? }`. (done)
+3. ✅ P1: make `HTTP_TRUST_PROXY` parsing fail-fast in production-like envs (align with config validation). (done)
+4. ✅ P1: correct the misleading not-found comment + prove behavior. (done)
+5. ✅ P1: add size bounds for idempotency hashing and cached response bodies. (done)
+6. ✅ P2: align `ApiIdempotencyKeyHeader` docs with runtime behavior (uuid vs opaque string). (done)
+7. ✅ P2: centralize `flattenValidationErrors` helper to reduce drift. (done)

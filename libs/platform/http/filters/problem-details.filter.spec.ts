@@ -102,6 +102,23 @@ describe('ProblemDetailsFilter', () => {
     });
   });
 
+  it('maps not found to NOT_FOUND code', () => {
+    const filter = new ProblemDetailsFilter();
+    const { reply, state } = createReply();
+    const req = { requestId: 'req-404', headers: {} } as unknown as FastifyRequest;
+
+    const ex = new HttpException('Not Found', 404);
+    filter.catch(ex, hostFor(req, reply));
+
+    expect(state.status).toBe(404);
+    expect(state.body).toMatchObject({
+      title: 'Not Found',
+      status: 404,
+      code: ErrorCode.NOT_FOUND,
+      traceId: 'req-404',
+    });
+  });
+
   it('maps unknown errors to 500 and uses request.id fallback without leaking internal detail', () => {
     const filter = new ProblemDetailsFilter();
     const { reply, headers, state } = createReply();
