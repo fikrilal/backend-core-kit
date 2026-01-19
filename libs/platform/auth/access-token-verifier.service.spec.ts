@@ -268,4 +268,13 @@ describe('AccessTokenVerifier', () => {
 
     await expect(verifier.verifyAccessToken(token)).rejects.toBeInstanceOf(AccessTokenInvalidError);
   });
+
+  it('rejects oversized tokens', async () => {
+    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
+      getPublicKeyForKid: async () => undefined,
+    } as unknown as AuthKeyRing);
+
+    const token = 'a'.repeat(20_000);
+    await expect(verifier.verifyAccessToken(token)).rejects.toBeInstanceOf(AccessTokenInvalidError);
+  });
 });

@@ -103,6 +103,10 @@ Recommendation:
 - Optionally, add per-segment size guards (header/payload/signature).
 - Add unit coverage for “oversized token is rejected as invalid”.
 
+Status:
+
+- Implemented (2026-01-19): added a max token length guard in `AccessTokenVerifier` and unit coverage for oversized tokens.
+
 ### P1 — Maintainability: repeated small helpers (`asNonEmptyString`, `getNodeEnv`, `isObject`)
 
 Evidence:
@@ -154,7 +158,7 @@ Recommendation:
 
 ## Suggested next backlog (smallest-first)
 
-1. Add token max-length guard + unit test(s).
+1. ✅ Add token max-length guard + unit test(s). (done)
 2. ✅ Validate alg/key compatibility in `AuthKeyRing` init + unit test(s). (done)
 3. Add safe logging for unexpected verifier errors in `AccessTokenGuard`.
 4. Optional: consolidate helper functions shared between verifier/keyring.

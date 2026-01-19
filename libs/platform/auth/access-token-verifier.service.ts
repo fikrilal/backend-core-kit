@@ -12,6 +12,8 @@ export class AccessTokenInvalidError extends Error {
   }
 }
 
+const MAX_ACCESS_TOKEN_LENGTH = 16_384;
+
 function asNonEmptyString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
@@ -149,6 +151,8 @@ export class AccessTokenVerifier {
     if (productionLike && (!issuer || !audience)) {
       throw new Error('AUTH_ISSUER and AUTH_AUDIENCE are required in staging/production');
     }
+
+    if (token.length > MAX_ACCESS_TOKEN_LENGTH) throw new AccessTokenInvalidError();
 
     const { header, payload, signingInput, signature } = parseJwt(token);
 
