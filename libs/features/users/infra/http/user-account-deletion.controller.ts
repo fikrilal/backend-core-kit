@@ -1,4 +1,4 @@
-import { Controller, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { Controller, HttpCode, Post, Req, UseFilters, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { FastifyRequest } from 'fastify';
 import { PinoLogger } from 'nestjs-pino';
@@ -6,17 +6,17 @@ import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
-import { ProblemException } from '../../../../platform/http/errors/problem.exception';
 import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { UsersErrorCode } from '../../app/users.error-codes';
-import { UserNotFoundError, UsersError } from '../../app/users.errors';
 import { UsersService } from '../../app/users.service';
 import { UserAccountDeletionEmailJobs } from '../jobs/user-account-deletion-email.jobs';
+import { UsersErrorFilter } from './users-error.filter';
 
 @ApiTags('Users')
 @Controller()
+@UseFilters(UsersErrorFilter)
 export class UserAccountDeletionController {
   constructor(
     private readonly users: UsersService,
@@ -50,35 +50,31 @@ export class UserAccountDeletionController {
     @CurrentPrincipal() principal: AuthPrincipal,
     @Req() req: FastifyRequest,
   ): Promise<void> {
-    try {
-      const result = await this.users.requestAccountDeletion({
-        userId: principal.userId,
-        sessionId: principal.sessionId,
-        traceId: req.requestId ?? 'unknown',
-      });
+    const result = await this.users.requestAccountDeletion({
+      userId: principal.userId,
+      sessionId: principal.sessionId,
+      traceId: req.requestId ?? 'unknown',
+    });
 
-      // Notifications are best-effort and must not affect the API result.
-      if (result.newlyRequested) {
-        try {
-          await this.emails.enqueueDeletionRequestedEmail(principal.userId, result.scheduledFor);
-        } catch (err: unknown) {
-          this.logger.error(
-            { err, userId: principal.userId },
-            'Failed to enqueue account deletion requested email job',
-          );
-        }
-      }
-
+    // Notifications are best-effort and must not affect the API result.
+    if (result.newlyRequested) {
       try {
-        await this.emails.scheduleDeletionReminderEmail(principal.userId, result.scheduledFor);
+        await this.emails.enqueueDeletionRequestedEmail(principal.userId, result.scheduledFor);
       } catch (err: unknown) {
         this.logger.error(
           { err, userId: principal.userId },
-          'Failed to schedule account deletion reminder email job',
+          'Failed to enqueue account deletion requested email job',
         );
       }
+    }
+
+    try {
+      await this.emails.scheduleDeletionReminderEmail(principal.userId, result.scheduledFor);
     } catch (err: unknown) {
-      throw this.mapUsersError(err);
+      this.logger.error(
+        { err, userId: principal.userId },
+        'Failed to schedule account deletion reminder email job',
+      );
     }
   }
 
@@ -99,60 +95,20 @@ export class UserAccountDeletionController {
     @CurrentPrincipal() principal: AuthPrincipal,
     @Req() req: FastifyRequest,
   ): Promise<void> {
+    await this.users.cancelAccountDeletion({
+      userId: principal.userId,
+      sessionId: principal.sessionId,
+      traceId: req.requestId ?? 'unknown',
+    });
+
+    // Best-effort cleanup.
     try {
-      await this.users.cancelAccountDeletion({
-        userId: principal.userId,
-        sessionId: principal.sessionId,
-        traceId: req.requestId ?? 'unknown',
-      });
-
-      // Best-effort cleanup.
-      try {
-        await this.emails.cancelDeletionReminderEmail(principal.userId);
-      } catch (err: unknown) {
-        this.logger.error(
-          { err, userId: principal.userId },
-          'Failed to cancel account deletion reminder email job',
-        );
-      }
+      await this.emails.cancelDeletionReminderEmail(principal.userId);
     } catch (err: unknown) {
-      throw this.mapUsersError(err);
-    }
-  }
-
-  private mapUsersError(err: unknown): ProblemException {
-    if (err instanceof UserNotFoundError) {
-      return new ProblemException(401, { title: 'Unauthorized', code: ErrorCode.UNAUTHORIZED });
-    }
-
-    if (err instanceof UsersError) {
-      return new ProblemException(err.status, {
-        title: this.titleForStatus(err.status, err.code),
-        detail: err.message,
-        code: err.code,
-        errors: err.issues ? [...err.issues] : undefined,
-      });
-    }
-
-    throw err;
-  }
-
-  private titleForStatus(status: number, code: string): string {
-    if (code === ErrorCode.VALIDATION_FAILED) return 'Validation Failed';
-
-    switch (status) {
-      case 400:
-        return 'Bad Request';
-      case 401:
-        return 'Unauthorized';
-      case 403:
-        return 'Forbidden';
-      case 404:
-        return 'Not Found';
-      case 409:
-        return 'Conflict';
-      default:
-        return status >= 500 ? 'Internal Server Error' : 'Error';
+      this.logger.error(
+        { err, userId: principal.userId },
+        'Failed to cancel account deletion reminder email job',
+      );
     }
   }
 }

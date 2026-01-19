@@ -81,6 +81,17 @@ describe('cursor v1 codec', () => {
     ).toThrow(ListQueryValidationError);
   });
 
+  it('rejects overly long cursors', () => {
+    const huge = 'a'.repeat(5000);
+    expect(() =>
+      decodeCursorV1(huge, {
+        expectedSort: '-createdAt,id',
+        sortFields: ['createdAt', 'id'],
+        allowed: SORT_ALLOWED,
+      }),
+    ).toThrow(ListQueryValidationError);
+  });
+
   it('rejects unsupported fields and invalid field values in "after"', () => {
     const encoded = encodeCursorV1({
       v: 1 as const,
@@ -90,6 +101,22 @@ describe('cursor v1 codec', () => {
         id: 'not-a-uuid',
         unknown: 'x',
       },
+    });
+
+    expect(() =>
+      decodeCursorV1(encoded, {
+        expectedSort: '-createdAt,id',
+        sortFields: ['createdAt', 'id'],
+        allowed: SORT_ALLOWED,
+      }),
+    ).toThrow(ListQueryValidationError);
+  });
+
+  it('rejects non-ISO datetime values in "after"', () => {
+    const encoded = encodeCursorV1({
+      v: 1 as const,
+      sort: '-createdAt,id',
+      after: { createdAt: '2026-01-01T00:00:00', id: UUID },
     });
 
     expect(() =>

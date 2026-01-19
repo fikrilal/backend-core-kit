@@ -1,5 +1,6 @@
 import { ListQueryValidationError, type ListQueryIssue } from './errors';
 import { parseScalar } from './scalars';
+import { isPlainObject } from './object';
 import type { CursorPayloadV1, SortAllowlist, Scalar } from './types';
 
 function base64UrlEncode(input: string): string {
@@ -10,9 +11,7 @@ function base64UrlDecode(input: string): string {
   return Buffer.from(input, 'base64url').toString('utf8');
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+const MAX_CURSOR_LENGTH = 4096;
 
 export function encodeCursorV1<Field extends string>(payload: CursorPayloadV1<Field>): string {
   return base64UrlEncode(JSON.stringify(payload));
@@ -29,6 +28,10 @@ export function decodeCursorV1<Field extends string>(
   options: DecodeCursorV1Options<Field>,
 ): CursorPayloadV1<Field> {
   const issues: ListQueryIssue[] = [];
+
+  if (cursor.length > MAX_CURSOR_LENGTH) {
+    throw new ListQueryValidationError([{ field: 'cursor', message: 'Cursor is too long' }]);
+  }
 
   let decoded: string;
   try {

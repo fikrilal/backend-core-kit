@@ -1,6 +1,7 @@
 import type { CursorFieldType, FilterFieldType, Scalar } from './types';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ISO_DATE_TIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
 function parseBoolean(value: unknown): boolean | undefined {
   if (typeof value === 'boolean') return value;
@@ -27,6 +28,8 @@ function parseDateIso(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const normalized = value.trim();
   if (normalized === '') return undefined;
+
+  if (!ISO_DATE_TIME_RE.test(normalized)) return undefined;
 
   const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) return undefined;

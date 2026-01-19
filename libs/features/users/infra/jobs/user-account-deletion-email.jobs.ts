@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { EmailService } from '../../../../platform/email/email.service';
 import { QueueProducer } from '../../../../platform/queue/queue.producer';
+import type { Clock } from '../../app/time';
 import {
   accountDeletionReminderEmailJobId,
   accountDeletionRequestedEmailJobId,
@@ -10,6 +11,7 @@ import {
   type UsersSendAccountDeletionReminderEmailJobData,
   type UsersSendAccountDeletionRequestedEmailJobData,
 } from './user-account-deletion-email.job';
+import { USERS_CLOCK } from '../users.tokens';
 
 const ACCOUNT_DELETION_REMINDER_BEFORE_MS = 24 * 60 * 60 * 1000;
 
@@ -18,6 +20,7 @@ export class UserAccountDeletionEmailJobs {
   constructor(
     private readonly queue: QueueProducer,
     private readonly email: EmailService,
+    @Inject(USERS_CLOCK) private readonly clock: Clock,
   ) {}
 
   isEnabled(): boolean {
@@ -31,7 +34,7 @@ export class UserAccountDeletionEmailJobs {
     const jobId = accountDeletionRequestedEmailJobId(userId);
     await this.queue.removeJob(EMAIL_QUEUE, jobId);
 
-    const now = new Date();
+    const now = this.clock.now();
     const data: UsersSendAccountDeletionRequestedEmailJobData = {
       userId,
       requestedAt: now.toISOString(),
@@ -52,7 +55,7 @@ export class UserAccountDeletionEmailJobs {
     const jobId = accountDeletionReminderEmailJobId(userId);
     await this.queue.removeJob(EMAIL_QUEUE, jobId);
 
-    const now = new Date();
+    const now = this.clock.now();
     const reminderAt = new Date(scheduledFor.getTime() - ACCOUNT_DELETION_REMINDER_BEFORE_MS);
     const delayMs = Math.max(0, reminderAt.getTime() - now.getTime());
 

@@ -154,11 +154,22 @@ Rules:
 - Use the standardized error model (problem-details + stable `code`).
 - Do not throw raw strings.
 - Do not leak internal details in error responses.
+- When constructing app/feature errors, do not use raw string `code` values; use enums (`ErrorCode` for global, feature enums for feature-specific).
+- Feature error classes must type `code` as a union of global + feature codes (e.g., `FeatureErrorCode | ErrorCode`) to prevent drift.
 
 See:
 
 - `docs/standards/api-response-standard.md`
 - `docs/standards/error-codes.md`
+
+## Time Handling
+
+Rules:
+
+- App services must not call `new Date()` / `Date.now()` directly (except inside a `SystemClock` implementation).
+- Prefer injecting `Clock` (`libs/shared/time.ts`) into app services and deriving `now` from it.
+- Prefer passing `now` explicitly across ports/repositories when persistence must be deterministic.
+- In unit tests, prefer a fixed clock over Jest fake timers.
 
 ## Logging Discipline
 

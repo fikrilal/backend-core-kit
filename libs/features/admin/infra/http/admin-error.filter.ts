@@ -3,6 +3,7 @@ import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { ProblemException } from '../../../../platform/http/errors/problem.exception';
 import { ProblemDetailsFilter } from '../../../../platform/http/filters/problem-details.filter';
 import { AdminError } from '../../app/admin.errors';
+import type { AdminErrorCodeValue } from '../../app/admin.errors';
 
 @Catch(AdminError)
 export class AdminErrorFilter implements ExceptionFilter {
@@ -19,7 +20,7 @@ export class AdminErrorFilter implements ExceptionFilter {
     this.problemDetailsFilter.catch(mapped, host);
   }
 
-  private titleForStatus(status: number, code: string): string {
+  private titleForStatus(status: number, code: AdminErrorCodeValue): string {
     if (code === ErrorCode.VALIDATION_FAILED) return 'Validation Failed';
 
     switch (status) {

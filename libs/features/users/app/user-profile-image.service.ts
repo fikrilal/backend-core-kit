@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { ObjectStorageService } from '../../../platform/storage/object-storage.service';
 import type { PresignedPutObject } from '../../../platform/storage/object-storage.types';
+import { ErrorCode } from '../../../shared/error-codes';
 import { UserNotFoundError, UsersError } from './users.errors';
 import { UsersErrorCode } from './users.error-codes';
 import type { ProfileImageRepository, StoredFileRecord } from './ports/profile-image.repository';
+import type { Clock } from './time';
 
 import {
   PROFILE_IMAGE_ALLOWED_CONTENT_TYPES,
@@ -33,6 +35,7 @@ export class UserProfileImageService {
   constructor(
     private readonly repo: ProfileImageRepository,
     private readonly storage: ObjectStorageService,
+    private readonly clock: Clock,
   ) {}
 
   async createUploadPlan(input: {
@@ -53,7 +56,7 @@ export class UserProfileImageService {
     if (!isAllowedContentType(contentType)) {
       throw new UsersError({
         status: 400,
-        code: 'VALIDATION_FAILED',
+        code: ErrorCode.VALIDATION_FAILED,
         message: 'Unsupported contentType',
         issues: [
           {
@@ -68,7 +71,7 @@ export class UserProfileImageService {
     if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > PROFILE_IMAGE_MAX_BYTES) {
       throw new UsersError({
         status: 400,
-        code: 'VALIDATION_FAILED',
+        code: ErrorCode.VALIDATION_FAILED,
         message: 'Invalid sizeBytes',
         issues: [
           { field: 'sizeBytes', message: `Must be between 1 and ${PROFILE_IMAGE_MAX_BYTES}` },
@@ -87,7 +90,7 @@ export class UserProfileImageService {
       expiresInSeconds: PROFILE_IMAGE_PRESIGN_TTL_SECONDS,
     });
 
-    const now = new Date();
+    const now = this.clock.now();
     const expiresAt = new Date(
       now.getTime() + PROFILE_IMAGE_PRESIGN_TTL_SECONDS * 1000,
     ).toISOString();
@@ -127,7 +130,7 @@ export class UserProfileImageService {
     if (!record) {
       throw new UsersError({
         status: 404,
-        code: 'NOT_FOUND',
+        code: ErrorCode.NOT_FOUND,
         message: 'File not found',
       });
     }
@@ -172,7 +175,7 @@ export class UserProfileImageService {
       });
     }
 
-    const now = new Date();
+    const now = this.clock.now();
     const attach = await this.repo.attachProfileImageFile({
       userId: input.userId,
       fileId: input.fileId,
@@ -189,7 +192,7 @@ export class UserProfileImageService {
   }
 
   async clearProfileImage(input: { userId: string; traceId: string }): Promise<string | null> {
-    const now = new Date();
+    const now = this.clock.now();
 
     const cleared = await this.repo.clearProfileImage({ userId: input.userId, now });
     if (cleared.kind === 'not_found') {
@@ -222,13 +225,16 @@ export class UserProfileImageService {
       expiresInSeconds: PROFILE_IMAGE_GET_URL_TTL_SECONDS,
     });
 
-    const expiresAt = new Date(Date.now() + PROFILE_IMAGE_GET_URL_TTL_SECONDS * 1000).toISOString();
+    const now = this.clock.now();
+    const expiresAt = new Date(
+      now.getTime() + PROFILE_IMAGE_GET_URL_TTL_SECONDS * 1000,
+    ).toISOString();
 
     return { url: presigned.url, expiresAt };
   }
 
   private async rejectUpload(file: StoredFileRecord, ownerUserId: string): Promise<void> {
-    const now = new Date();
+    const now = this.clock.now();
 
     try {
       await this.storage.deleteObject(file.objectKey);

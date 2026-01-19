@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash } from 'crypto';
 import { AuthError } from '../../app/auth.errors';
 import { RedisService } from '../../../../platform/redis/redis.service';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
+import { asNonEmptyString, asPositiveInt, getRetryAfterSeconds, hashKey } from './rate-limit.utils';
 
 type EmailVerificationRateLimitContext = Readonly<{
   userId: string;
@@ -15,16 +15,6 @@ type IpRateLimitConfig = Readonly<{
   windowSeconds: number;
   blockSeconds: number;
 }>;
-
-function hashKey(value: string): string {
-  return createHash('sha256').update(value).digest('base64url');
-}
-
-function asPositiveInt(value: unknown, fallback: number): number {
-  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return fallback;
-  return n;
-}
 
 @Injectable()
 export class RedisEmailVerificationRateLimiter {
@@ -60,14 +50,21 @@ export class RedisEmailVerificationRateLimiter {
 
     const client = this.redis.getClient();
 
-    const ip = typeof ctx.ip === 'string' && ctx.ip.trim() !== '' ? ctx.ip.trim() : undefined;
+    const ip = asNonEmptyString(ctx.ip);
     if (ip) {
       const ipHash = hashKey(ip);
       const ipCountKey = `auth:email-verification:resend:ip:${ipHash}:requests`;
       const ipBlockKey = `auth:email-verification:resend:ip:${ipHash}:blocked`;
 
       const blocked = await client.get(ipBlockKey);
-      if (blocked) throw this.rateLimited();
+      if (blocked) {
+        const retryAfterSeconds = await getRetryAfterSeconds(
+          client,
+          ipBlockKey,
+          this.ipConfig.blockSeconds,
+        );
+        throw this.rateLimited(retryAfterSeconds);
+      }
 
       await this.bumpIp(client, ipCountKey, ipBlockKey);
     }
@@ -76,7 +73,8 @@ export class RedisEmailVerificationRateLimiter {
     const ok = await client.set(key, '1', 'EX', this.cooldownSeconds, 'NX');
     if (ok === 'OK') return;
 
-    throw this.rateLimited();
+    const retryAfterSeconds = await getRetryAfterSeconds(client, key, this.cooldownSeconds);
+    throw this.rateLimited(retryAfterSeconds);
   }
 
   private async bumpIp(
@@ -96,11 +94,12 @@ export class RedisEmailVerificationRateLimiter {
     }
   }
 
-  private rateLimited(): AuthError {
+  private rateLimited(retryAfterSeconds: number): AuthError {
     return new AuthError({
       status: 429,
       code: ErrorCode.RATE_LIMITED,
       message: 'Too many verification email requests. Try again later.',
+      retryAfterSeconds,
     });
   }
 }

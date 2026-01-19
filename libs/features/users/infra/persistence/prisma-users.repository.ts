@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   ExternalIdentityProvider as PrismaExternalIdentityProvider,
   Prisma,
@@ -20,6 +20,8 @@ import type {
 import { PrismaService } from '../../../../platform/db/prisma.service';
 import { lockActiveAdminInvariant } from '../../../../platform/db/advisory-locks';
 import type { AuthMethod } from '../../../../shared/auth/auth-method';
+import type { Clock } from '../../app/time';
+import { USERS_CLOCK } from '../users.tokens';
 
 type PrismaUserWithProfile = Pick<
   User,
@@ -39,9 +41,25 @@ type PrismaUserWithProfile = Pick<
   externalIdentities: Array<Pick<ExternalIdentity, 'provider'>>;
 };
 
-function isRecordNotFoundError(err: unknown): boolean {
-  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025';
-}
+const USER_WITH_PROFILE_SELECT = {
+  id: true,
+  email: true,
+  emailVerifiedAt: true,
+  role: true,
+  status: true,
+  deletionRequestedAt: true,
+  deletionScheduledFor: true,
+  profile: {
+    select: {
+      profileImageFileId: true,
+      displayName: true,
+      givenName: true,
+      familyName: true,
+    },
+  },
+  passwordCredential: { select: { userId: true } },
+  externalIdentities: { select: { provider: true } },
+} as const satisfies Prisma.UserSelect;
 
 function toProfileRecord(profile: PrismaUserWithProfile['profile']): UserProfileRecord | null {
   if (!profile) return null;
@@ -82,31 +100,16 @@ function toUserRecord(user: PrismaUserWithProfile): UserRecord {
 
 @Injectable()
 export class PrismaUsersRepository implements UsersRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(USERS_CLOCK) private readonly clock: Clock,
+  ) {}
 
   async findById(userId: string): Promise<UserRecord | null> {
     const client = this.prisma.getClient();
     const user = await client.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        emailVerifiedAt: true,
-        role: true,
-        status: true,
-        deletionRequestedAt: true,
-        deletionScheduledFor: true,
-        profile: {
-          select: {
-            profileImageFileId: true,
-            displayName: true,
-            givenName: true,
-            familyName: true,
-          },
-        },
-        passwordCredential: { select: { userId: true } },
-        externalIdentities: { select: { provider: true } },
-      },
+      select: USER_WITH_PROFILE_SELECT,
     });
     if (!user) return null;
     if (user.status === PrismaUserStatus.DELETED) return null;
@@ -115,12 +118,6 @@ export class PrismaUsersRepository implements UsersRepository {
 
   async updateProfile(userId: string, patch: UpdateMeProfilePatch): Promise<UserRecord | null> {
     const client = this.prisma.getClient();
-
-    const existing = await client.user.findUnique({
-      where: { id: userId },
-      select: { id: true, status: true },
-    });
-    if (!existing || existing.status === PrismaUserStatus.DELETED) return null;
 
     const profileData: {
       displayName?: string | null;
@@ -132,43 +129,29 @@ export class PrismaUsersRepository implements UsersRepository {
     if (patch.givenName !== undefined) profileData.givenName = patch.givenName;
     if (patch.familyName !== undefined) profileData.familyName = patch.familyName;
 
-    try {
-      const user = await client.user.update({
-        where: { id: userId },
-        data: {
-          profile: {
-            upsert: {
-              create: profileData,
-              update: profileData,
-            },
-          },
-        },
-        select: {
-          id: true,
-          email: true,
-          emailVerifiedAt: true,
-          role: true,
-          status: true,
-          deletionRequestedAt: true,
-          deletionScheduledFor: true,
-          profile: {
-            select: {
-              profileImageFileId: true,
-              displayName: true,
-              givenName: true,
-              familyName: true,
-            },
-          },
-          passwordCredential: { select: { userId: true } },
-          externalIdentities: { select: { provider: true } },
-        },
+    return await client.$transaction(async (tx) => {
+      const now = this.clock.now();
+
+      const locked = await tx.user.updateMany({
+        where: { id: userId, status: { not: PrismaUserStatus.DELETED } },
+        data: { updatedAt: now },
+      });
+      if (locked.count === 0) return null;
+
+      await tx.userProfile.upsert({
+        where: { userId },
+        create: { userId, ...profileData },
+        update: profileData,
       });
 
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: USER_WITH_PROFILE_SELECT,
+      });
+      if (!user || user.status === PrismaUserStatus.DELETED) return null;
+
       return toUserRecord(user);
-    } catch (err: unknown) {
-      if (isRecordNotFoundError(err)) return null;
-      throw err;
-    }
+    });
   }
 
   async requestAccountDeletion(input: {
@@ -187,25 +170,7 @@ export class PrismaUsersRepository implements UsersRepository {
           async (tx) => {
             const user = await tx.user.findUnique({
               where: { id: input.userId },
-              select: {
-                id: true,
-                email: true,
-                emailVerifiedAt: true,
-                role: true,
-                status: true,
-                deletionRequestedAt: true,
-                deletionScheduledFor: true,
-                profile: {
-                  select: {
-                    profileImageFileId: true,
-                    displayName: true,
-                    givenName: true,
-                    familyName: true,
-                  },
-                },
-                passwordCredential: { select: { userId: true } },
-                externalIdentities: { select: { provider: true } },
-              },
+              select: USER_WITH_PROFILE_SELECT,
             });
             if (!user) return { kind: 'not_found' } as const;
             if (user.status === PrismaUserStatus.DELETED) return { kind: 'not_found' } as const;
@@ -231,25 +196,7 @@ export class PrismaUsersRepository implements UsersRepository {
                 deletionRequestedSessionId: input.sessionId,
                 deletionRequestedTraceId: input.traceId,
               },
-              select: {
-                id: true,
-                email: true,
-                emailVerifiedAt: true,
-                role: true,
-                status: true,
-                deletionRequestedAt: true,
-                deletionScheduledFor: true,
-                profile: {
-                  select: {
-                    profileImageFileId: true,
-                    displayName: true,
-                    givenName: true,
-                    familyName: true,
-                  },
-                },
-                passwordCredential: { select: { userId: true } },
-                externalIdentities: { select: { provider: true } },
-              },
+              select: USER_WITH_PROFILE_SELECT,
             });
 
             await tx.userAccountDeletionAudit.create({
@@ -293,25 +240,7 @@ export class PrismaUsersRepository implements UsersRepository {
           async (tx) => {
             const user = await tx.user.findUnique({
               where: { id: input.userId },
-              select: {
-                id: true,
-                email: true,
-                emailVerifiedAt: true,
-                role: true,
-                status: true,
-                deletionRequestedAt: true,
-                deletionScheduledFor: true,
-                profile: {
-                  select: {
-                    profileImageFileId: true,
-                    displayName: true,
-                    givenName: true,
-                    familyName: true,
-                  },
-                },
-                passwordCredential: { select: { userId: true } },
-                externalIdentities: { select: { provider: true } },
-              },
+              select: USER_WITH_PROFILE_SELECT,
             });
             if (!user) return { kind: 'not_found' } as const;
             if (user.status === PrismaUserStatus.DELETED) return { kind: 'not_found' } as const;
@@ -328,25 +257,7 @@ export class PrismaUsersRepository implements UsersRepository {
                 deletionRequestedSessionId: null,
                 deletionRequestedTraceId: null,
               },
-              select: {
-                id: true,
-                email: true,
-                emailVerifiedAt: true,
-                role: true,
-                status: true,
-                deletionRequestedAt: true,
-                deletionScheduledFor: true,
-                profile: {
-                  select: {
-                    profileImageFileId: true,
-                    displayName: true,
-                    givenName: true,
-                    familyName: true,
-                  },
-                },
-                passwordCredential: { select: { userId: true } },
-                externalIdentities: { select: { provider: true } },
-              },
+              select: USER_WITH_PROFILE_SELECT,
             });
 
             await tx.userAccountDeletionAudit.create({

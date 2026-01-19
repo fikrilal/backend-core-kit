@@ -12,7 +12,7 @@ import { PlatformPushModule } from '../../../libs/platform/push/push.module';
 import { QueueModule } from '../../../libs/platform/queue/queue.module';
 import { PlatformStorageModule } from '../../../libs/platform/storage/storage.module';
 import { SystemSmokeWorker } from './jobs/system-smoke.worker';
-import { AuthEmailsWorker } from './jobs/auth-email-verification.worker';
+import { EmailsWorker } from './jobs/emails.worker';
 import { PushWorker } from './jobs/push.worker';
 import { UsersAccountDeletionWorker } from './jobs/users-account-deletion.worker';
 
@@ -31,7 +31,7 @@ import { UsersAccountDeletionWorker } from './jobs/users-account-deletion.worker
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },
     SystemSmokeWorker,
-    AuthEmailsWorker,
+    EmailsWorker,
     PushWorker,
     UsersAccountDeletionWorker,
   ],

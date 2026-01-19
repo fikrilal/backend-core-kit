@@ -15,10 +15,15 @@ function hashKey(value: string): string {
   return createHash('sha256').update(value).digest('base64url');
 }
 
-function asPositiveInt(value: unknown, fallback: number): number {
-  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return fallback;
-  return n;
+async function getRetryAfterSeconds(
+  client: ReturnType<RedisService['getClient']>,
+  key: string,
+  fallbackSeconds: number,
+): Promise<number> {
+  const ttl = await client.ttl(key);
+  if (ttl > 0) return ttl;
+  if (ttl === 0) return 1;
+  return fallbackSeconds;
 }
 
 @Injectable()
@@ -31,30 +36,19 @@ export class RedisProfileImageUploadRateLimiter {
     private readonly redis: RedisService,
   ) {
     this.userConfig = {
-      maxAttempts: asPositiveInt(
-        this.config.get('USERS_PROFILE_IMAGE_UPLOAD_USER_MAX_ATTEMPTS'),
-        20,
-      ),
-      windowSeconds: asPositiveInt(
-        this.config.get('USERS_PROFILE_IMAGE_UPLOAD_USER_WINDOW_SECONDS'),
-        60 * 60,
-      ),
-      blockSeconds: asPositiveInt(
-        this.config.get('USERS_PROFILE_IMAGE_UPLOAD_USER_BLOCK_SECONDS'),
-        15 * 60,
-      ),
+      maxAttempts: this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_USER_MAX_ATTEMPTS') ?? 20,
+      windowSeconds:
+        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_USER_WINDOW_SECONDS') ?? 60 * 60,
+      blockSeconds:
+        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_USER_BLOCK_SECONDS') ?? 15 * 60,
     };
 
     this.ipConfig = {
-      maxAttempts: asPositiveInt(this.config.get('USERS_PROFILE_IMAGE_UPLOAD_IP_MAX_ATTEMPTS'), 60),
-      windowSeconds: asPositiveInt(
-        this.config.get('USERS_PROFILE_IMAGE_UPLOAD_IP_WINDOW_SECONDS'),
-        5 * 60,
-      ),
-      blockSeconds: asPositiveInt(
-        this.config.get('USERS_PROFILE_IMAGE_UPLOAD_IP_BLOCK_SECONDS'),
-        15 * 60,
-      ),
+      maxAttempts: this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_IP_MAX_ATTEMPTS') ?? 60,
+      windowSeconds:
+        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_IP_WINDOW_SECONDS') ?? 5 * 60,
+      blockSeconds:
+        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_IP_BLOCK_SECONDS') ?? 15 * 60,
     };
   }
 
@@ -66,8 +60,15 @@ export class RedisProfileImageUploadRateLimiter {
     const userCountKey = `users:profile-image:upload:user:${ctx.userId}:requests`;
     const userBlockKey = `users:profile-image:upload:user:${ctx.userId}:blocked`;
 
+    let retryAfterSeconds = 0;
+
     const userBlocked = await client.get(userBlockKey);
-    if (userBlocked) throw this.rateLimited();
+    if (userBlocked) {
+      retryAfterSeconds = Math.max(
+        retryAfterSeconds,
+        await getRetryAfterSeconds(client, userBlockKey, this.userConfig.blockSeconds),
+      );
+    }
 
     const ip = typeof ctx.ip === 'string' && ctx.ip.trim() !== '' ? ctx.ip.trim() : undefined;
     const ipHash = ip ? hashKey(ip) : undefined;
@@ -76,8 +77,15 @@ export class RedisProfileImageUploadRateLimiter {
 
     if (ipBlockKey) {
       const ipBlocked = await client.get(ipBlockKey);
-      if (ipBlocked) throw this.rateLimited();
+      if (ipBlocked) {
+        retryAfterSeconds = Math.max(
+          retryAfterSeconds,
+          await getRetryAfterSeconds(client, ipBlockKey, this.ipConfig.blockSeconds),
+        );
+      }
     }
+
+    if (retryAfterSeconds > 0) throw this.rateLimited(retryAfterSeconds);
 
     await this.bump(client, userCountKey, userBlockKey, this.userConfig);
     if (ipCountKey && ipBlockKey) {
@@ -101,11 +109,12 @@ export class RedisProfileImageUploadRateLimiter {
     }
   }
 
-  private rateLimited(): UsersError {
+  private rateLimited(retryAfterSeconds: number): UsersError {
     return new UsersError({
       status: 429,
       code: ErrorCode.RATE_LIMITED,
       message: 'Too many profile image upload requests. Try again later.',
+      retryAfterSeconds,
     });
   }
 }

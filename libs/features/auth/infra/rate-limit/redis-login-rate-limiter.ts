@@ -1,26 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash } from 'crypto';
 import type { LoginRateLimitContext, LoginRateLimiter } from '../../app/ports/login-rate-limiter';
 import { AuthError } from '../../app/auth.errors';
 import { RedisService } from '../../../../platform/redis/redis.service';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
+import { asNonEmptyString, asPositiveInt, getRetryAfterSeconds, hashKey } from './rate-limit.utils';
 
 type RateLimitConfig = Readonly<{
   maxAttempts: number;
   windowSeconds: number;
   blockSeconds: number;
 }>;
-
-function hashKey(value: string): string {
-  return createHash('sha256').update(value).digest('base64url');
-}
-
-function asPositiveInt(value: unknown, fallback: number): number {
-  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return fallback;
-  return n;
-}
 
 @Injectable()
 export class RedisLoginRateLimiter implements LoginRateLimiter {
@@ -43,14 +33,28 @@ export class RedisLoginRateLimiter implements LoginRateLimiter {
     const client = this.redis.getClient();
     const keys = this.keysFor(ctx);
 
+    let retryAfterSeconds = 0;
+
     if (keys.emailBlockKey) {
       const blocked = await client.get(keys.emailBlockKey);
-      if (blocked) throw this.rateLimited();
+      if (blocked) {
+        retryAfterSeconds = Math.max(
+          retryAfterSeconds,
+          await getRetryAfterSeconds(client, keys.emailBlockKey, this.configValues.blockSeconds),
+        );
+      }
     }
     if (keys.ipBlockKey) {
       const blocked = await client.get(keys.ipBlockKey);
-      if (blocked) throw this.rateLimited();
+      if (blocked) {
+        retryAfterSeconds = Math.max(
+          retryAfterSeconds,
+          await getRetryAfterSeconds(client, keys.ipBlockKey, this.configValues.blockSeconds),
+        );
+      }
     }
+
+    if (retryAfterSeconds > 0) throw this.rateLimited(retryAfterSeconds);
   }
 
   async recordFailure(ctx: LoginRateLimitContext): Promise<void> {
@@ -91,7 +95,7 @@ export class RedisLoginRateLimiter implements LoginRateLimiter {
     const emailCountKey = `auth:login:email:${emailKey}:failures`;
     const emailBlockKey = `auth:login:email:${emailKey}:blocked`;
 
-    const ip = typeof ctx.ip === 'string' && ctx.ip.trim() !== '' ? ctx.ip.trim() : undefined;
+    const ip = asNonEmptyString(ctx.ip);
     const ipKey = ip ? hashKey(ip) : undefined;
     const ipCountKey = ipKey ? `auth:login:ip:${ipKey}:failures` : undefined;
     const ipBlockKey = ipKey ? `auth:login:ip:${ipKey}:blocked` : undefined;
@@ -115,11 +119,12 @@ export class RedisLoginRateLimiter implements LoginRateLimiter {
     }
   }
 
-  private rateLimited(): AuthError {
+  private rateLimited(retryAfterSeconds: number): AuthError {
     return new AuthError({
       status: 429,
       code: ErrorCode.RATE_LIMITED,
       message: 'Too many login attempts. Try again later.',
+      retryAfterSeconds,
     });
   }
 }

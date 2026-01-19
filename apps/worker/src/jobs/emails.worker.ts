@@ -34,7 +34,7 @@ type AuthSendVerificationEmailJobResult = Readonly<{
   ok: true;
   userId: string;
   outcome: 'sent' | 'skipped';
-  reason?: 'user_not_found' | 'already_verified';
+  reason?: 'user_not_found' | 'already_verified' | 'already_deleted';
   emailId?: string;
   tokenExpiresAt?: string;
 }> &
@@ -64,20 +64,20 @@ type AuthSendPasswordResetEmailJobResult = Readonly<{
   ok: true;
   userId: string;
   outcome: 'sent' | 'skipped';
-  reason?: 'user_not_found';
+  reason?: 'user_not_found' | 'already_deleted';
   emailId?: string;
   tokenExpiresAt?: string;
   resetLink?: string;
 }> &
   JsonObject;
 
-type AuthEmailsJobData =
+type EmailsJobData =
   | AuthSendVerificationEmailJobData
   | AuthSendPasswordResetEmailJobData
   | UsersSendAccountDeletionRequestedEmailJobData
   | UsersSendAccountDeletionReminderEmailJobData;
 
-type AuthEmailsJobResult =
+type EmailsJobResult =
   | AuthSendVerificationEmailJobResult
   | AuthSendPasswordResetEmailJobResult
   | UsersSendAccountDeletionRequestedEmailJobResult
@@ -90,7 +90,7 @@ function asNonEmptyString(value: unknown): string | undefined {
 }
 
 @Injectable()
-export class AuthEmailsWorker implements OnModuleInit {
+export class EmailsWorker implements OnModuleInit {
   constructor(
     private readonly config: ConfigService,
     private readonly workers: QueueWorkerFactory,
@@ -98,23 +98,21 @@ export class AuthEmailsWorker implements OnModuleInit {
     private readonly email: EmailService,
     private readonly logger: PinoLogger,
   ) {
-    this.logger.setContext(AuthEmailsWorker.name);
+    this.logger.setContext(EmailsWorker.name);
   }
 
   async onModuleInit(): Promise<void> {
     // Keep the worker process runnable in dev/test without Redis/DB/email unless configured.
     if (!this.workers.isEnabled() || !this.prisma.isEnabled() || !this.email.isEnabled()) return;
 
-    this.workers.createWorker<AuthEmailsJobData, AuthEmailsJobResult>(
+    this.workers.createWorker<EmailsJobData, EmailsJobResult>(
       EMAIL_QUEUE,
       async (job) => this.process(job),
       { concurrency: 5 },
     );
   }
 
-  private async process(
-    job: Job<AuthEmailsJobData, AuthEmailsJobResult>,
-  ): Promise<AuthEmailsJobResult> {
+  private async process(job: Job<EmailsJobData, EmailsJobResult>): Promise<EmailsJobResult> {
     if (job.name === AUTH_SEND_VERIFICATION_EMAIL_JOB) {
       return await this.processVerificationEmail(job.data.userId);
     }
@@ -145,12 +143,17 @@ export class AuthEmailsWorker implements OnModuleInit {
     const client = this.prisma.getClient();
     const user = await client.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, emailVerifiedAt: true },
+      select: { id: true, email: true, emailVerifiedAt: true, status: true },
     });
 
     if (!user) {
       this.logger.warn({ userId }, 'Verification email job skipped: user not found');
       return { ok: true, userId, outcome: 'skipped', reason: 'user_not_found' };
+    }
+
+    if (user.status === 'DELETED') {
+      this.logger.warn({ userId: user.id }, 'Verification email job skipped: user deleted');
+      return { ok: true, userId: user.id, outcome: 'skipped', reason: 'already_deleted' };
     }
 
     if (user.emailVerifiedAt) {
@@ -198,12 +201,17 @@ export class AuthEmailsWorker implements OnModuleInit {
     const client = this.prisma.getClient();
     const user = await client.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true },
+      select: { id: true, email: true, status: true },
     });
 
     if (!user) {
       this.logger.warn({ userId }, 'Password reset email job skipped: user not found');
       return { ok: true, userId, outcome: 'skipped', reason: 'user_not_found' };
+    }
+
+    if (user.status === 'DELETED') {
+      this.logger.warn({ userId: user.id }, 'Password reset email job skipped: user deleted');
+      return { ok: true, userId: user.id, outcome: 'skipped', reason: 'already_deleted' };
     }
 
     const publicAppUrl = asNonEmptyString(this.config.get<string>('PUBLIC_APP_URL'));

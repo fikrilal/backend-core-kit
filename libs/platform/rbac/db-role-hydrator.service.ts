@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { AuthPrincipal } from '../auth/auth.types';
 import { PrismaService } from '../db/prisma.service';
 import { ProblemException } from '../http/errors/problem.exception';
+import { AuthErrorCode } from '../../shared/auth/auth-error-codes';
 
 @Injectable()
 export class DbRoleHydrator {
@@ -26,7 +27,7 @@ export class DbRoleHydrator {
       if (user.status === 'SUSPENDED') {
         throw new ProblemException(403, {
           title: 'Forbidden',
-          code: 'AUTH_USER_SUSPENDED',
+          code: AuthErrorCode.AUTH_USER_SUSPENDED,
           detail: 'User is suspended',
         });
       }

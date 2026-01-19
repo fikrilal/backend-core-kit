@@ -1,10 +1,7 @@
 import { ListQueryValidationError, type ListQueryIssue } from './errors';
 import { parseFilterScalar } from './scalars';
+import { isPlainObject } from './object';
 import type { FilterAllowlist, FilterExpr, FilterFieldConfig, FilterOperator } from './types';
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function formatFilterField(field: string, op?: string): string {
   return op ? `filter[${field}][${op}]` : `filter[${field}]`;

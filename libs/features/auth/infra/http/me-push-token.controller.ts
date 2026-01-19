@@ -6,11 +6,11 @@ import {
   HttpStatus,
   Inject,
   Put,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthPushTokensService } from '../../app/auth-push-tokens.service';
-import { AuthError } from '../../app/auth.errors';
 import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
@@ -20,11 +20,13 @@ import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { ProblemException } from '../../../../platform/http/errors/problem.exception';
 import { MePushTokenUpsertRequestDto } from './dtos/me-push-token.dto';
+import { AuthErrorFilter } from './auth-error.filter';
 
 const PUSH_NOT_CONFIGURED_CODE = 'PUSH_NOT_CONFIGURED';
 
 @ApiTags('Users')
 @Controller()
+@UseFilters(AuthErrorFilter)
 export class MePushTokenController {
   constructor(
     private readonly pushTokens: AuthPushTokensService,
@@ -60,16 +62,12 @@ export class MePushTokenController {
       });
     }
 
-    try {
-      await this.pushTokens.upsertMyPushToken({
-        userId: principal.userId,
-        sessionId: principal.sessionId,
-        platform: body.platform,
-        token: body.token,
-      });
-    } catch (err: unknown) {
-      throw this.mapAuthError(err);
-    }
+    await this.pushTokens.upsertMyPushToken({
+      userId: principal.userId,
+      sessionId: principal.sessionId,
+      platform: body.platform,
+      token: body.token,
+    });
   }
 
   @Delete('me/push-token')
@@ -84,47 +82,9 @@ export class MePushTokenController {
   @ApiNoContentResponse()
   @HttpCode(HttpStatus.NO_CONTENT)
   async revokeMyPushToken(@CurrentPrincipal() principal: AuthPrincipal): Promise<void> {
-    try {
-      await this.pushTokens.revokeMyPushToken({
-        userId: principal.userId,
-        sessionId: principal.sessionId,
-      });
-    } catch (err: unknown) {
-      throw this.mapAuthError(err);
-    }
-  }
-
-  private mapAuthError(err: unknown): ProblemException {
-    if (err instanceof AuthError) {
-      const title = this.titleForStatus(err.status, err.code);
-      return new ProblemException(err.status, {
-        title,
-        detail: err.message,
-        code: err.code,
-        errors: err.issues ? [...err.issues] : undefined,
-      });
-    }
-    throw err;
-  }
-
-  private titleForStatus(status: number, code: string): string {
-    if (code === ErrorCode.VALIDATION_FAILED) return 'Validation Failed';
-
-    switch (status) {
-      case 400:
-        return 'Bad Request';
-      case 401:
-        return 'Unauthorized';
-      case 403:
-        return 'Forbidden';
-      case 404:
-        return 'Not Found';
-      case 409:
-        return 'Conflict';
-      case 429:
-        return 'Too Many Requests';
-      default:
-        return status >= 500 ? 'Internal Server Error' : 'Error';
-    }
+    await this.pushTokens.revokeMyPushToken({
+      userId: principal.userId,
+      sessionId: principal.sessionId,
+    });
   }
 }

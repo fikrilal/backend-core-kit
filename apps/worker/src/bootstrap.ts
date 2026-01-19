@@ -8,7 +8,7 @@ import { ErrorCode } from '../../../libs/platform/http/errors/error-codes';
 import { ProblemException } from '../../../libs/platform/http/errors/problem.exception';
 import { createFastifyAdapter } from '../../../libs/platform/http/fastify-adapter';
 import { registerFastifyHttpPlatform } from '../../../libs/platform/http/fastify-hooks';
-import { WorkerModule } from './worker.module';
+import { loadDotEnvOnce } from '../../../libs/platform/config/dotenv';
 
 function flattenValidationErrors(
   errors: ValidationError[],
@@ -34,6 +34,9 @@ function flattenValidationErrors(
 }
 
 export async function createWorkerApp(): Promise<NestFastifyApplication> {
+  await loadDotEnvOnce();
+  const { WorkerModule } = await import('./worker.module');
+
   const app = await NestFactory.create<NestFastifyApplication>(
     WorkerModule,
     createFastifyAdapter(),
