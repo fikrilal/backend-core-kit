@@ -9,6 +9,10 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ LOG_LEVEL: 'loud' })).toThrow(/LOG_LEVEL/i);
   });
 
+  it('throws on invalid LOG_PRETTY', () => {
+    expect(() => validateEnv({ LOG_PRETTY: 'maybe' })).toThrow(/LOG_PRETTY/i);
+  });
+
   it('throws on invalid AUTH_PASSWORD_MIN_LENGTH', () => {
     expect(() => validateEnv({ AUTH_PASSWORD_MIN_LENGTH: 'nope' })).toThrow(
       /AUTH_PASSWORD_MIN_LENGTH/i,

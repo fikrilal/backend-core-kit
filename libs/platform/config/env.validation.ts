@@ -22,14 +22,17 @@ export enum PushProvider {
   Fcm = 'FCM',
 }
 
-function parseEnvBoolean(value: unknown): boolean | undefined {
+function parseEnvBoolean(value: unknown): boolean | undefined | string {
   if (value === undefined) return undefined;
   if (typeof value === 'boolean') return value;
 
   const normalized = String(value).trim().toLowerCase();
+  if (normalized === '') return undefined;
   if (normalized === 'true' || normalized === '1') return true;
   if (normalized === 'false' || normalized === '0') return false;
-  return undefined;
+
+  // Return the original value so `@IsBoolean()` fails (fail-fast) when an invalid value is provided.
+  return String(value);
 }
 
 class EnvVars {
@@ -41,7 +44,7 @@ class EnvVars {
   // When true, Fastify will trust `X-Forwarded-*` headers and `req.ip` will reflect the client IP
   // behind a reverse proxy/load balancer. Only enable when traffic is guaranteed to come through
   // trusted proxies (otherwise clients can spoof these headers).
-  @Transform(({ value }) => parseEnvBoolean(value))
+  @Transform(({ obj, key }) => parseEnvBoolean((obj as Record<string, unknown>)[key]))
   @IsOptional()
   @IsBoolean()
   HTTP_TRUST_PROXY?: boolean;
@@ -64,7 +67,7 @@ class EnvVars {
   @Min(0)
   WORKER_PORT: number = 4001;
 
-  @Transform(({ value }) => parseEnvBoolean(value))
+  @Transform(({ obj, key }) => parseEnvBoolean((obj as Record<string, unknown>)[key]))
   @IsOptional()
   @IsBoolean()
   SWAGGER_UI_ENABLED?: boolean;
@@ -263,7 +266,7 @@ class EnvVars {
   @IsEnum(LogLevel)
   LOG_LEVEL?: LogLevel;
 
-  @Transform(({ value }) => parseEnvBoolean(value))
+  @Transform(({ obj, key }) => parseEnvBoolean((obj as Record<string, unknown>)[key]))
   @IsOptional()
   @IsBoolean()
   LOG_PRETTY?: boolean;
@@ -300,7 +303,7 @@ class EnvVars {
   @IsString()
   FCM_SERVICE_ACCOUNT_JSON?: string;
 
-  @Transform(({ value }) => parseEnvBoolean(value))
+  @Transform(({ obj, key }) => parseEnvBoolean((obj as Record<string, unknown>)[key]))
   @IsOptional()
   @IsBoolean()
   FCM_USE_APPLICATION_DEFAULT?: boolean;
@@ -326,7 +329,7 @@ class EnvVars {
   @IsString()
   STORAGE_S3_SECRET_ACCESS_KEY?: string;
 
-  @Transform(({ value }) => parseEnvBoolean(value))
+  @Transform(({ obj, key }) => parseEnvBoolean((obj as Record<string, unknown>)[key]))
   @IsOptional()
   @IsBoolean()
   STORAGE_S3_FORCE_PATH_STYLE?: boolean;

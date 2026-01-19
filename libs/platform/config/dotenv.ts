@@ -7,6 +7,10 @@ export function loadDotEnvOnce(): Promise<void> {
   if (loadPromise) return loadPromise;
 
   loadPromise = (async () => {
+    const nodeEnv = typeof process.env.NODE_ENV === 'string' ? process.env.NODE_ENV.trim() : '';
+    const productionLike = nodeEnv === 'production' || nodeEnv === 'staging';
+    if (productionLike) return;
+
     const envPath = resolve(process.cwd(), '.env');
     if (!existsSync(envPath)) return;
 

@@ -79,6 +79,7 @@ Local dev may use `.env`, but:
 
 - `.env` is never committed.
 - `env.example` is committed and kept up-to-date.
+- `.env` is only loaded automatically in `development`/`test` (ignored in `staging`/`production`).
 
 ## Rotation-Friendly Key Management
 
