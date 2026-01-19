@@ -105,7 +105,7 @@ Access token should include minimal, non-PII claims:
 - `iss` (issuer)
 - `aud` (audience)
 - `sub` (internal user id)
-- `exp`, `iat`
+- `exp`, `iat`, optional `nbf`
 - `jti` (token id)
 - `typ` (e.g., `access`)
 - authorization context (e.g., `roles: ["USER"]`) derived from DB-backed role assignment when RBAC is enforced
@@ -114,6 +114,8 @@ Rules:
 
 - Do not put emails, names, or other PII into tokens unless required.
 - Keep tokens small; prefer server-side lookups for heavy data.
+- Verifiers should enforce `exp` and validate `iat`/`nbf` against current time (allowing a small clock-skew window).
+- `jti` should be present to support replay detection and auditing.
 
 ## OIDC Integration (Primary)
 

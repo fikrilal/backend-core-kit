@@ -2,6 +2,7 @@ import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
+import { PinoLogger } from 'nestjs-pino';
 import { ErrorCode } from '../http/errors/error-codes';
 import { ProblemException } from '../http/errors/problem.exception';
 import { AccessTokenInvalidError, AccessTokenVerifier } from './access-token-verifier.service';
@@ -25,12 +26,30 @@ function extractBearerToken(authorization: string | undefined): string | undefin
   return token.trim() || undefined;
 }
 
+function stripQueryString(url: unknown): string | undefined {
+  if (typeof url !== 'string') return undefined;
+  const idx = url.indexOf('?');
+  return idx === -1 ? url : url.slice(0, idx);
+}
+
+function getTraceId(req: FastifyRequest): string | undefined {
+  const fromRequest = req.requestId;
+  if (typeof fromRequest === 'string' && fromRequest.trim() !== '') return fromRequest;
+
+  const raw = req.headers['x-request-id'];
+  const fromHeader = Array.isArray(raw) ? raw[0] : raw;
+  return typeof fromHeader === 'string' && fromHeader.trim() !== '' ? fromHeader.trim() : undefined;
+}
+
 @Injectable()
 export class AccessTokenGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly verifier: AccessTokenVerifier,
-  ) {}
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(AccessTokenGuard.name);
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const handler = context.getHandler();
@@ -57,6 +76,15 @@ export class AccessTokenGuard implements CanActivate {
           code: ErrorCode.UNAUTHORIZED,
         });
       }
+
+      this.logger.error(
+        {
+          err,
+          traceId: getTraceId(req),
+          path: stripQueryString(req.url),
+        },
+        'Unexpected access token verification error',
+      );
       throw new ProblemException(500, {
         title: 'Internal Server Error',
         code: ErrorCode.INTERNAL,

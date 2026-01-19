@@ -91,8 +91,10 @@ Example:
 
 ```ts
 import { Controller, Get } from '@nestjs/common';
-import { ListQueryParam } from '../../libs/platform/http/list-query/list-query.decorator';
-import type { ListQuery } from '../../libs/shared/list-query';
+// Adjust these import paths to match your controller's location.
+// Example below assumes a controller under: `libs/features/<feature>/infra/http/*`
+import { ListQueryParam } from '../../../../platform/http/list-query/list-query.decorator';
+import type { ListQuery } from '../../../../shared/list-query';
 
 type SortField = 'createdAt' | 'email';
 type FilterField = 'status' | 'createdAt';
