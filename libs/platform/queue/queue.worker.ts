@@ -15,6 +15,7 @@ import {
 import type { JsonObject } from './json.types';
 import type { QueueName } from './queue-name';
 import { getJobOtelMeta } from './job-meta';
+import { normalizeRedisUrl } from '../config/redis-url';
 
 type OtelCarrier = Record<string, string>;
 
@@ -42,17 +43,13 @@ function extractJobContextFromData(data: unknown): Context {
 export class QueueWorkerFactory implements OnModuleDestroy {
   private readonly workers = new Map<QueueName, Worker>();
   private readonly redisUrl?: string;
-  private readonly enabled: boolean;
 
   constructor(private readonly config: ConfigService) {
-    const redisUrl = this.config.get<string>('REDIS_URL');
-    this.redisUrl =
-      typeof redisUrl === 'string' && redisUrl.trim() !== '' ? redisUrl.trim() : undefined;
-    this.enabled = this.redisUrl !== undefined;
+    this.redisUrl = normalizeRedisUrl(this.config.get<string>('REDIS_URL'));
   }
 
   isEnabled(): boolean {
-    return this.enabled;
+    return this.redisUrl !== undefined;
   }
 
   createWorker<TData extends JsonObject, TResult = unknown>(
