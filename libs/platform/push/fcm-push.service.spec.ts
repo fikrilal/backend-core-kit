@@ -1,6 +1,6 @@
 import type { ConfigService } from '@nestjs/config';
 import { FcmPushService } from './fcm-push.service';
-import { PushSendError } from './push.types';
+import { PushErrorCode, PushSendError } from './push.types';
 
 const initializeAppMock = jest.fn().mockReturnValue({ name: 'push' });
 const certMock = jest.fn().mockReturnValue({ kind: 'cert' });
@@ -104,7 +104,8 @@ describe('FcmPushService', () => {
       expect(err).toBeInstanceOf(PushSendError);
       expect(err).toMatchObject({
         retryable: false,
-        code: 'messaging/registration-token-not-registered',
+        code: PushErrorCode.InvalidToken,
+        providerCode: 'messaging/registration-token-not-registered',
       });
     }
   });

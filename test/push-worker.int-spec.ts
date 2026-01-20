@@ -5,7 +5,7 @@ import { UserStatus } from '@prisma/client';
 import type { PushService } from '../libs/platform/push/push.service';
 import type { PushSendJobData } from '../libs/platform/push/push.job';
 import { PUSH_SEND_JOB } from '../libs/platform/push/push.job';
-import { PushSendError } from '../libs/platform/push/push.types';
+import { PushErrorCode, PushSendError } from '../libs/platform/push/push.types';
 import { PrismaService } from '../libs/platform/db/prisma.service';
 import { PushWorker } from '../apps/worker/src/jobs/push.worker';
 
@@ -240,7 +240,7 @@ function getProcess(worker: PushWorker): ProcessFn {
           provider: 'test',
           message: 'invalid token',
           retryable: false,
-          code: 'push/invalid-token',
+          code: PushErrorCode.InvalidToken,
         });
       }),
     };
@@ -305,7 +305,8 @@ function getProcess(worker: PushWorker): ProcessFn {
           provider: 'test',
           message: 'invalid token',
           retryable: false,
-          code: 'messaging/registration-token-not-registered',
+          code: PushErrorCode.InvalidToken,
+          providerCode: 'messaging/registration-token-not-registered',
         });
       }),
     };

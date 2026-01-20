@@ -12,7 +12,7 @@ import {
 import { getMessaging, type Message } from 'firebase-admin/messaging';
 import type { PushService } from './push.service';
 import type { PushNotification, SendPushToTokenInput, SendPushToTokenResult } from './push.types';
-import { PushSendError } from './push.types';
+import { PushErrorCode, PushSendError } from './push.types';
 
 const FCM_APP_NAME = 'push';
 
@@ -105,6 +105,16 @@ function isRetryableMessagingError(code: string | undefined): boolean {
   return true;
 }
 
+function toInternalErrorCode(providerCode: string | undefined): PushErrorCode {
+  if (
+    providerCode === 'messaging/invalid-registration-token' ||
+    providerCode === 'messaging/registration-token-not-registered'
+  ) {
+    return PushErrorCode.InvalidToken;
+  }
+  return PushErrorCode.SendFailed;
+}
+
 @Injectable()
 export class FcmPushService implements PushService {
   private readonly enabled: boolean;
@@ -171,7 +181,7 @@ export class FcmPushService implements PushService {
         provider: 'fcm',
         message: 'Push provider is not configured',
         retryable: false,
-        code: 'push/not-configured',
+        code: PushErrorCode.NotConfigured,
       });
     }
 
@@ -181,7 +191,7 @@ export class FcmPushService implements PushService {
         provider: 'fcm',
         message: 'Push token is required',
         retryable: false,
-        code: 'push/invalid-token',
+        code: PushErrorCode.InvalidToken,
       });
     }
 
@@ -197,11 +207,13 @@ export class FcmPushService implements PushService {
       const messageId = await getMessaging(this.app).send(message);
       return { messageId };
     } catch (err: unknown) {
-      const code = getErrorCode(err);
-      const retryable = isRetryableMessagingError(code);
+      const providerCode = getErrorCode(err);
+      const retryable = isRetryableMessagingError(providerCode);
+      const code = toInternalErrorCode(providerCode);
       throw new PushSendError({
         provider: 'fcm',
         code,
+        providerCode,
         retryable,
         message: getErrorMessage(err),
       });

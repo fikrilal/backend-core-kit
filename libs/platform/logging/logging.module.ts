@@ -1,11 +1,11 @@
 import { Global, Module, type DynamicModule, RequestMethod } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerModule, type Params } from 'nestjs-pino';
-import { randomUUID } from 'crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
 import { stdSerializers } from 'pino';
 import { NodeEnv } from '../config/env.validation';
+import { getOrCreateRequestId as computeRequestId } from '../http/request-id';
 import { LogLevel } from '../config/log-level';
 import { DEFAULT_REDACT_PATHS } from './redaction';
 
@@ -41,16 +41,11 @@ function getServiceName(config: ConfigService, role: LoggingRole): string {
 }
 
 function getOrCreateRequestId(req: RequestWithId): string {
-  const header = req.headers['x-request-id'];
-  const incoming = Array.isArray(header) ? header[0] : header;
-  const fromHeader =
-    typeof incoming === 'string' && incoming.trim() !== '' ? incoming.trim() : undefined;
-
-  const existing =
-    typeof req.requestId === 'string' && req.requestId.trim() !== '' ? req.requestId : undefined;
-  const existingId = typeof req.id === 'string' && req.id.trim() !== '' ? req.id : undefined;
-
-  const requestId = fromHeader ?? existing ?? existingId ?? randomUUID();
+  const requestId = computeRequestId({
+    headerValue: req.headers['x-request-id'],
+    existingRequestId: req.requestId,
+    existingId: req.id,
+  });
   req.requestId = requestId;
   req.id = requestId;
   return requestId;
