@@ -18,7 +18,7 @@ import type {
   UserStatus,
 } from '../../app/users.types';
 import { PrismaService } from '../../../../platform/db/prisma.service';
-import { lockActiveAdminInvariant } from '../../../../platform/db/advisory-locks';
+import { lockActiveAdminInvariant } from '../../../../platform/db/row-locks';
 import type { AuthMethod } from '../../../../shared/auth/auth-method';
 import type { Clock } from '../../app/time';
 import { USERS_CLOCK } from '../users.tokens';

@@ -73,13 +73,18 @@ export class EmailService {
       });
     }
 
+    const subject = asNonEmptyString(input.subject);
+    if (!subject) {
+      throw new EmailSendError({ provider: 'resend', message: 'Email subject is required' });
+    }
+
     const from = asNonEmptyString(input.from) ?? this.from;
     const replyTo = asNonEmptyString(input.replyTo) ?? this.replyTo;
 
     const base = {
       from,
       to: normalizeRecipients(input.to),
-      subject: input.subject,
+      subject,
       ...(replyTo ? { replyTo } : {}),
       ...(input.tags ? { tags: [...input.tags] } : {}),
       ...(input.headers ? { headers: { ...input.headers } } : {}),

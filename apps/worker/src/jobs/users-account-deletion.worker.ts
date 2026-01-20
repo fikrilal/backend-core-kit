@@ -9,7 +9,7 @@ import {
 import { DelayedError, type Job } from 'bullmq';
 import { PinoLogger } from 'nestjs-pino';
 import { PrismaService } from '../../../../libs/platform/db/prisma.service';
-import { lockActiveAdminInvariant } from '../../../../libs/platform/db/advisory-locks';
+import { lockActiveAdminInvariant } from '../../../../libs/platform/db/row-locks';
 import type { JsonObject } from '../../../../libs/platform/queue/json.types';
 import { QueueWorkerFactory } from '../../../../libs/platform/queue/queue.worker';
 import { ObjectStorageService } from '../../../../libs/platform/storage/object-storage.service';
