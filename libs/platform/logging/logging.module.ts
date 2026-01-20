@@ -6,7 +6,9 @@ import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
 import { stdSerializers } from 'pino';
 import { NodeEnv } from '../config/env.validation';
 import { getOrCreateRequestId as computeRequestId } from '../http/request-id';
+import { deriveServiceName, normalizeNodeEnv } from '../config/env.runtime';
 import { LogLevel } from '../config/log-level';
+import { isPrettyLogsEnabled, resolveLogLevel } from './logging.policy';
 import { DEFAULT_REDACT_PATHS } from './redaction';
 
 export type LoggingRole = 'api' | 'worker';
@@ -15,29 +17,11 @@ type RequestWithId = IncomingMessage & { id?: string; requestId?: string };
 type ResponseWithStatus = ServerResponse & { statusCode?: number };
 
 function getNodeEnv(config: ConfigService): NodeEnv {
-  return (config.get<string>('NODE_ENV') as NodeEnv | undefined) ?? NodeEnv.Development;
-}
-
-function defaultLogLevel(nodeEnv: NodeEnv): LogLevel {
-  if (nodeEnv === NodeEnv.Test) return LogLevel.Silent;
-  if (nodeEnv === NodeEnv.Development) return LogLevel.Debug;
-  return LogLevel.Info;
-}
-
-function getLogLevel(config: ConfigService, nodeEnv: NodeEnv): LogLevel {
-  const configured = config.get<LogLevel>('LOG_LEVEL');
-  return configured ?? defaultLogLevel(nodeEnv);
-}
-
-function isPrettyEnabled(config: ConfigService, nodeEnv: NodeEnv): boolean {
-  if (nodeEnv !== NodeEnv.Development) return false;
-  const configured = config.get<boolean>('LOG_PRETTY');
-  return configured !== false;
+  return normalizeNodeEnv(config.get<string>('NODE_ENV'));
 }
 
 function getServiceName(config: ConfigService, role: LoggingRole): string {
-  const base = config.get<string>('OTEL_SERVICE_NAME')?.trim() || 'backend-core-kit';
-  return `${base}-${role}`;
+  return deriveServiceName({ otelServiceName: config.get<string>('OTEL_SERVICE_NAME'), role });
 }
 
 function getOrCreateRequestId(req: RequestWithId): string {
@@ -76,8 +60,8 @@ export class LoggingModule {
           inject: [ConfigService],
           useFactory: (config: ConfigService): Params => {
             const nodeEnv = getNodeEnv(config);
-            const level = getLogLevel(config, nodeEnv);
-            const pretty = isPrettyEnabled(config, nodeEnv);
+            const level = resolveLogLevel(nodeEnv, config.get<LogLevel>('LOG_LEVEL'));
+            const pretty = isPrettyLogsEnabled(nodeEnv, config.get<boolean>('LOG_PRETTY'));
             const serviceName = getServiceName(config, role);
 
             const pinoHttp: Params['pinoHttp'] = {

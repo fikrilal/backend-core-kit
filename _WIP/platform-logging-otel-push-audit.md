@@ -39,6 +39,7 @@ Method:
 
 - Static code review + reading unit tests in scope.
 - P1 items implemented (2026-01-20): bounded requestId helper + typed push error codes.
+- P2 items implemented (2026-01-20): shared env/service-name helpers, targeted unit tests, and push payload docs.
 
 ## Snapshot
 
@@ -160,6 +161,10 @@ Recommendation:
   - derives `service.name` from `OTEL_SERVICE_NAME` + `role`
 - Keep `telemetry.ts` bootstrap-safe (no Nest dependencies).
 
+Status:
+
+- Implemented (2026-01-20): `libs/platform/config/env.runtime.ts` provides `normalizeNodeEnv` + `deriveServiceName`, used by logging + telemetry.
+
 ### P2 — Test coverage gap: logging + telemetry behavior is not directly unit-tested
 
 Evidence:
@@ -177,6 +182,10 @@ Recommendation:
   - redaction paths contain baseline secrets
   - telemetry enabled/disabled behavior for `NODE_ENV=test` and missing endpoint
 
+Status:
+
+- Implemented (2026-01-20): added focused unit coverage for logging policy, redaction, env runtime, and telemetry enablement policy.
+
 ### P2 — Push ergonomics: payload sizing and validation constraints aren’t explicit
 
 Evidence:
@@ -188,10 +197,14 @@ Recommendation:
 
 - Document expected max sizes (data keys/values and total payload size) in `docs/engineering/` (new doc), or add preflight validation in `FcmPushService` to fail fast with a stable internal error code.
 
+Status:
+
+- Implemented (2026-01-20): documented payload guidance in `docs/engineering/push/fcm.md` (docs-only; no runtime enforcement).
+
 ## Suggested next backlog (smallest-first)
 
 1. ✅ P1: Centralize requestId helper + apply bounds/allowlist (logging + fastify hooks). (done)
 2. ✅ P1: Split push internal error codes from provider codes; type them. (done)
-3. P2: Share `NODE_ENV`/service-name helpers between logging + telemetry.
-4. P2: Add focused unit coverage for logging + telemetry defaults.
-5. P2: Document/enforce push payload size constraints.
+3. ✅ P2: Share `NODE_ENV`/service-name helpers between logging + telemetry. (done)
+4. ✅ P2: Add focused unit coverage for logging + telemetry defaults. (done)
+5. ✅ P2: Document/enforce push payload size constraints. (documented)
