@@ -131,9 +131,10 @@ Status:
 
 Evidence:
 
-- No `*.spec.ts` files exist for:
+- No direct unit tests exist for:
   - `libs/platform/redis/redis.service.ts`
   - `libs/platform/storage/object-storage.service.ts`
+- (Storage input validation is covered by `libs/platform/storage/object-storage.policy.spec.ts`.)
 
 Why this matters:
 
@@ -169,6 +170,10 @@ Recommendation:
   - enforce conservative bounds in platform (e.g., `1..900` seconds) and require callers to pass validated inputs, **or**
   - document required invariants explicitly in `libs/platform/storage/**` and `docs/engineering/**` and keep enforcement in feature/app services.
 
+Status:
+
+- Implemented (2026-01-20): platform now validates object keys and enforces `expiresInSeconds` bounds in `ObjectStorageService`.
+
 ### P2 — RBAC ergonomics: permission “hierarchy” is encoded into action strings but wildcarding is only `*` at full action level
 
 Evidence:
@@ -186,6 +191,10 @@ Recommendation:
   - permission matching is `(resource, action)` with a single action wildcard, and
   - additional `:` segments live inside `action` and are matched exactly.
 - If hierarchical wildcarding becomes necessary, introduce it intentionally (ADR-level change).
+
+Status:
+
+- Implemented (2026-01-20): documented the “split on first `:`” parsing and wildcard limitations in RBAC docs.
 
 ## Suggested next backlog (smallest-first)
 

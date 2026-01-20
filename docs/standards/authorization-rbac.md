@@ -72,6 +72,27 @@ Rules:
 - Avoid embedding business-specific context into permission strings; keep them durable.
 - Prefer additive permissions over “magic admin bypasses”.
 
+### Parsing and Wildcards (Current Implementation)
+
+The platform matcher treats permissions as a 2-part tuple:
+
+- `resource` is everything before the **first** `:`
+- `action` is everything after the first `:` (and may itself contain `:`)
+
+This means permissions like `users:role:write` are valid and are interpreted as:
+
+- `resource = users`
+- `action = role:write`
+
+Wildcard matching is intentionally simple:
+
+- `*:*` matches everything
+- `users:*` matches any action on `users` (including `users:role:write`)
+- `*:read` matches `read` on any resource
+
+Not supported (by design): hierarchical wildcards inside the action segment, e.g. `users:role:*`.
+If you need that kind of permission hierarchy, introduce it intentionally as a standards change (ADR).
+
 ## Enforcement Pattern
 
 Use declarative enforcement in the HTTP layer:

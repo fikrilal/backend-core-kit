@@ -71,6 +71,12 @@ Matching supports wildcards:
 - `users:*` matches any action on `users`
 - `*:read` matches `read` on any resource
 
+Notes:
+
+- Matching splits on the first `:` only:
+  - `users:role:write` is interpreted as `resource=users`, `action=role:write`.
+  - Action wildcards are only supported at the whole-action level (`users:*`), not hierarchically (`users:role:*` is not supported).
+
 Implementation: `libs/platform/rbac/permissions.ts`
 
 ## How to Protect an Endpoint

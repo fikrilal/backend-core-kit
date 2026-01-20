@@ -14,6 +14,7 @@ import type {
   PresignedPutObject,
 } from './object-storage.types';
 import { ObjectStorageError } from './object-storage.types';
+import { assertObjectKey, assertPresignedUrlTtlSeconds } from './object-storage.policy';
 
 function asNonEmptyString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
@@ -99,22 +100,28 @@ export class ObjectStorageService {
     expiresInSeconds: number;
   }): Promise<PresignedPutObject> {
     const { client, bucket } = this.assertConfigured();
+    const key = assertObjectKey(input.key);
+    const contentType = asNonEmptyString(input.contentType);
+    if (!contentType) {
+      throw new Error('Invalid contentType: expected a non-empty string');
+    }
+    const expiresInSeconds = assertPresignedUrlTtlSeconds(input.expiresInSeconds);
 
     const command = new PutObjectCommand({
       Bucket: bucket,
-      Key: input.key,
-      ContentType: input.contentType,
+      Key: key,
+      ContentType: contentType,
     });
 
     const url = await getSignedUrl(client, command, {
-      expiresIn: input.expiresInSeconds,
+      expiresIn: expiresInSeconds,
       signableHeaders: new Set(['content-type']),
     });
 
     return {
       method: 'PUT',
       url,
-      headers: { 'Content-Type': input.contentType },
+      headers: { 'Content-Type': contentType },
     };
   }
 
@@ -123,13 +130,15 @@ export class ObjectStorageService {
     expiresInSeconds: number;
   }): Promise<PresignedGetObject> {
     const { client, bucket } = this.assertConfigured();
+    const key = assertObjectKey(input.key);
+    const expiresInSeconds = assertPresignedUrlTtlSeconds(input.expiresInSeconds);
 
     const command = new GetObjectCommand({
       Bucket: bucket,
-      Key: input.key,
+      Key: key,
     });
 
-    const url = await getSignedUrl(client, command, { expiresIn: input.expiresInSeconds });
+    const url = await getSignedUrl(client, command, { expiresIn: expiresInSeconds });
     return { url };
   }
 
