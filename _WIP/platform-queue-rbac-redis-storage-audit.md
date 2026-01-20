@@ -123,6 +123,10 @@ Recommendation:
   - else → `disconnect()` (no network)
 - Or: always `disconnect()` for platform baseline, and rely on process teardown (trade-off: less graceful, but predictable).
 
+Status:
+
+- Implemented (2026-01-20): `RedisService.onModuleDestroy()` now prefers `disconnect()` unless the client is already connected.
+
 ### P1 — Testability: `RedisService` and `ObjectStorageService` have no unit coverage
 
 Evidence:
