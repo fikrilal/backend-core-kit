@@ -39,7 +39,8 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor<unknown, unk
             [k: string]: unknown;
           };
 
-          const meta: Record<string, unknown> = {};
+          // Use object spread to avoid `Object.assign` triggering the `__proto__` setter.
+          const meta: Record<string, unknown> = { ...rest };
           meta.hasMore = typeof hasMore === 'boolean' ? hasMore : nextCursor !== undefined;
           if (nextCursor !== undefined) meta.nextCursor = nextCursor;
           if (limit !== undefined) meta.limit = limit;
@@ -47,12 +48,10 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor<unknown, unk
           const envelope: {
             data: unknown[];
             meta?: Record<string, unknown>;
-            extra?: Record<string, unknown>;
           } = {
             data: items,
           };
           if (Object.keys(meta).length) envelope.meta = meta;
-          if (Object.keys(rest).length) envelope.extra = rest;
           return envelope;
         }
 

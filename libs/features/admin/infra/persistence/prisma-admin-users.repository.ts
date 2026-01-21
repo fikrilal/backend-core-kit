@@ -23,7 +23,7 @@ import type {
   SetUserStatusResult,
 } from '../../app/ports/admin-users.repository';
 import { PrismaService } from '../../../../platform/db/prisma.service';
-import { lockActiveAdminInvariant } from '../../../../platform/db/advisory-locks';
+import { lockActiveAdminInvariant } from '../../../../platform/db/row-locks';
 
 function isPrismaUserRole(value: string): value is UserRole {
   return value === PrismaUserRole.USER || value === PrismaUserRole.ADMIN;

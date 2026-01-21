@@ -1,7 +1,7 @@
-import { randomUUID } from 'crypto';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
+import { getOrCreateRequestId as computeRequestId } from './request-id';
 
 function stripQueryString(url: string): string {
   const idx = url.indexOf('?');
@@ -9,14 +9,11 @@ function stripQueryString(url: string): string {
 }
 
 function getOrCreateRequestId(req: FastifyRequest): string {
-  const header = req.headers['x-request-id'];
-  const incoming = Array.isArray(header) ? header[0] : header;
-  const fromHeader =
-    typeof incoming === 'string' && incoming.trim() !== '' ? incoming.trim() : undefined;
-  const existing =
-    typeof req.requestId === 'string' && req.requestId.trim() !== '' ? req.requestId : undefined;
-  const existingId = typeof req.id === 'string' && req.id.trim() !== '' ? req.id : undefined;
-  const requestId = fromHeader ?? existing ?? existingId ?? randomUUID();
+  const requestId = computeRequestId({
+    headerValue: req.headers['x-request-id'],
+    existingRequestId: req.requestId,
+    existingId: req.id,
+  });
 
   req.requestId = requestId;
   req.id = requestId;

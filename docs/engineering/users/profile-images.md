@@ -59,6 +59,7 @@ Behavior:
 
 - Creates a `StoredFile` row with `status=UPLOADING`.
 - Returns a short-lived presigned **PUT** URL. The URL signs the `Content-Type` header; the client must send it exactly.
+  - Current TTL: 10 minutes (platform max: 15 minutes).
 - Schedules an **abandoned upload expiry** job (default: 2 hours).
 - Rate-limited (Redis) to prevent abuse/loops.
 
@@ -118,6 +119,7 @@ Behavior:
 
 - If no profile image is set → `204 No Content`
 - Otherwise returns a short-lived presigned **GET** URL:
+  - Current TTL: 15 minutes (platform max: 15 minutes).
 
 ```json
 { "data": { "url": "https://...", "expiresAt": "..." } }

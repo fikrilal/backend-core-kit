@@ -1,18 +1,36 @@
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import qs from 'qs';
 
-function parseEnvBoolean(value: unknown): boolean | undefined {
+type NodeEnv = 'development' | 'test' | 'staging' | 'production';
+
+function getNodeEnv(): NodeEnv {
+  const raw = typeof process.env.NODE_ENV === 'string' ? process.env.NODE_ENV : undefined;
+  const env = raw?.trim().toLowerCase();
+  if (env === 'production' || env === 'staging' || env === 'test') return env;
+  return 'development';
+}
+
+function parseOptionalBooleanOrThrow(name: string, value: unknown): boolean | undefined {
   if (value === undefined) return undefined;
   if (typeof value === 'boolean') return value;
 
   const normalized = String(value).trim().toLowerCase();
+  if (normalized === '') return undefined;
+
   if (normalized === 'true' || normalized === '1') return true;
   if (normalized === 'false' || normalized === '0') return false;
-  return undefined;
+
+  throw new Error(`Invalid ${name}: expected boolean, got "${String(value)}"`);
 }
 
 export function createFastifyAdapter(): FastifyAdapter {
-  const trustProxy = parseEnvBoolean(process.env.HTTP_TRUST_PROXY);
+  const nodeEnv = getNodeEnv();
+
+  const trustProxy = parseOptionalBooleanOrThrow('HTTP_TRUST_PROXY', process.env.HTTP_TRUST_PROXY);
+  const productionLike = nodeEnv === 'production' || nodeEnv === 'staging';
+  if (productionLike && trustProxy === undefined) {
+    throw new Error(`Missing required HTTP_TRUST_PROXY for NODE_ENV=${nodeEnv}`);
+  }
 
   return new FastifyAdapter({
     ...(trustProxy !== undefined ? { trustProxy } : {}),

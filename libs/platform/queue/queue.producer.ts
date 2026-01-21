@@ -14,6 +14,7 @@ import type { QueueName } from './queue-name';
 import type { JobName } from './job-name';
 import type { JsonObject } from './json.types';
 import { withJobOtelMeta, type JobOtelMeta } from './job-meta';
+import { normalizeRedisUrl } from '../config/redis-url';
 
 type OtelCarrier = Record<string, string>;
 
@@ -48,17 +49,13 @@ function getActiveJobOtelMeta(): JobOtelMeta | undefined {
 export class QueueProducer implements OnModuleDestroy {
   private readonly queues = new Map<QueueName, Queue>();
   private readonly redisUrl?: string;
-  private readonly enabled: boolean;
 
   constructor(private readonly config: ConfigService) {
-    const redisUrl = this.config.get<string>('REDIS_URL');
-    this.redisUrl =
-      typeof redisUrl === 'string' && redisUrl.trim() !== '' ? redisUrl.trim() : undefined;
-    this.enabled = this.redisUrl !== undefined;
+    this.redisUrl = normalizeRedisUrl(this.config.get<string>('REDIS_URL'));
   }
 
   isEnabled(): boolean {
-    return this.enabled;
+    return this.redisUrl !== undefined;
   }
 
   getQueue(name: QueueName): Queue {

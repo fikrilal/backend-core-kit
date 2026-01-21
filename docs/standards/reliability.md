@@ -31,6 +31,11 @@ Replayed responses must include:
 
 - `Idempotency-Replayed: true`
 
+Notes:
+
+- Idempotency is intended for **small JSON** write endpoints (commands that return small responses).
+- The platform uses conservative size bounds for hashing and replay caching; oversized responses may not be cached and therefore cannot be replayed (the request may be re-executed on retry). Do not use idempotency on uploads/streams.
+
 ## Graceful Shutdown
 
 On `SIGTERM`/`SIGINT`:

@@ -13,15 +13,29 @@ export type SendPushToTokenInput = Readonly<{
 
 export type SendPushToTokenResult = Readonly<{ messageId: string }>;
 
+export enum PushErrorCode {
+  NotConfigured = 'push/not-configured',
+  InvalidToken = 'push/invalid-token',
+  SendFailed = 'push/send-failed',
+}
+
 export class PushSendError extends Error {
   readonly provider: string;
-  readonly code?: string;
+  readonly code: PushErrorCode;
+  readonly providerCode?: string;
   readonly retryable: boolean;
 
-  constructor(params: { provider: string; message: string; retryable: boolean; code?: string }) {
+  constructor(params: {
+    provider: string;
+    message: string;
+    retryable: boolean;
+    code: PushErrorCode;
+    providerCode?: string;
+  }) {
     super(params.message);
     this.provider = params.provider;
     this.code = params.code;
+    this.providerCode = params.providerCode;
     this.retryable = params.retryable;
   }
 }

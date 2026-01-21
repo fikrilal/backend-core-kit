@@ -11,7 +11,7 @@ import {
 } from '../../../../libs/platform/push/push.job';
 import { PUSH_SERVICE } from '../../../../libs/platform/push/push.tokens';
 import type { PushService } from '../../../../libs/platform/push/push.service';
-import { PushSendError } from '../../../../libs/platform/push/push.types';
+import { PushErrorCode, PushSendError } from '../../../../libs/platform/push/push.types';
 
 type PushSendJobResult = Readonly<{
   ok: true;
@@ -29,12 +29,8 @@ type PushSendJobResult = Readonly<{
 }> &
   JsonObject;
 
-function isInvalidTokenCode(code: string | undefined): boolean {
-  return (
-    code === 'messaging/invalid-registration-token' ||
-    code === 'messaging/registration-token-not-registered' ||
-    code === 'push/invalid-token'
-  );
+function isInvalidTokenCode(code: PushErrorCode): boolean {
+  return code === PushErrorCode.InvalidToken;
 }
 
 @Injectable()
@@ -122,8 +118,9 @@ export class PushWorker implements OnModuleInit {
           },
         });
 
+        const providerCode = err.providerCode ?? err.code;
         this.logger.info(
-          { sessionId: session.id, providerCode: err.code },
+          { sessionId: session.id, providerCode },
           'Push send skipped: invalid token',
         );
         return {
@@ -131,7 +128,7 @@ export class PushWorker implements OnModuleInit {
           sessionId: session.id,
           outcome: 'skipped',
           reason: 'invalid_token',
-          ...(err.code ? { providerCode: err.code } : {}),
+          ...(providerCode ? { providerCode } : {}),
         };
       }
 

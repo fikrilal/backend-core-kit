@@ -8,6 +8,14 @@ import type { IdempotencyOptions } from './idempotency.decorator';
 
 type WriteMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
+const MAX_REQUEST_HASH_DEPTH = 5;
+const MAX_REQUEST_HASH_ARRAY_LENGTH = 100;
+const MAX_REQUEST_HASH_OBJECT_KEYS = 100;
+const MAX_REQUEST_HASH_STRING_LENGTH = 1024;
+const MAX_REQUEST_HASH_CHARS = 32_768;
+
+const MAX_REPLAY_RECORD_CHARS = 65_536;
+
 type InProgressRecord = Readonly<{
   v: 1;
   state: 'in_progress';
@@ -66,14 +74,25 @@ function asFiniteNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-function stableStringify(value: unknown): string {
+function clampString(value: string): string {
+  if (value.length <= MAX_REQUEST_HASH_STRING_LENGTH) return value;
+  return `${value.slice(0, MAX_REQUEST_HASH_STRING_LENGTH)}…`;
+}
+
+function stableStringify(value: unknown, depth = 0): string {
+  if (depth > MAX_REQUEST_HASH_DEPTH) return JSON.stringify('__idempotency_depth_exceeded__');
+
   if (value === null || value === undefined) return 'null';
-  if (typeof value === 'string') return JSON.stringify(value);
+  if (typeof value === 'string') return JSON.stringify(clampString(value));
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'null';
   if (typeof value === 'boolean') return value ? 'true' : 'false';
 
   if (Array.isArray(value)) {
-    return `[${value.map(stableStringify).join(',')}]`;
+    const truncated = value.length > MAX_REQUEST_HASH_ARRAY_LENGTH;
+    const slice = value.slice(0, MAX_REQUEST_HASH_ARRAY_LENGTH);
+    const inner = slice.map((v) => stableStringify(v, depth + 1)).join(',');
+    const marker = truncated ? ',"__idempotency_truncated_array__"' : '';
+    return `[${inner}${marker}]`;
   }
 
   if (Buffer.isBuffer(value)) {
@@ -81,16 +100,23 @@ function stableStringify(value: unknown): string {
   }
 
   if (!isRecord(value)) {
-    return JSON.stringify(String(value));
+    return JSON.stringify(clampString(String(value)));
   }
 
   const keys = Object.keys(value).sort();
+  const truncated = keys.length > MAX_REQUEST_HASH_OBJECT_KEYS;
+  const limitedKeys = keys.slice(0, MAX_REQUEST_HASH_OBJECT_KEYS);
   const parts: string[] = [];
-  for (const key of keys) {
+  for (const key of limitedKeys) {
     const v = (value as Record<string, unknown>)[key];
-    parts.push(`${JSON.stringify(key)}:${stableStringify(v)}`);
+    parts.push(`${JSON.stringify(key)}:${stableStringify(v, depth + 1)}`);
   }
-  return `{${parts.join(',')}}`;
+  if (truncated) {
+    parts.push(`${JSON.stringify('__idempotency_truncated_object__')}:${JSON.stringify(true)}`);
+  }
+
+  const out = `{${parts.join(',')}}`;
+  return out.length <= MAX_REQUEST_HASH_CHARS ? out : out.slice(0, MAX_REQUEST_HASH_CHARS);
 }
 
 function sha256Base64Url(input: string): string {
@@ -354,8 +380,15 @@ export class IdempotencyService {
       completedAt: Date.now(),
     };
 
+    const serialized = JSON.stringify(completed);
+    if (serialized.length > MAX_REPLAY_RECORD_CHARS) {
+      // Fail safe: don't attempt to cache a large body in Redis (idempotency replay is not supported).
+      await this.release(redisKey, requestHash);
+      return;
+    }
+
     const client = this.redis.getClient();
-    await client.set(redisKey, JSON.stringify(completed), 'EX', ttlSeconds);
+    await client.set(redisKey, serialized, 'EX', ttlSeconds);
   }
 
   async release(redisKey: string, requestHash: string): Promise<void> {

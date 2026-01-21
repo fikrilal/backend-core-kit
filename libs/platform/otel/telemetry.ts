@@ -5,6 +5,8 @@ import { resourceFromAttributes } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import { NodeEnv } from '../config/env.validation';
+import { deriveServiceName, normalizeNodeEnv } from '../config/env.runtime';
+import { isTelemetryEnabled as isTelemetryEnabledForEnv } from './telemetry.policy';
 
 export type TelemetryRole = 'api' | 'worker';
 
@@ -16,21 +18,7 @@ let started = false;
 const ATTR_DEPLOYMENT_ENVIRONMENT = 'deployment.environment' as const;
 
 function getNodeEnv(): NodeEnv {
-  const raw = process.env.NODE_ENV?.trim();
-  switch (raw) {
-    case NodeEnv.Development:
-    case NodeEnv.Test:
-    case NodeEnv.Staging:
-    case NodeEnv.Production:
-      return raw;
-    default:
-      return NodeEnv.Development;
-  }
-}
-
-function getServiceName(role: TelemetryRole): string {
-  const base = process.env.OTEL_SERVICE_NAME?.trim() || 'backend-core-kit';
-  return `${base}-${role}`;
+  return normalizeNodeEnv(process.env.NODE_ENV);
 }
 
 function parseOtlpHeaders(raw: string | undefined): Record<string, string> | undefined {
@@ -60,8 +48,7 @@ function resolveTracesUrl(baseOrFull: string): string {
 }
 
 function isTelemetryEnabled(nodeEnv: NodeEnv): boolean {
-  if (nodeEnv === NodeEnv.Test) return false;
-  return Boolean(process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim());
+  return isTelemetryEnabledForEnv(nodeEnv, process.env.OTEL_EXPORTER_OTLP_ENDPOINT);
 }
 
 export async function initTelemetry(role: TelemetryRole): Promise<TelemetryController> {
@@ -87,7 +74,7 @@ export async function initTelemetry(role: TelemetryRole): Promise<TelemetryContr
     return { shutdown: async () => undefined };
   }
 
-  const serviceName = getServiceName(role);
+  const serviceName = deriveServiceName({ otelServiceName: process.env.OTEL_SERVICE_NAME, role });
   const headers = parseOtlpHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
 
   sdk = new NodeSDK({
