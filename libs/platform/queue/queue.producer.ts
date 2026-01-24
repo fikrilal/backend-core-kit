@@ -14,7 +14,7 @@ import type { QueueName } from './queue-name';
 import type { JobName } from './job-name';
 import type { JsonObject } from './json.types';
 import { withJobOtelMeta, type JobOtelMeta } from './job-meta';
-import { normalizeRedisUrl } from '../config/redis-url';
+import { buildRedisConnectionOptions, type RedisConnectionOptions } from '../config/redis-connection';
 
 type OtelCarrier = Record<string, string>;
 
@@ -48,18 +48,21 @@ function getActiveJobOtelMeta(): JobOtelMeta | undefined {
 @Injectable()
 export class QueueProducer implements OnModuleDestroy {
   private readonly queues = new Map<QueueName, Queue>();
-  private readonly redisUrl?: string;
+  private readonly redis?: RedisConnectionOptions;
 
   constructor(private readonly config: ConfigService) {
-    this.redisUrl = normalizeRedisUrl(this.config.get<string>('REDIS_URL'));
+    this.redis = buildRedisConnectionOptions({
+      redisUrl: this.config.get<string>('REDIS_URL'),
+      tlsRejectUnauthorized: this.config.get<boolean>('REDIS_TLS_REJECT_UNAUTHORIZED') ?? true,
+    });
   }
 
   isEnabled(): boolean {
-    return this.redisUrl !== undefined;
+    return this.redis !== undefined;
   }
 
   getQueue(name: QueueName): Queue {
-    if (!this.redisUrl) {
+    if (!this.redis) {
       throw new Error('REDIS_URL is not configured');
     }
 
@@ -67,7 +70,7 @@ export class QueueProducer implements OnModuleDestroy {
     if (existing) return existing;
 
     const queue = new Queue(name, {
-      connection: { url: this.redisUrl },
+      connection: this.redis,
       defaultJobOptions: DEFAULT_JOB_OPTIONS,
     });
 

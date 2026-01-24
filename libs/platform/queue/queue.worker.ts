@@ -15,7 +15,7 @@ import {
 import type { JsonObject } from './json.types';
 import type { QueueName } from './queue-name';
 import { getJobOtelMeta } from './job-meta';
-import { normalizeRedisUrl } from '../config/redis-url';
+import { buildRedisConnectionOptions, type RedisConnectionOptions } from '../config/redis-connection';
 
 type OtelCarrier = Record<string, string>;
 
@@ -42,14 +42,17 @@ function extractJobContextFromData(data: unknown): Context {
 @Injectable()
 export class QueueWorkerFactory implements OnModuleDestroy {
   private readonly workers = new Map<QueueName, Worker>();
-  private readonly redisUrl?: string;
+  private readonly redis?: RedisConnectionOptions;
 
   constructor(private readonly config: ConfigService) {
-    this.redisUrl = normalizeRedisUrl(this.config.get<string>('REDIS_URL'));
+    this.redis = buildRedisConnectionOptions({
+      redisUrl: this.config.get<string>('REDIS_URL'),
+      tlsRejectUnauthorized: this.config.get<boolean>('REDIS_TLS_REJECT_UNAUTHORIZED') ?? true,
+    });
   }
 
   isEnabled(): boolean {
-    return this.redisUrl !== undefined;
+    return this.redis !== undefined;
   }
 
   createWorker<TData extends JsonObject, TResult = unknown>(
@@ -57,7 +60,7 @@ export class QueueWorkerFactory implements OnModuleDestroy {
     processor: Processor<TData, TResult, string>,
     options: Omit<WorkerOptions, 'connection'> = {},
   ): Worker<TData, TResult, string> {
-    if (!this.redisUrl) {
+    if (!this.redis) {
       throw new Error('REDIS_URL is not configured');
     }
 
@@ -102,7 +105,7 @@ export class QueueWorkerFactory implements OnModuleDestroy {
 
     const worker = new Worker<TData, TResult, string>(queueName, wrappedProcessor, {
       ...options,
-      connection: { url: this.redisUrl },
+      connection: this.redis,
     });
 
     this.workers.set(queueName, worker);

@@ -1,8 +1,8 @@
 import { Injectable, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+import { buildRedisConnectionOptions } from '../config/redis-connection';
 import { NodeEnv } from '../config/env.validation';
-import { normalizeRedisUrl } from '../config/redis-url';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
@@ -10,13 +10,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private readonly connectOnStartup: boolean;
 
   constructor(private readonly config: ConfigService) {
-    const redisUrl = normalizeRedisUrl(this.config.get<string>('REDIS_URL'));
     const nodeEnv = this.config.get<string>('NODE_ENV') ?? NodeEnv.Development;
 
     this.connectOnStartup = nodeEnv === NodeEnv.Production || nodeEnv === NodeEnv.Staging;
 
-    if (redisUrl) {
-      this.client = new Redis(redisUrl, { lazyConnect: true });
+    const redis = buildRedisConnectionOptions({
+      redisUrl: this.config.get<string>('REDIS_URL'),
+      tlsRejectUnauthorized: this.config.get<boolean>('REDIS_TLS_REJECT_UNAUTHORIZED') ?? true,
+    });
+
+    if (redis) {
+      const { url, ...options } = redis;
+      this.client = new Redis(url, { lazyConnect: true, ...options });
     }
   }
 
