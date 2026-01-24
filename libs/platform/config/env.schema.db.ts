@@ -9,6 +9,15 @@ export class EnvVarsDb extends EnvVarsHttp {
   @IsString()
   DATABASE_URL?: string;
 
+  // Postgres SSL (required by some providers like Heroku Postgres)
+  @Transform(({ value }) => {
+    if (value === undefined) return true;
+    const parsed = parseEnvBoolean(value);
+    return parsed === undefined ? true : parsed;
+  })
+  @IsBoolean()
+  DATABASE_SSL_REJECT_UNAUTHORIZED: boolean = true;
+
   // Redis / BullMQ
   @IsOptional()
   @IsString()
