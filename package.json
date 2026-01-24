@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "heroku-postbuild": "npm run build",
     "start": "node dist/apps/api/src/main.js",
     "start:dev": "nest start --watch",
     "start:worker": "node dist/apps/worker/src/main.js",
