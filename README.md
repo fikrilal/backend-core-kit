@@ -15,6 +15,9 @@ Documentation is in `docs/README.md` (source of truth).
 
 ## Quickstart (local)
 
+- Prereqs:
+  - Node `>=22 <23`
+  - Docker (for local deps and e2e)
 - `cp env.example .env`
 - `npm run deps:up` (Postgres + Redis via Docker Compose)
 - `npm install`
@@ -22,8 +25,27 @@ Documentation is in `docs/README.md` (source of truth).
 - `npm run start:dev` (API on `http://127.0.0.1:4000`, Swagger UI at `/docs` in dev)
 - `npm run start:worker:dev` (worker on `http://127.0.0.1:4001`)
 - `npm run verify` (format/lint/typecheck/boundaries/tests/openapi gates)
+- Optional: `npm run verify:e2e` (brings up local deps and runs e2e)
+
+### WSL note (repo on Windows mount)
+
+If this repo lives on a Windows filesystem mount (e.g. `/mnt/c/...`), prefer running commands via the wrappers:
+
+- `bash tools/agent/npmw ...` (runs npm on Windows to avoid OS-specific artifacts)
+- `bash tools/agent/dockw ...`
+
+Avoid running `npm install/ci` in WSL for this repo.
 
 ## Pointers
 
 - Docs index: `docs/README.md`
 - Engineering notes (integration contracts): `docs/engineering/README.md`
+
+## Using this as a template
+
+Checklist:
+
+- Update `package.json` name/description/versioning as needed
+- Set `OTEL_SERVICE_NAME` (and `OTEL_EXPORTER_OTLP_ENDPOINT` in staging/prod)
+- Review `docs/README.md` + `docs/standards/README.md` for the non-negotiables
+- Keep `env.example` in sync; never commit `.env`

@@ -68,4 +68,21 @@ describe('validateEnv', () => {
       }),
     ).not.toThrow();
   });
+
+  it('allows PUSH_PROVIDER=FCM with base64 service account JSON', () => {
+    const json = JSON.stringify({
+      project_id: 'project',
+      client_email: 'svc@example.com',
+      private_key: 'key',
+    });
+    const base64 = Buffer.from(json, 'utf8').toString('base64');
+
+    expect(() =>
+      validateEnv({
+        PUSH_PROVIDER: 'FCM',
+        FCM_PROJECT_ID: 'project',
+        FCM_SERVICE_ACCOUNT_JSON_BASE64: base64,
+      }),
+    ).not.toThrow();
+  });
 });

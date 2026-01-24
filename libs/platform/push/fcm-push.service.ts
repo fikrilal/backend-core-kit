@@ -69,6 +69,22 @@ function loadServiceAccountFromEnv(json: string): ServiceAccount {
   return parseServiceAccount(parsed);
 }
 
+function loadServiceAccountFromBase64(value: string): ServiceAccount {
+  let decoded: string;
+  try {
+    decoded = Buffer.from(value, 'base64').toString('utf8');
+  } catch {
+    throw new Error('FCM_SERVICE_ACCOUNT_JSON_BASE64 is not valid base64');
+  }
+
+  if (decoded.trim() === '') {
+    throw new Error('FCM_SERVICE_ACCOUNT_JSON_BASE64 decoded to an empty string');
+  }
+
+  const parsed: unknown = JSON.parse(decoded) as unknown;
+  return parseServiceAccount(parsed);
+}
+
 function normalizeNotification(input: PushNotification | undefined): PushNotification | undefined {
   if (!input) return undefined;
   const title = asNonEmptyString(input.title);
@@ -133,6 +149,9 @@ export class FcmPushService implements PushService {
     const serviceAccountPath = asNonEmptyString(
       this.config.get<string>('FCM_SERVICE_ACCOUNT_JSON_PATH'),
     );
+    const serviceAccountJsonBase64 = asNonEmptyString(
+      this.config.get<string>('FCM_SERVICE_ACCOUNT_JSON_BASE64'),
+    );
     const serviceAccountJson = asNonEmptyString(
       this.config.get<string>('FCM_SERVICE_ACCOUNT_JSON'),
     );
@@ -153,13 +172,18 @@ export class FcmPushService implements PushService {
         return cert(sa);
       }
 
+      if (serviceAccountJsonBase64) {
+        const sa = loadServiceAccountFromBase64(serviceAccountJsonBase64);
+        return cert(sa);
+      }
+
       if (serviceAccountJson) {
         const sa = loadServiceAccountFromEnv(serviceAccountJson);
         return cert(sa);
       }
 
       throw new Error(
-        'FCM credentials are not configured (set FCM_USE_APPLICATION_DEFAULT=true or set FCM_SERVICE_ACCOUNT_JSON_PATH/FCM_SERVICE_ACCOUNT_JSON)',
+        'FCM credentials are not configured (set FCM_USE_APPLICATION_DEFAULT=true or set FCM_SERVICE_ACCOUNT_JSON_PATH / FCM_SERVICE_ACCOUNT_JSON_BASE64 / FCM_SERVICE_ACCOUNT_JSON)',
       );
     })();
 

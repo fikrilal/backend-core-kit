@@ -104,10 +104,13 @@ export function assertPushConfigConsistency(env: EnvVars) {
 
   const useAdc = env.FCM_USE_APPLICATION_DEFAULT === true;
   const hasServiceAccountPath = Boolean(env.FCM_SERVICE_ACCOUNT_JSON_PATH?.trim());
+  const hasServiceAccountJsonBase64 = Boolean(env.FCM_SERVICE_ACCOUNT_JSON_BASE64?.trim());
   const hasServiceAccountJson = Boolean(env.FCM_SERVICE_ACCOUNT_JSON?.trim());
 
-  if (!useAdc && !hasServiceAccountPath && !hasServiceAccountJson) {
-    missing.push('FCM_SERVICE_ACCOUNT_JSON_PATH or FCM_SERVICE_ACCOUNT_JSON');
+  if (!useAdc && !hasServiceAccountPath && !hasServiceAccountJsonBase64 && !hasServiceAccountJson) {
+    missing.push(
+      'FCM_SERVICE_ACCOUNT_JSON_PATH or FCM_SERVICE_ACCOUNT_JSON_BASE64 or FCM_SERVICE_ACCOUNT_JSON',
+    );
   }
 
   if (missing.length > 0) {

@@ -72,6 +72,26 @@ This is the typical minimal set (exact keys may evolve):
   - `OTEL_EXPORTER_OTLP_HEADERS` (contains auth header for Grafana Cloud)
   - `LOG_LEVEL`
   - `LOG_PRETTY` (optional; dev-only, defaults true)
+- Email (Resend)
+  - `RESEND_API_KEY`
+  - `EMAIL_FROM`
+  - `EMAIL_REPLY_TO` (optional)
+- Push (FCM)
+  - `PUSH_PROVIDER=FCM`
+  - `FCM_PROJECT_ID`
+  - Credentials (pick one strategy):
+    - GCP (recommended): `FCM_USE_APPLICATION_DEFAULT=true` (ADC / workload identity)
+    - Containers (recommended): `FCM_SERVICE_ACCOUNT_JSON_PATH=/run/secrets/...` (mounted secret file)
+    - Heroku/CI (recommended): `FCM_SERVICE_ACCOUNT_JSON_BASE64=...` (base64-encoded service account JSON)
+    - Local-only fallback: `FCM_SERVICE_ACCOUNT_JSON=...` (raw JSON string; avoid in prod)
+  - Note: use only one of `FCM_SERVICE_ACCOUNT_JSON_PATH`, `FCM_SERVICE_ACCOUNT_JSON_BASE64`, `FCM_SERVICE_ACCOUNT_JSON`.
+- Object storage (S3-compatible; optional)
+  - `STORAGE_S3_ENDPOINT`
+  - `STORAGE_S3_REGION`
+  - `STORAGE_S3_BUCKET`
+  - `STORAGE_S3_ACCESS_KEY_ID`
+  - `STORAGE_S3_SECRET_ACCESS_KEY`
+  - `STORAGE_S3_FORCE_PATH_STYLE` (optional)
 
 ## Local Development
 
