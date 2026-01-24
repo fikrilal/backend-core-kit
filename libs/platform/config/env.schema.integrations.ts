@@ -63,6 +63,11 @@ export class EnvVarsIntegrations extends EnvVarsUsers {
   @IsString()
   FCM_SERVICE_ACCOUNT_JSON_PATH?: string;
 
+  // Heroku/CI-friendly: store the service account JSON as base64 to avoid quoting/newline issues.
+  @IsOptional()
+  @IsString()
+  FCM_SERVICE_ACCOUNT_JSON_BASE64?: string;
+
   @IsOptional()
   @IsString()
   FCM_SERVICE_ACCOUNT_JSON?: string;

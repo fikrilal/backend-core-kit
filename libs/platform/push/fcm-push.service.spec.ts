@@ -79,6 +79,35 @@ describe('FcmPushService', () => {
     );
   });
 
+  it('sends when configured with base64 service account JSON', async () => {
+    const json = JSON.stringify({
+      project_id: 'project',
+      client_email: 'svc@example.com',
+      private_key: 'key',
+    });
+    const base64 = Buffer.from(json, 'utf8').toString('base64');
+
+    const svc = new FcmPushService(
+      stubConfig({
+        PUSH_PROVIDER: 'FCM',
+        FCM_PROJECT_ID: 'project',
+        FCM_SERVICE_ACCOUNT_JSON_BASE64: base64,
+      }),
+    );
+
+    expect(svc.isEnabled()).toBe(true);
+
+    const res = await svc.sendToToken({
+      token: 'token',
+      notification: { title: 'Hi', body: 'Body' },
+      data: { action: 'PING' },
+    });
+
+    expect(res).toEqual({ messageId: 'message-id' });
+    expect(certMock).toHaveBeenCalled();
+    expect(initializeAppMock).toHaveBeenCalled();
+  });
+
   it('throws a non-retryable PushSendError for invalid token', async () => {
     sendMock.mockRejectedValueOnce({
       code: 'messaging/registration-token-not-registered',

@@ -5,4 +5,5 @@ coverage/
 .env.*
 *.log
 npm-debug.log*
-
+# Firebase Admin SDK service account keys (never commit)
+*-firebase-adminsdk-*.json
