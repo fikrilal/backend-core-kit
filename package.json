@@ -5,10 +5,10 @@
   "description": "Production-ready NestJS backend boilerplate (Fastify, Postgres/Prisma, Redis/BullMQ, OpenTelemetry, OpenAPI contract gates).",
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=22 <23"
+    "node": "22.x"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "npm run prisma:generate && tsc -p tsconfig.build.json",
     "heroku-postbuild": "npm run build",
     "start": "node dist/apps/api/src/main.js",
     "start:dev": "nest start --watch",
