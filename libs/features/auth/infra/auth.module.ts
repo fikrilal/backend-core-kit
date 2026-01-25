@@ -6,6 +6,7 @@ import { PlatformAuthModule } from '../../../platform/auth/auth.module';
 import { PlatformEmailModule } from '../../../platform/email/email.module';
 import { PlatformPushModule } from '../../../platform/push/push.module';
 import { QueueModule } from '../../../platform/queue/queue.module';
+import { UsersModule } from '../../users/infra/users.module';
 import { AuthService } from '../app/auth.service';
 import { SystemClock } from '../app/time';
 import { AuthSessionsService } from '../app/auth-sessions.service';
@@ -32,6 +33,7 @@ import { GoogleOidcIdTokenVerifier } from './security/google-oidc-id-token-verif
     PlatformEmailModule,
     PlatformPushModule,
     QueueModule,
+    UsersModule,
   ],
   controllers: [AuthController, JwksController, MeSessionsController, MePushTokenController],
   providers: [

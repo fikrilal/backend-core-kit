@@ -58,5 +58,6 @@ import { USERS_CLOCK } from './users.tokens';
       ) => new UserProfileImageService(repo, storage, clock),
     },
   ],
+  exports: [UsersService],
 })
 export class UsersModule {}

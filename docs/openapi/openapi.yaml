@@ -64,7 +64,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthResultEnvelopeDto"
+                $ref: "#/components/schemas/AuthResultWithMeEnvelopeDto"
       summary: Register (password)
       tags: &a1
         - Auth
@@ -91,7 +91,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthResultEnvelopeDto"
+                $ref: "#/components/schemas/AuthResultWithMeEnvelopeDto"
       summary: Exchange OIDC id_token
       tags: *a1
       x-error-codes:
@@ -240,7 +240,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthResultEnvelopeDto"
+                $ref: "#/components/schemas/AuthResultWithMeEnvelopeDto"
       summary: Login (password)
       tags: *a1
       x-error-codes:
@@ -1134,7 +1134,42 @@ components:
       required:
         - email
         - password
-    AuthUserDto:
+    MeProfileDto:
+      type: object
+      properties:
+        profileImageFileId:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+          nullable: true
+          description: Current profile image stored file ID. Use `GET
+            /v1/me/profile-image/url` to get a short-lived URL for rendering.
+        displayName:
+          type: string
+          example: Dante
+          nullable: true
+        givenName:
+          type: string
+          example: Dante
+          nullable: true
+        familyName:
+          type: string
+          example: Alighieri
+          nullable: true
+    AccountDeletionDto:
+      type: object
+      properties:
+        requestedAt:
+          type: string
+          example: 2026-01-10T12:34:56.789Z
+          format: date-time
+        scheduledFor:
+          type: string
+          example: 2026-02-09T12:34:56.789Z
+          format: date-time
+      required:
+        - requestedAt
+        - scheduledFor
+    MeDto:
       type: object
       properties:
         id:
@@ -1146,27 +1181,42 @@ components:
         emailVerified:
           type: boolean
           example: false
+        roles:
+          example:
+            - USER
+          type: array
+          items:
+            type: string
         authMethods:
           type: array
           example:
             - PASSWORD
-            - GOOGLE
-          description: Linked authentication methods on this account. Omitted on token
-            refresh responses.
+          description: Linked authentication methods on this account.
           items:
             type: string
             enum: &a12
               - PASSWORD
               - GOOGLE
+        profile:
+          $ref: "#/components/schemas/MeProfileDto"
+        accountDeletion:
+          nullable: true
+          description: When set, the account is scheduled for deletion. The request can be
+            canceled until scheduledFor.
+          allOf:
+            - $ref: "#/components/schemas/AccountDeletionDto"
       required:
         - id
         - email
         - emailVerified
-    AuthResultDto:
+        - roles
+        - authMethods
+        - profile
+    AuthResultWithMeDto:
       type: object
       properties:
         user:
-          $ref: "#/components/schemas/AuthUserDto"
+          $ref: "#/components/schemas/MeDto"
         accessToken:
           type: string
           example: <access-token>
@@ -1177,11 +1227,11 @@ components:
         - user
         - accessToken
         - refreshToken
-    AuthResultEnvelopeDto:
+    AuthResultWithMeEnvelopeDto:
       type: object
       properties:
         data:
-          $ref: "#/components/schemas/AuthResultDto"
+          $ref: "#/components/schemas/AuthResultWithMeDto"
       required:
         - data
     OidcExchangeRequestDto:
@@ -1283,6 +1333,54 @@ components:
           example: <refresh-token>
       required:
         - refreshToken
+    AuthUserDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        email:
+          type: string
+          example: user@example.com
+        emailVerified:
+          type: boolean
+          example: false
+        authMethods:
+          type: array
+          example:
+            - PASSWORD
+            - GOOGLE
+          description: Linked authentication methods on this account. Omitted on token
+            refresh responses.
+          items:
+            type: string
+            enum: *a12
+      required:
+        - id
+        - email
+        - emailVerified
+    AuthResultDto:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUserDto"
+        accessToken:
+          type: string
+          example: <access-token>
+        refreshToken:
+          type: string
+          example: <refresh-token>
+      required:
+        - user
+        - accessToken
+        - refreshToken
+    AuthResultEnvelopeDto:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/AuthResultDto"
+      required:
+        - data
     LogoutRequestDto:
       type: object
       properties:
@@ -1395,82 +1493,6 @@ components:
       required:
         - platform
         - token
-    MeProfileDto:
-      type: object
-      properties:
-        profileImageFileId:
-          type: string
-          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
-          nullable: true
-          description: Current profile image stored file ID. Use `GET
-            /v1/me/profile-image/url` to get a short-lived URL for rendering.
-        displayName:
-          type: string
-          example: Dante
-          nullable: true
-        givenName:
-          type: string
-          example: Dante
-          nullable: true
-        familyName:
-          type: string
-          example: Alighieri
-          nullable: true
-    AccountDeletionDto:
-      type: object
-      properties:
-        requestedAt:
-          type: string
-          example: 2026-01-10T12:34:56.789Z
-          format: date-time
-        scheduledFor:
-          type: string
-          example: 2026-02-09T12:34:56.789Z
-          format: date-time
-      required:
-        - requestedAt
-        - scheduledFor
-    MeDto:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
-        email:
-          type: string
-          example: user@example.com
-        emailVerified:
-          type: boolean
-          example: false
-        roles:
-          example:
-            - USER
-          type: array
-          items:
-            type: string
-        authMethods:
-          type: array
-          example:
-            - PASSWORD
-          description: Linked authentication methods on this account.
-          items:
-            type: string
-            enum: *a12
-        profile:
-          $ref: "#/components/schemas/MeProfileDto"
-        accountDeletion:
-          nullable: true
-          description: When set, the account is scheduled for deletion. The request can be
-            canceled until scheduledFor.
-          allOf:
-            - $ref: "#/components/schemas/AccountDeletionDto"
-      required:
-        - id
-        - email
-        - emailVerified
-        - roles
-        - authMethods
-        - profile
     MeEnvelopeDto:
       type: object
       properties:

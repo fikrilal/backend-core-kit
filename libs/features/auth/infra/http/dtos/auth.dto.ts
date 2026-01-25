@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 import { AUTH_METHOD_VALUES } from '../../../../../shared/auth/auth-method';
+import { MeDto } from '../../../../users/infra/http/dtos/me.dto';
 import { AUTH_PASSWORD_MIN_LENGTH } from './password-policy';
 
 const OIDC_PROVIDER_VALUES = ['GOOGLE'] as const;
@@ -47,6 +48,24 @@ export class AuthResultDto {
 export class AuthResultEnvelopeDto {
   @ApiProperty({ type: AuthResultDto })
   data!: AuthResultDto;
+}
+
+export class AuthResultWithMeDto {
+  @ApiProperty({ type: MeDto })
+  user!: MeDto;
+
+  @ApiProperty({ example: '<access-token>' })
+  @IsString()
+  accessToken!: string;
+
+  @ApiProperty({ example: '<refresh-token>' })
+  @IsString()
+  refreshToken!: string;
+}
+
+export class AuthResultWithMeEnvelopeDto {
+  @ApiProperty({ type: AuthResultWithMeDto })
+  data!: AuthResultWithMeDto;
 }
 
 export class PasswordRegisterRequestDto {
