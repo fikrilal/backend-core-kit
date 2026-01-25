@@ -47,9 +47,9 @@ describe('EmailsWorker (unit)', () => {
     jest.useRealTimers();
   });
 
-  it('stores a hashed email verification token and never emails the hash', async () => {
-    const verificationCreates: Array<{ data: { tokenHash: string; expiresAt: Date } }> = [];
-    const sent: SendEmailInput[] = [];
+	it('stores a hashed email verification token and never emails the hash', async () => {
+		const verificationCreates: Array<{ data: { tokenHash: string; expiresAt: Date } }> = [];
+		const sent: SendEmailInput[] = [];
 
     const client = {
       user: {
@@ -76,12 +76,15 @@ describe('EmailsWorker (unit)', () => {
       },
     } as unknown as EmailService;
 
-    const worker = new EmailsWorker(
-      stubConfig({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
-      { isEnabled: () => true } as unknown as QueueWorkerFactory,
-      prisma,
-      email,
-      createLoggerStub(),
+		const worker = new EmailsWorker(
+			stubConfig({
+				PUBLIC_APP_URL: 'https://app.example',
+				AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60,
+			}),
+			{ isEnabled: () => true } as unknown as QueueWorkerFactory,
+			prisma,
+			email,
+			createLoggerStub(),
     );
 
     const job = {
@@ -104,13 +107,27 @@ describe('EmailsWorker (unit)', () => {
     expect(typeof token).toBe('string');
     expect(token).toBeTruthy();
 
-    const tokenHash = verificationCreates[0]?.data.tokenHash;
-    expect(typeof tokenHash).toBe('string');
-    expect(tokenHash).toBe(hashEmailVerificationToken(token));
-    expect(String(text)).not.toContain(tokenHash);
+		const tokenHash = verificationCreates[0]?.data.tokenHash;
+		expect(typeof tokenHash).toBe('string');
+		expect(tokenHash).toBe(hashEmailVerificationToken(token));
+		expect(String(text)).not.toContain(tokenHash);
 
-    expect(verificationCreates[0]?.data.expiresAt.toISOString()).toBe('2026-01-01T00:01:00.000Z');
-  });
+		const verifyUrlLine = lines.find((line) => line.startsWith('https://app.example/verify-email'));
+		expect(verifyUrlLine).toBeTruthy();
+
+		const verifyUrl = new URL(verifyUrlLine as string);
+		expect(verifyUrl.origin).toBe('https://app.example');
+		expect(verifyUrl.pathname).toBe('/verify-email');
+		expect(verifyUrl.searchParams.get('token')).toBe(token);
+
+		const html = sent[0]?.html;
+		expect(typeof html).toBe('string');
+		expect(String(html)).toContain(String(verifyUrl));
+		expect(String(html)).toContain(token);
+		expect(String(html)).not.toContain(tokenHash);
+
+		expect(verificationCreates[0]?.data.expiresAt.toISOString()).toBe('2026-01-01T00:01:00.000Z');
+	});
 
   it('skips verification email for DELETED users (no token created, no email sent)', async () => {
     const verificationCreates: Array<{ data: { tokenHash: string; expiresAt: Date } }> = [];

@@ -15,6 +15,8 @@ This document covers the **verify-email delivery path** in this kit:
    - Skips if the user is missing or already verified
    - Creates an `EmailVerificationToken` row (hashed token + expiry)
    - Sends the raw token to the user via `EmailService` (Resend)
+     - If `PUBLIC_APP_URL` is set, the email also includes a link like:
+       `https://<public-app-url>/verify-email?token=<verification-token>`
 
 ## Token storage model
 
@@ -35,6 +37,7 @@ Required to actually deliver emails:
 
 Optional:
 
+- `PUBLIC_APP_URL` (if set, verification emails include a deep-link friendly URL)
 - `AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS` (default: `86400` / 24h)
 - `AUTH_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS` (default: `60`)
 - `AUTH_EMAIL_VERIFICATION_RESEND_IP_MAX_ATTEMPTS` (default: `30`)
