@@ -22,8 +22,10 @@ import { AuthEmailVerificationJobs } from '../jobs/auth-email-verification.jobs'
 import { AuthPasswordResetJobs } from '../jobs/auth-password-reset.jobs';
 import { RedisEmailVerificationRateLimiter } from '../rate-limit/redis-email-verification-rate-limiter';
 import { RedisPasswordResetRateLimiter } from '../rate-limit/redis-password-reset-rate-limiter';
+import { UsersService } from '../../../users/app/users.service';
 import {
   AuthResultEnvelopeDto,
+  AuthResultWithMeEnvelopeDto,
   ChangePasswordRequestDto,
   LogoutRequestDto,
   OidcConnectRequestDto,
@@ -62,6 +64,7 @@ function normalizeUserAgent(value: unknown): string | undefined {
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
+    private readonly users: UsersService,
     private readonly emailVerificationJobs: AuthEmailVerificationJobs,
     private readonly emailVerificationRateLimiter: RedisEmailVerificationRateLimiter,
     private readonly passwordResetJobs: AuthPasswordResetJobs,
@@ -83,7 +86,7 @@ export class AuthController {
     AuthErrorCode.AUTH_EMAIL_ALREADY_EXISTS,
     ErrorCode.INTERNAL,
   ])
-  @ApiOkResponse({ type: AuthResultEnvelopeDto })
+  @ApiOkResponse({ type: AuthResultWithMeEnvelopeDto })
   async register(@Body() body: PasswordRegisterRequestDto, @Req() req: FastifyRequest) {
     const result = await this.auth.registerWithPassword({
       email: body.email,
@@ -103,7 +106,8 @@ export class AuthController {
       );
     }
 
-    return result;
+    const user = await this.users.getMe(result.user.id);
+    return { ...result, user };
   }
 
   @Post('oidc/exchange')
@@ -123,9 +127,9 @@ export class AuthController {
     AuthErrorCode.AUTH_USER_SUSPENDED,
     ErrorCode.INTERNAL,
   ])
-  @ApiOkResponse({ type: AuthResultEnvelopeDto })
+  @ApiOkResponse({ type: AuthResultWithMeEnvelopeDto })
   async exchangeOidc(@Body() body: OidcExchangeRequestDto, @Req() req: FastifyRequest) {
-    return await this.auth.exchangeOidc({
+    const result = await this.auth.exchangeOidc({
       provider: body.provider,
       idToken: body.idToken,
       deviceId: body.deviceId,
@@ -133,6 +137,9 @@ export class AuthController {
       ip: req.ip,
       userAgent: normalizeUserAgent(req.headers['user-agent']),
     });
+
+    const user = await this.users.getMe(result.user.id);
+    return { ...result, user };
   }
 
   @Post('oidc/connect')
@@ -301,9 +308,9 @@ export class AuthController {
     ErrorCode.RATE_LIMITED,
     ErrorCode.INTERNAL,
   ])
-  @ApiOkResponse({ type: AuthResultEnvelopeDto })
+  @ApiOkResponse({ type: AuthResultWithMeEnvelopeDto })
   async login(@Body() body: PasswordLoginRequestDto, @Req() req: FastifyRequest) {
-    return await this.auth.loginWithPassword({
+    const result = await this.auth.loginWithPassword({
       email: body.email,
       password: body.password,
       deviceId: body.deviceId,
@@ -311,6 +318,9 @@ export class AuthController {
       ip: req.ip,
       userAgent: normalizeUserAgent(req.headers['user-agent']),
     });
+
+    const user = await this.users.getMe(result.user.id);
+    return { ...result, user };
   }
 
   @Post('password/change')

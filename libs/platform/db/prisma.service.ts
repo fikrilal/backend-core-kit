@@ -13,12 +13,17 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly config: ConfigService) {
     const databaseUrl = this.config.get<string>('DATABASE_URL');
     const nodeEnv = this.config.get<string>('NODE_ENV') ?? NodeEnv.Development;
+    const sslRejectUnauthorized =
+      this.config.get<boolean>('DATABASE_SSL_REJECT_UNAUTHORIZED') ?? true;
 
     this.enabled = typeof databaseUrl === 'string' && databaseUrl.trim() !== '';
     this.connectOnStartup = nodeEnv === NodeEnv.Production || nodeEnv === NodeEnv.Staging;
 
     if (typeof databaseUrl === 'string' && databaseUrl.trim() !== '') {
-      const adapter = new PrismaPg({ connectionString: databaseUrl });
+      const adapter = new PrismaPg({
+        connectionString: databaseUrl,
+        ...(this.connectOnStartup ? { ssl: { rejectUnauthorized: sslRejectUnauthorized } } : {}),
+      });
       this.client = new PrismaClient({ adapter });
     }
   }

@@ -35,6 +35,10 @@ function parseSigningKeysJson(raw: string): unknown[] {
   );
 }
 
+function decodeBase64Utf8(value: string): string {
+  return Buffer.from(value, 'base64').toString('utf8');
+}
+
 @Injectable()
 export class AuthKeyRing implements OnModuleInit {
   private initPromise?: Promise<void>;
@@ -77,11 +81,18 @@ export class AuthKeyRing implements OnModuleInit {
     const productionLike = nodeEnv === NodeEnv.Production || nodeEnv === NodeEnv.Staging;
 
     const algConfig = normalizeJwtAlg(this.config.get<string>('AUTH_JWT_ALG')) ?? 'EdDSA';
-    const keysJson = asNonEmptyString(this.config.get<string>('AUTH_SIGNING_KEYS_JSON'));
+    const keysJsonRaw = asNonEmptyString(this.config.get<string>('AUTH_SIGNING_KEYS_JSON'));
+    const keysJsonBase64 = asNonEmptyString(
+      this.config.get<string>('AUTH_SIGNING_KEYS_JSON_BASE64'),
+    );
+
+    const keysJson = keysJsonRaw ?? (keysJsonBase64 ? decodeBase64Utf8(keysJsonBase64) : undefined);
 
     if (!keysJson) {
       if (productionLike) {
-        throw new Error('AUTH_SIGNING_KEYS_JSON is required in staging/production');
+        throw new Error(
+          'AUTH_SIGNING_KEYS_JSON (or AUTH_SIGNING_KEYS_JSON_BASE64) is required in staging/production',
+        );
       }
       this.generateEphemeralKey(algConfig);
       return;

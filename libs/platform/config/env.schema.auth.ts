@@ -116,6 +116,11 @@ export class EnvVarsAuth extends EnvVarsDb {
   @IsString()
   AUTH_SIGNING_KEYS_JSON?: string;
 
+  // Heroku/CI-friendly: store signing keys JSON as base64 to avoid quoting issues.
+  @IsOptional()
+  @IsString()
+  AUTH_SIGNING_KEYS_JSON_BASE64?: string;
+
   @IsOptional()
   @IsString()
   AUTH_OIDC_GOOGLE_CLIENT_IDS?: string;
