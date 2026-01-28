@@ -71,6 +71,9 @@ export class ObjectStorageService {
         region,
         endpoint,
         forcePathStyle: forcePathStyle ?? false,
+        // For presigned uploads, the payload is provided by the client (mobile/web),
+        // so we must not inject default request checksums into the signature.
+        requestChecksumCalculation: 'WHEN_REQUIRED',
         credentials: { accessKeyId, secretAccessKey },
       });
     }

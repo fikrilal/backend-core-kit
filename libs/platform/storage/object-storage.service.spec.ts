@@ -11,10 +11,13 @@ type GetSignedUrl = (
 
 const sendMock = jest.fn<ReturnType<Send>, Parameters<Send>>();
 const getSignedUrlMock = jest.fn<ReturnType<GetSignedUrl>, Parameters<GetSignedUrl>>();
+const s3ClientConfigs: unknown[] = [];
 
 jest.mock('@aws-sdk/client-s3', () => {
   class S3Client {
-    constructor(_config: unknown) {}
+    constructor(config: unknown) {
+      s3ClientConfigs.push(config);
+    }
     send = sendMock;
   }
 
@@ -69,6 +72,7 @@ describe('ObjectStorageService', () => {
   beforeEach(() => {
     sendMock.mockReset();
     getSignedUrlMock.mockReset();
+    s3ClientConfigs.length = 0;
   });
 
   it('reports disabled when not configured', () => {
@@ -85,6 +89,19 @@ describe('ObjectStorageService', () => {
     const service = new ObjectStorageService(stubConfig(configuredStorageConfig()));
     expect(service.isEnabled()).toBe(true);
     expect(service.getBucketName()).toBe('bucket');
+  });
+
+  it('configures S3 client to avoid default checksums (required for presigned uploads)', () => {
+    // If the SDK injects default CRC32 checksums into presigned PUT URLs, clients will get 400s
+    // unless they also send a matching checksum. We avoid that by requiring explicit checksums only.
+    new ObjectStorageService(stubConfig(configuredStorageConfig()));
+
+    const config = s3ClientConfigs[0];
+    expect(typeof config).toBe('object');
+    expect(config).not.toBeNull();
+    expect((config as { requestChecksumCalculation?: unknown }).requestChecksumCalculation).toBe(
+      'WHEN_REQUIRED',
+    );
   });
 
   it('presigns PUT with content-type signable header', async () => {
