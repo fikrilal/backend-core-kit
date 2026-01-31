@@ -29,6 +29,11 @@ import {
   type UsersSendAccountDeletionReminderEmailJobData,
   type UsersSendAccountDeletionRequestedEmailJobData,
 } from '../../../../libs/features/users/infra/jobs/user-account-deletion-email.job';
+import {
+  buildVerifyEmailUrl,
+  getBrandName,
+  renderVerificationEmailHtml,
+} from './emails.templates';
 
 type AuthSendVerificationEmailJobResult = Readonly<{
   ok: true;
@@ -172,12 +177,30 @@ export class EmailsWorker implements OnModuleInit {
       select: { id: true },
     });
 
-    const text = `Use this token to verify your email:\n\n${token}\n\nThis token expires at ${expiresAt.toISOString()}.`;
+    const publicAppUrl = asNonEmptyString(this.config.get<string>('PUBLIC_APP_URL'));
+    const verifyUrl = publicAppUrl ? buildVerifyEmailUrl(publicAppUrl, token) : undefined;
+
+    const text = [
+      'Use this token to verify your email:',
+      '',
+      token,
+      '',
+      ...(verifyUrl ? ['Or open this link:', verifyUrl, ''] : []),
+      `This token expires at ${expiresAt.toISOString()}.`,
+    ].join('\n');
+
+    const html = renderVerificationEmailHtml({
+      brand: getBrandName(publicAppUrl),
+      token,
+      verifyUrl,
+      expiresAtIso: expiresAt.toISOString(),
+    });
 
     const sent = await this.email.send({
       to: user.email,
       subject: 'Verify your email',
       text,
+      html,
     });
 
     this.logger.info({ userId: user.id, emailId: sent.id }, 'Sent verification email');
