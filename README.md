@@ -45,6 +45,7 @@ Avoid running `npm install/ci` in WSL for this repo.
 
 Checklist:
 
+- Follow `docs/guide/personalizing-a-project.md` and create `docs/core/project-profile.md`
 - Update `package.json` name/description/versioning as needed
 - Set `OTEL_SERVICE_NAME` (and `OTEL_EXPORTER_OTLP_ENDPOINT` in staging/prod)
 - Review `docs/README.md` + `docs/standards/README.md` for the non-negotiables

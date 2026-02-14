@@ -29,11 +29,7 @@ import {
   type UsersSendAccountDeletionReminderEmailJobData,
   type UsersSendAccountDeletionRequestedEmailJobData,
 } from '../../../../libs/features/users/infra/jobs/user-account-deletion-email.job';
-import {
-  buildVerifyEmailUrl,
-  getBrandName,
-  renderVerificationEmailHtml,
-} from './emails.templates';
+import { buildVerifyEmailUrl, getBrandName, renderVerificationEmailHtml } from './emails.templates';
 
 type AuthSendVerificationEmailJobResult = Readonly<{
   ok: true;

@@ -27,4 +27,3 @@ export function buildRedisConnectionOptions(params: {
 
   return { url };
 }
-
