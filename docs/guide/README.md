@@ -4,5 +4,6 @@ Guides are “how-to” documents for implementing features in a way that matche
 
 Start here:
 
+- `docs/guide/personalizing-a-project.md`
 - `docs/guide/getting-started.md`
 - `docs/guide/adding-a-feature.md`
