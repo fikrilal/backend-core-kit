@@ -122,4 +122,3 @@ export function renderVerificationEmailHtml(params: {
   </body>
 </html>`;
 }
-

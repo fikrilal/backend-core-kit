@@ -15,7 +15,10 @@ import {
 import type { JsonObject } from './json.types';
 import type { QueueName } from './queue-name';
 import { getJobOtelMeta } from './job-meta';
-import { buildRedisConnectionOptions, type RedisConnectionOptions } from '../config/redis-connection';
+import {
+  buildRedisConnectionOptions,
+  type RedisConnectionOptions,
+} from '../config/redis-connection';
 
 type OtelCarrier = Record<string, string>;
 
