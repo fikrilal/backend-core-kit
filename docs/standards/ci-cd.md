@@ -32,6 +32,7 @@ Meta gate (recommended):
 
 - secret scanning (pre-merge)
 - dependency scanning (best-effort)
+- runtime dependency vulnerability audit (`npm audit --omit=dev --audit-level=high`)
 
 Reference implementation:
 

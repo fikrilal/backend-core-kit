@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Runtime dependency vulnerability audit (high+)
+        run: npm run audit:prod
+
       - name: Prisma generate (client types)
         env:
           DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
