@@ -50,10 +50,10 @@ Goal: remove high-severity drift and establish shared primitives.
 
 ### P1 Exit Criteria
 
-- [ ] `npm run smells:arch:ci` reports no **new high** findings
-- [ ] `npm run openapi:check` passes after API changes
-- [ ] `npm run openapi:lint` passes
-- [ ] Regression tests for touched modules pass
+- [x] `npm run smells:arch:ci` reports no **new high** findings
+- [x] `npm run openapi:check` passes after API changes
+- [x] `npm run openapi:lint` passes
+- [x] Regression tests for touched modules pass
 
 ---
 
@@ -63,12 +63,12 @@ Goal: reduce repeated infrastructure patterns and lower change cost for new endp
 
 ### P2-1 Shared cursor-after builder (Finding #2)
 
-- [ ] Design reusable cursor comparator/where builder API under `libs/shared/list-query`
-- [ ] Refactor:
-  - [ ] `prisma-admin-users.repository.ts`
-  - [ ] `prisma-admin-audit.repository.ts`
-  - [ ] `prisma-auth.repository.sessions.ts`
-- [ ] Add cross-feature tests for cursor stability and ordering
+- [x] Design reusable cursor comparator/where builder API under `libs/shared/list-query`
+- [x] Refactor:
+  - [x] `prisma-admin-users.repository.ts`
+  - [x] `prisma-admin-audit.repository.ts`
+  - [x] `prisma-auth.repository.sessions.ts`
+- [x] Add cross-feature tests for cursor stability and ordering
 
 ### P2-2 Shared feature-error mapper (Finding #6)
 

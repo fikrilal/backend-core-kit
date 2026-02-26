@@ -3,10 +3,10 @@ import { Prisma, type UserRole, type UserStatus } from '@prisma/client';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import { UserStatus as PrismaUserStatus } from '@prisma/client';
 import {
+  buildCursorAfterWhere,
   encodeCursorV1,
   type FilterExpr,
   type ListQuery,
-  type SortSpec,
 } from '../../../../shared/list-query';
 import type {
   AdminUserListItem,
@@ -88,39 +88,6 @@ function compareForCursor(
       return direction === 'asc' ? { id: { gt: value } } : { id: { lt: value } };
     }
   }
-}
-
-function buildAfterCursorWhere(
-  sort: ReadonlyArray<SortSpec<AdminUsersSortField>>,
-  after: Readonly<Partial<Record<AdminUsersSortField, string | number | boolean>>>,
-): Prisma.UserWhereInput {
-  if (sort.length === 0) return {};
-
-  const clauses: Prisma.UserWhereInput[] = [];
-
-  for (let i = 0; i < sort.length; i += 1) {
-    const and: Prisma.UserWhereInput[] = [];
-
-    for (let j = 0; j < i; j += 1) {
-      const field = sort[j].field;
-      const value = after[field];
-      if (value === undefined) {
-        throw new Error(`Cursor missing value for sort field "${String(field)}"`);
-      }
-      and.push(equalsForCursor(field, value));
-    }
-
-    const field = sort[i].field;
-    const value = after[field];
-    if (value === undefined) {
-      throw new Error(`Cursor missing value for sort field "${String(field)}"`);
-    }
-    and.push(compareForCursor(field, sort[i].direction, value));
-
-    clauses.push({ AND: and });
-  }
-
-  return { OR: clauses };
 }
 
 function mapFilters(
@@ -226,7 +193,17 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
 
     const afterWhere =
       query.cursor && query.cursor.after
-        ? buildAfterCursorWhere(query.sort, query.cursor.after)
+        ? buildCursorAfterWhere({
+            sort: query.sort,
+            after: query.cursor.after,
+            builders: {
+              equals: equalsForCursor,
+              compare: compareForCursor,
+              and: (clauses) => ({ AND: clauses }),
+              or: (clauses) => ({ OR: clauses }),
+              empty: () => ({}),
+            },
+          })
         : {};
 
     const where = mergeWhere([baseWhere, afterWhere]);

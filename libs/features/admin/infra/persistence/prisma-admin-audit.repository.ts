@@ -3,10 +3,10 @@ import { Prisma, type UserAccountDeletionAction, type UserRole } from '@prisma/c
 import { UserAccountDeletionAction as PrismaUserAccountDeletionAction } from '@prisma/client';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import {
+  buildCursorAfterWhere,
   encodeCursorV1,
   type FilterExpr,
   type ListQuery,
-  type SortSpec,
 } from '../../../../shared/list-query';
 import type {
   AdminUserAccountDeletionAction,
@@ -133,74 +133,6 @@ function compareForAccountDeletionCursor(
       return direction === 'asc' ? { id: { gt: value } } : { id: { lt: value } };
     }
   }
-}
-
-function buildAfterCursorWhere(
-  sort: ReadonlyArray<SortSpec<AdminUserRoleChangeAuditsSortField>>,
-  after: Readonly<Partial<Record<AdminUserRoleChangeAuditsSortField, string | number | boolean>>>,
-): Prisma.UserRoleChangeAuditWhereInput {
-  if (sort.length === 0) return {};
-
-  const clauses: Prisma.UserRoleChangeAuditWhereInput[] = [];
-
-  for (let i = 0; i < sort.length; i += 1) {
-    const and: Prisma.UserRoleChangeAuditWhereInput[] = [];
-
-    for (let j = 0; j < i; j += 1) {
-      const field = sort[j].field;
-      const value = after[field];
-      if (value === undefined) {
-        throw new Error(`Cursor missing value for sort field "${String(field)}"`);
-      }
-      and.push(equalsForCursor(field, value));
-    }
-
-    const field = sort[i].field;
-    const value = after[field];
-    if (value === undefined) {
-      throw new Error(`Cursor missing value for sort field "${String(field)}"`);
-    }
-    and.push(compareForCursor(field, sort[i].direction, value));
-
-    clauses.push({ AND: and });
-  }
-
-  return { OR: clauses };
-}
-
-function buildAfterAccountDeletionCursorWhere(
-  sort: ReadonlyArray<SortSpec<AdminUserAccountDeletionAuditsSortField>>,
-  after: Readonly<
-    Partial<Record<AdminUserAccountDeletionAuditsSortField, string | number | boolean>>
-  >,
-): Prisma.UserAccountDeletionAuditWhereInput {
-  if (sort.length === 0) return {};
-
-  const clauses: Prisma.UserAccountDeletionAuditWhereInput[] = [];
-
-  for (let i = 0; i < sort.length; i += 1) {
-    const and: Prisma.UserAccountDeletionAuditWhereInput[] = [];
-
-    for (let j = 0; j < i; j += 1) {
-      const field = sort[j].field;
-      const value = after[field];
-      if (value === undefined) {
-        throw new Error(`Cursor missing value for sort field "${String(field)}"`);
-      }
-      and.push(equalsForAccountDeletionCursor(field, value));
-    }
-
-    const field = sort[i].field;
-    const value = after[field];
-    if (value === undefined) {
-      throw new Error(`Cursor missing value for sort field "${String(field)}"`);
-    }
-    and.push(compareForAccountDeletionCursor(field, sort[i].direction, value));
-
-    clauses.push({ AND: and });
-  }
-
-  return { OR: clauses };
 }
 
 function mapFilters(
@@ -400,7 +332,17 @@ export class PrismaAdminAuditRepository implements AdminAuditRepository {
 
     const afterWhere =
       query.cursor && query.cursor.after
-        ? buildAfterCursorWhere(query.sort, query.cursor.after)
+        ? buildCursorAfterWhere({
+            sort: query.sort,
+            after: query.cursor.after,
+            builders: {
+              equals: equalsForCursor,
+              compare: compareForCursor,
+              and: (clauses) => ({ AND: clauses }),
+              or: (clauses) => ({ OR: clauses }),
+              empty: () => ({}),
+            },
+          })
         : {};
 
     const where = mergeWhere([baseWhere, afterWhere]);
@@ -468,7 +410,17 @@ export class PrismaAdminAuditRepository implements AdminAuditRepository {
 
     const afterWhere =
       query.cursor && query.cursor.after
-        ? buildAfterAccountDeletionCursorWhere(query.sort, query.cursor.after)
+        ? buildCursorAfterWhere({
+            sort: query.sort,
+            after: query.cursor.after,
+            builders: {
+              equals: equalsForAccountDeletionCursor,
+              compare: compareForAccountDeletionCursor,
+              and: (clauses) => ({ AND: clauses }),
+              or: (clauses) => ({ OR: clauses }),
+              empty: () => ({}),
+            },
+          })
         : {};
 
     const where = mergeAccountDeletionWhere([baseWhere, afterWhere]);
