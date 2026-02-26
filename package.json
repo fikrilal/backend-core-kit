@@ -23,6 +23,8 @@
     "test:int": "jest --config test/jest-int.json --runInBand",
     "test:e2e": "jest --config test/jest-e2e.json --runInBand",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run deps:check && npm test && npm run openapi:check && npm run openapi:lint",
+    "smells:arch": "ts-node --files scripts/architecture-smells.ts --report _WIP/architecture-smells.md",
+    "smells:arch:ci": "ts-node --files scripts/architecture-smells.ts --ci --baseline tools/architecture-smells.baseline.json",
     "verify:gates": "ts-node --files scripts/gates-honesty.ts",
     "verify:e2e": "ts-node --files scripts/verify-e2e.ts",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
