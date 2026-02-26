@@ -450,7 +450,7 @@ paths:
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
-        - PUSH_NOT_CONFIGURED
+        - AUTH_PUSH_NOT_CONFIGURED
         - INTERNAL
     delete:
       description: Clears the stored push token for the current session. Idempotent.

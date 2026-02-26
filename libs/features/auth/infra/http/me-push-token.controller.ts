@@ -19,10 +19,9 @@ import type { PushService } from '../../../../platform/push/push.service';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { ProblemException } from '../../../../platform/http/errors/problem.exception';
+import { AuthErrorCode } from '../../app/auth.error-codes';
 import { MePushTokenUpsertRequestDto } from './dtos/me-push-token.dto';
 import { AuthErrorFilter } from './auth-error.filter';
-
-const PUSH_NOT_CONFIGURED_CODE = 'PUSH_NOT_CONFIGURED';
 
 @ApiTags('Users')
 @Controller()
@@ -45,7 +44,7 @@ export class MePushTokenController {
   @ApiErrorCodes([
     ErrorCode.VALIDATION_FAILED,
     ErrorCode.UNAUTHORIZED,
-    PUSH_NOT_CONFIGURED_CODE,
+    AuthErrorCode.AUTH_PUSH_NOT_CONFIGURED,
     ErrorCode.INTERNAL,
   ])
   @ApiNoContentResponse()
@@ -57,7 +56,7 @@ export class MePushTokenController {
     if (!this.push.isEnabled()) {
       throw new ProblemException(501, {
         title: 'Not Implemented',
-        code: PUSH_NOT_CONFIGURED_CODE,
+        code: AuthErrorCode.AUTH_PUSH_NOT_CONFIGURED,
         detail: 'Push provider is not configured',
       });
     }

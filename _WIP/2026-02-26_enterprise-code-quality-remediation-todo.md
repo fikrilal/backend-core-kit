@@ -35,11 +35,11 @@ Goal: remove high-severity drift and establish shared primitives.
 
 ### P1-3 Error code hygiene hardening (Finding #4)
 
-- [ ] Add typed `AUTH_PUSH_NOT_CONFIGURED` in shared auth error code enum
-- [ ] Remove raw string code usage in `me-push-token.controller.ts`
-- [ ] Tighten `ApiErrorCodes` decorator typing to accepted app error code union
-- [ ] Ensure OpenAPI remains aligned with typed codes
-- [ ] Add/adjust tests for error mapping and response shape
+- [x] Add typed `AUTH_PUSH_NOT_CONFIGURED` in shared auth error code enum
+- [x] Remove raw string code usage in `me-push-token.controller.ts`
+- [x] Tighten `ApiErrorCodes` decorator typing to accepted app error code union
+- [x] Ensure OpenAPI remains aligned with typed codes
+- [x] Add/adjust tests for error mapping and response shape
 
 ### P1-4 Request metadata standardization (Finding #8)
 
