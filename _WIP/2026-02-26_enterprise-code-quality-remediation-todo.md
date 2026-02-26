@@ -24,14 +24,14 @@ Goal: remove high-severity drift and establish shared primitives.
 
 ### P1-2 Transaction retry standardization (Finding #3)
 
-- [ ] Create shared utility in `libs/platform/db/tx-retry.ts`
-- [ ] Move classifier + retry wrapper into shared utility
-- [ ] Refactor usages in:
-  - [ ] `libs/features/admin/infra/persistence/prisma-admin-users.repository.ts`
-  - [ ] `libs/features/users/infra/persistence/prisma-users.repository.ts`
-  - [ ] `apps/worker/src/jobs/users-account-deletion.worker.ts`
-  - [ ] `libs/features/auth/infra/persistence/prisma-auth.repository.tx.ts` (align to shared)
-- [ ] Add tests for retry classification + retry behavior
+- [x] Create shared utility in `libs/platform/db/tx-retry.ts`
+- [x] Move classifier + retry wrapper into shared utility
+- [x] Refactor usages in:
+  - [x] `libs/features/admin/infra/persistence/prisma-admin-users.repository.ts`
+  - [x] `libs/features/users/infra/persistence/prisma-users.repository.ts`
+  - [x] `apps/worker/src/jobs/users-account-deletion.worker.ts`
+  - [x] `libs/features/auth/infra/persistence/prisma-auth.repository.tx.ts` (align to shared)
+- [x] Add tests for retry classification + retry behavior
 
 ### P1-3 Error code hygiene hardening (Finding #4)
 

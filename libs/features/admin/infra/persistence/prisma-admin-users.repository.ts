@@ -24,6 +24,7 @@ import type {
 } from '../../app/ports/admin-users.repository';
 import { PrismaService } from '../../../../platform/db/prisma.service';
 import { lockActiveAdminInvariant } from '../../../../platform/db/row-locks';
+import { withTransactionRetry } from '../../../../platform/db/tx-retry';
 
 function isPrismaUserRole(value: string): value is UserRole {
   return value === PrismaUserRole.USER || value === PrismaUserRole.ADMIN;
@@ -285,83 +286,72 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
     const client = this.prisma.getClient();
     const nextRole = input.role === 'ADMIN' ? PrismaUserRole.ADMIN : PrismaUserRole.USER;
 
-    const maxAttempts = 3;
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      try {
-        return await client.$transaction(
-          async (tx) => {
-            const found = await tx.user.findUnique({
-              where: { id: input.targetUserId },
-              select: {
-                id: true,
-                email: true,
-                emailVerifiedAt: true,
-                role: true,
-                status: true,
-                suspendedAt: true,
-                suspendedReason: true,
-                createdAt: true,
-              },
-            });
-
-            if (!found) return { kind: 'not_found' };
-
-            if (found.status === PrismaUserStatus.DELETED) {
-              return { kind: 'not_found' };
-            }
-
-            if (found.role === nextRole) {
-              return { kind: 'ok', user: toListItem(found) };
-            }
-
-            if (
-              found.role === PrismaUserRole.ADMIN &&
-              found.status === PrismaUserStatus.ACTIVE &&
-              nextRole !== PrismaUserRole.ADMIN
-            ) {
-              const adminCount = await lockActiveAdminInvariant(tx);
-              if (adminCount <= 1) return { kind: 'last_admin' };
-            }
-
-            const updated = await tx.user.update({
-              where: { id: input.targetUserId },
-              data: { role: nextRole },
-              select: {
-                id: true,
-                email: true,
-                emailVerifiedAt: true,
-                role: true,
-                status: true,
-                suspendedAt: true,
-                suspendedReason: true,
-                createdAt: true,
-              },
-            });
-
-            await tx.userRoleChangeAudit.create({
-              data: {
-                actorUserId: input.actorUserId,
-                actorSessionId: input.actorSessionId,
-                targetUserId: input.targetUserId,
-                oldRole: found.role,
-                newRole: updated.role,
-                traceId: input.traceId,
-              },
-            });
-
-            return { kind: 'ok', user: toListItem(updated) };
+    return await withTransactionRetry(
+      client,
+      async (tx) => {
+        const found = await tx.user.findUnique({
+          where: { id: input.targetUserId },
+          select: {
+            id: true,
+            email: true,
+            emailVerifiedAt: true,
+            role: true,
+            status: true,
+            suspendedAt: true,
+            suspendedReason: true,
+            createdAt: true,
           },
-          { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
-        );
-      } catch (err: unknown) {
-        if (attempt < maxAttempts && isRetryableTransactionError(err)) {
-          continue;
-        }
-        throw err;
-      }
-    }
+        });
 
-    throw new Error('Unexpected: exhausted transaction retries');
+        if (!found) return { kind: 'not_found' };
+
+        if (found.status === PrismaUserStatus.DELETED) {
+          return { kind: 'not_found' };
+        }
+
+        if (found.role === nextRole) {
+          return { kind: 'ok', user: toListItem(found) };
+        }
+
+        if (
+          found.role === PrismaUserRole.ADMIN &&
+          found.status === PrismaUserStatus.ACTIVE &&
+          nextRole !== PrismaUserRole.ADMIN
+        ) {
+          const adminCount = await lockActiveAdminInvariant(tx);
+          if (adminCount <= 1) return { kind: 'last_admin' };
+        }
+
+        const updated = await tx.user.update({
+          where: { id: input.targetUserId },
+          data: { role: nextRole },
+          select: {
+            id: true,
+            email: true,
+            emailVerifiedAt: true,
+            role: true,
+            status: true,
+            suspendedAt: true,
+            suspendedReason: true,
+            createdAt: true,
+          },
+        });
+
+        await tx.userRoleChangeAudit.create({
+          data: {
+            actorUserId: input.actorUserId,
+            actorSessionId: input.actorSessionId,
+            targetUserId: input.targetUserId,
+            oldRole: found.role,
+            newRole: updated.role,
+            traceId: input.traceId,
+          },
+        });
+
+        return { kind: 'ok', user: toListItem(updated) };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
   }
 
   async setUserStatus(input: SetUserStatusInput): Promise<SetUserStatusResult> {
@@ -379,131 +369,97 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
       }
     })();
 
-    const maxAttempts = 3;
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      try {
-        return await client.$transaction(
-          async (tx) => {
-            const found = await tx.user.findUnique({
-              where: { id: input.targetUserId },
-              select: {
-                id: true,
-                email: true,
-                emailVerifiedAt: true,
-                role: true,
-                status: true,
-                suspendedAt: true,
-                suspendedReason: true,
-                createdAt: true,
-              },
-            });
-
-            if (!found) return { kind: 'not_found' };
-
-            if (found.status === PrismaUserStatus.DELETED) {
-              return { kind: 'not_found' };
-            }
-
-            if (found.status === nextStatus) {
-              return { kind: 'ok', user: toListItem(found) };
-            }
-
-            if (
-              found.role === PrismaUserRole.ADMIN &&
-              found.status === PrismaUserStatus.ACTIVE &&
-              nextStatus === PrismaUserStatus.SUSPENDED
-            ) {
-              const activeAdminCount = await lockActiveAdminInvariant(tx);
-              if (activeAdminCount <= 1) return { kind: 'last_admin' };
-            }
-
-            const now = input.now;
-            const updated = await tx.user.update({
-              where: { id: input.targetUserId },
-              data:
-                nextStatus === PrismaUserStatus.SUSPENDED
-                  ? {
-                      status: nextStatus,
-                      suspendedAt: now,
-                      ...(input.reason !== undefined ? { suspendedReason: input.reason } : {}),
-                    }
-                  : {
-                      status: nextStatus,
-                      suspendedAt: null,
-                      suspendedReason: null,
-                    },
-              select: {
-                id: true,
-                email: true,
-                emailVerifiedAt: true,
-                role: true,
-                status: true,
-                suspendedAt: true,
-                suspendedReason: true,
-                createdAt: true,
-              },
-            });
-
-            await tx.userStatusChangeAudit.create({
-              data: {
-                actorUserId: input.actorUserId,
-                actorSessionId: input.actorSessionId,
-                targetUserId: input.targetUserId,
-                oldStatus: found.status,
-                newStatus: updated.status,
-                reason: nextStatus === PrismaUserStatus.SUSPENDED ? (input.reason ?? null) : null,
-                traceId: input.traceId,
-              },
-            });
-
-            if (nextStatus === PrismaUserStatus.SUSPENDED) {
-              // Reduce the risk window by revoking sessions (access tokens still expire on TTL).
-              await tx.session.updateMany({
-                where: { userId: input.targetUserId, revokedAt: null },
-                data: { revokedAt: now, activeKey: null },
-              });
-
-              await tx.refreshToken.updateMany({
-                where: { revokedAt: null, session: { userId: input.targetUserId } },
-                data: { revokedAt: now },
-              });
-            }
-
-            return { kind: 'ok', user: toListItem(updated) };
+    return await withTransactionRetry(
+      client,
+      async (tx) => {
+        const found = await tx.user.findUnique({
+          where: { id: input.targetUserId },
+          select: {
+            id: true,
+            email: true,
+            emailVerifiedAt: true,
+            role: true,
+            status: true,
+            suspendedAt: true,
+            suspendedReason: true,
+            createdAt: true,
           },
-          { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
-        );
-      } catch (err: unknown) {
-        if (attempt < maxAttempts && isRetryableTransactionError(err)) {
-          continue;
+        });
+
+        if (!found) return { kind: 'not_found' };
+
+        if (found.status === PrismaUserStatus.DELETED) {
+          return { kind: 'not_found' };
         }
-        throw err;
-      }
-    }
 
-    throw new Error('Unexpected: exhausted transaction retries');
+        if (found.status === nextStatus) {
+          return { kind: 'ok', user: toListItem(found) };
+        }
+
+        if (
+          found.role === PrismaUserRole.ADMIN &&
+          found.status === PrismaUserStatus.ACTIVE &&
+          nextStatus === PrismaUserStatus.SUSPENDED
+        ) {
+          const activeAdminCount = await lockActiveAdminInvariant(tx);
+          if (activeAdminCount <= 1) return { kind: 'last_admin' };
+        }
+
+        const now = input.now;
+        const updated = await tx.user.update({
+          where: { id: input.targetUserId },
+          data:
+            nextStatus === PrismaUserStatus.SUSPENDED
+              ? {
+                  status: nextStatus,
+                  suspendedAt: now,
+                  ...(input.reason !== undefined ? { suspendedReason: input.reason } : {}),
+                }
+              : {
+                  status: nextStatus,
+                  suspendedAt: null,
+                  suspendedReason: null,
+                },
+          select: {
+            id: true,
+            email: true,
+            emailVerifiedAt: true,
+            role: true,
+            status: true,
+            suspendedAt: true,
+            suspendedReason: true,
+            createdAt: true,
+          },
+        });
+
+        await tx.userStatusChangeAudit.create({
+          data: {
+            actorUserId: input.actorUserId,
+            actorSessionId: input.actorSessionId,
+            targetUserId: input.targetUserId,
+            oldStatus: found.status,
+            newStatus: updated.status,
+            reason: nextStatus === PrismaUserStatus.SUSPENDED ? (input.reason ?? null) : null,
+            traceId: input.traceId,
+          },
+        });
+
+        if (nextStatus === PrismaUserStatus.SUSPENDED) {
+          // Reduce the risk window by revoking sessions (access tokens still expire on TTL).
+          await tx.session.updateMany({
+            where: { userId: input.targetUserId, revokedAt: null },
+            data: { revokedAt: now, activeKey: null },
+          });
+
+          await tx.refreshToken.updateMany({
+            where: { revokedAt: null, session: { userId: input.targetUserId } },
+            data: { revokedAt: now },
+          });
+        }
+
+        return { kind: 'ok', user: toListItem(updated) };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
   }
-}
-
-function isRetryableTransactionError(err: unknown): boolean {
-  if (err instanceof Prisma.PrismaClientKnownRequestError) {
-    if (err.code === 'P2034') return true;
-    if (err.code === '40001') return true;
-    if (err.code === '40P01') return true;
-    return false;
-  }
-
-  if (err instanceof Error) {
-    // Prisma 7 adapter errors surfaced directly from the driver.
-    if (err.name === 'DriverAdapterError' && err.message === 'TransactionWriteConflict') {
-      return true;
-    }
-
-    // Best-effort fallbacks for other transient transaction errors.
-    if (err.message.includes('TransactionWriteConflict')) return true;
-    if (err.message.toLowerCase().includes('could not serialize access')) return true;
-    if (err.message.toLowerCase().includes('deadlock detected')) return true;
-  }
-
-  return false;
 }

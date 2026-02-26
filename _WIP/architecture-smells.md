@@ -1,37 +1,16 @@
 # Architecture Smell Scan Report
 
-Generated: 2026-02-26T14:01:38.528Z
+Generated: 2026-02-26T14:15:04.429Z
 Mode: CI
 Baseline: tools/architecture-smells.baseline.json (found)
 
 ## Summary
 
-- High: 4
+- High: 0
 - Medium: 30
 - Low: 12
-- Total: 46
-- New vs baseline: 0
-
-## High
-
-### duplicate_tx_retry_classifier (4)
-
-- apps/worker/src/jobs/users-account-deletion.worker.ts:411
-  - Duplicate retryable transaction classifier found; use shared utility
-  - Snippet: `function isRetryableTransactionError(err: unknown): boolean {`
-  - Docs: `docs/standards/reliability.md`
-- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:488
-  - Duplicate retryable transaction classifier found; use shared utility
-  - Snippet: `function isRetryableTransactionError(err: unknown): boolean {`
-  - Docs: `docs/standards/reliability.md`
-- libs/features/auth/infra/persistence/prisma-auth.repository.tx.ts:3
-  - Duplicate retryable transaction classifier found; use shared utility
-  - Snippet: `export function isRetryableTransactionError(err: unknown): boolean {`
-  - Docs: `docs/standards/reliability.md`
-- libs/features/users/infra/persistence/prisma-users.repository.ts:290
-  - Duplicate retryable transaction classifier found; use shared utility
-  - Snippet: `function isRetryableTransactionError(err: unknown): boolean {`
-  - Docs: `docs/standards/reliability.md`
+- Total: 42
+- New vs baseline: 5
 
 ## Medium
 
@@ -53,15 +32,15 @@ Baseline: tools/architecture-smells.baseline.json (found)
   - Repeated cursor where-builder helper detected
   - Snippet: `function buildAfterAccountDeletionCursorWhere(`
   - Docs: `docs/standards/code-quality.md`
-- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:46
+- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:47 [new]
   - Repeated cursor where-builder helper detected
   - Snippet: `function equalsForCursor(`
   - Docs: `docs/standards/code-quality.md`
-- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:68
+- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:69 [new]
   - Repeated cursor where-builder helper detected
   - Snippet: `function compareForCursor(`
   - Docs: `docs/standards/code-quality.md`
-- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:92
+- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:93 [new]
   - Repeated cursor where-builder helper detected
   - Snippet: `function buildAfterCursorWhere(`
   - Docs: `docs/standards/code-quality.md`
@@ -76,16 +55,16 @@ Baseline: tools/architecture-smells.baseline.json (found)
   - File has 398 LOC (threshold 350)
   - Snippet: `import { Injectable, type OnModuleInit } from '@nestjs/common';`
   - Docs: `docs/standards/code-quality.md`
-- apps/worker/src/jobs/users-account-deletion.worker.ts:1
-  - File has 415 LOC (threshold 350)
+- apps/worker/src/jobs/users-account-deletion.worker.ts:1 [new]
+  - File has 400 LOC (threshold 350)
   - Snippet: `import { Injectable, type OnModuleInit } from '@nestjs/common';`
   - Docs: `docs/standards/code-quality.md`
 - libs/features/admin/infra/persistence/prisma-admin-audit.repository.ts:1
   - File has 527 LOC (threshold 350)
   - Snippet: `import { Injectable } from '@nestjs/common';`
   - Docs: `docs/standards/code-quality.md`
-- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:1
-  - File has 510 LOC (threshold 350)
+- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:1 [new]
+  - File has 466 LOC (threshold 350)
   - Snippet: `import { Injectable } from '@nestjs/common';`
   - Docs: `docs/standards/code-quality.md`
 - libs/features/auth/app/auth.service.ts:1
