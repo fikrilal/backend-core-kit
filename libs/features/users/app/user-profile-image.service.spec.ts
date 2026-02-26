@@ -2,12 +2,12 @@ import { UserProfileImageService } from './user-profile-image.service';
 import { UserNotFoundError, type UsersError } from './users.errors';
 import { UsersErrorCode } from './users.error-codes';
 import type { ProfileImageRepository, StoredFileRecord } from './ports/profile-image.repository';
-import type { ObjectStorageService } from '../../../platform/storage/object-storage.service';
 import type {
-  HeadObjectResult,
-  PresignedGetObject,
-  PresignedPutObject,
-} from '../../../platform/storage/object-storage.types';
+  ProfileImageHeadObjectResult,
+  ProfileImagePresignedGetObject,
+  ProfileImagePresignedPutObject,
+  ProfileImageStoragePort,
+} from './ports/profile-image.storage';
 import { ErrorCode } from '../../../shared/error-codes';
 import {
   PROFILE_IMAGE_GET_URL_TTL_SECONDS,
@@ -44,17 +44,17 @@ type StorageLike = Readonly<{
     key: string;
     contentType: string;
     expiresInSeconds: number;
-  }) => Promise<PresignedPutObject>;
+  }) => Promise<ProfileImagePresignedPutObject>;
   presignGetObject: (input: {
     key: string;
     expiresInSeconds: number;
-  }) => Promise<PresignedGetObject>;
-  headObject: (key: string) => Promise<HeadObjectResult>;
+  }) => Promise<ProfileImagePresignedGetObject>;
+  headObject: (key: string) => Promise<ProfileImageHeadObjectResult>;
   deleteObject: (key: string) => Promise<void>;
 }>;
 
-function asObjectStorageService(storage: StorageLike): ObjectStorageService {
-  return storage as unknown as ObjectStorageService;
+function asProfileImageStorage(storage: StorageLike): ProfileImageStoragePort {
+  return storage;
 }
 
 function makeStoredFile(partial?: Partial<StoredFileRecord>): StoredFileRecord {
@@ -76,7 +76,7 @@ describe('UserProfileImageService', () => {
 
   it('createUploadPlan throws USERS_OBJECT_STORAGE_NOT_CONFIGURED when storage is disabled', async () => {
     const repo = makeRepo({});
-    const storage = asObjectStorageService({
+    const storage = asProfileImageStorage({
       isEnabled: () => false,
       getBucketName: () => unimplemented(),
       presignPutObject: async () => unimplemented(),
@@ -101,7 +101,7 @@ describe('UserProfileImageService', () => {
   });
 
   it('createUploadPlan trims contentType, validates input, and persists an UPLOADING file record', async () => {
-    const presigned: PresignedPutObject = {
+    const presigned: ProfileImagePresignedPutObject = {
       method: 'PUT',
       url: 'https://example.com/upload',
       headers: { 'Content-Type': 'image/png' },
@@ -128,7 +128,7 @@ describe('UserProfileImageService', () => {
       },
     });
 
-    const storage = asObjectStorageService({
+    const storage = asProfileImageStorage({
       isEnabled: () => true,
       getBucketName: () => 'bucket-1',
       presignPutObject: async (input) => {
@@ -175,7 +175,7 @@ describe('UserProfileImageService', () => {
 
   it('createUploadPlan rejects unsupported contentType with VALIDATION_FAILED', async () => {
     const repo = makeRepo({});
-    const storage = asObjectStorageService({
+    const storage = asProfileImageStorage({
       isEnabled: () => true,
       getBucketName: () => 'bucket-1',
       presignPutObject: async () => unimplemented(),
@@ -202,7 +202,7 @@ describe('UserProfileImageService', () => {
 
   it('createUploadPlan rejects invalid sizeBytes with VALIDATION_FAILED', async () => {
     const repo = makeRepo({});
-    const storage = asObjectStorageService({
+    const storage = asProfileImageStorage({
       isEnabled: () => true,
       getBucketName: () => 'bucket-1',
       presignPutObject: async () => unimplemented(),
@@ -231,7 +231,7 @@ describe('UserProfileImageService', () => {
     const repo = makeRepo({
       createProfileImageFile: async () => ({ kind: 'not_found' }),
     });
-    const storage = asObjectStorageService({
+    const storage = asProfileImageStorage({
       isEnabled: () => true,
       getBucketName: () => 'bucket-1',
       presignPutObject: async () => ({
@@ -271,7 +271,7 @@ describe('UserProfileImageService', () => {
       },
     });
 
-    const storage = asObjectStorageService({
+    const storage = asProfileImageStorage({
       isEnabled: () => true,
       getBucketName: () => 'bucket-1',
       presignPutObject: async () => unimplemented(),
@@ -318,7 +318,7 @@ describe('UserProfileImageService', () => {
       },
     });
 
-    const storage = asObjectStorageService({
+    const storage = asProfileImageStorage({
       isEnabled: () => true,
       getBucketName: () => 'bucket-1',
       presignPutObject: async () => unimplemented(),
@@ -368,7 +368,7 @@ describe('UserProfileImageService', () => {
       },
     });
 
-    const storage = asObjectStorageService({
+    const storage = asProfileImageStorage({
       isEnabled: () => true,
       getBucketName: () => 'bucket-1',
       presignPutObject: async () => unimplemented(),
@@ -397,7 +397,7 @@ describe('UserProfileImageService', () => {
     const repo = makeRepo({
       getCurrentProfileImageFile: async () => ({ kind: 'ok', file: null }),
     });
-    const storage = asObjectStorageService({
+    const storage = asProfileImageStorage({
       isEnabled: () => false,
       getBucketName: () => unimplemented(),
       presignPutObject: async () => unimplemented(),
@@ -421,11 +421,11 @@ describe('UserProfileImageService', () => {
       }),
     });
 
-    const presigned: PresignedGetObject = { url: 'https://example.com/get' };
+    const presigned: ProfileImagePresignedGetObject = { url: 'https://example.com/get' };
 
     let presignGetKey: string | undefined;
 
-    const storage = asObjectStorageService({
+    const storage = asProfileImageStorage({
       isEnabled: () => true,
       getBucketName: () => 'bucket-1',
       presignPutObject: async () => unimplemented(),

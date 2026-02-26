@@ -255,7 +255,9 @@ function makeFinding(params: {
   };
 }
 
-function findBoundaryAppImportsPlatformImpl(files: ReadonlyArray<FileData>): ReadonlyArray<Finding> {
+function findBoundaryAppImportsPlatformImpl(
+  files: ReadonlyArray<FileData>,
+): ReadonlyArray<Finding> {
   const findings: Finding[] = [];
 
   const appFileRe = /^libs\/features\/[^/]+\/app\/.*\.ts$/;
@@ -346,7 +348,8 @@ function findDuplicateTxRetryClassifier(files: ReadonlyArray<FileData>): Readonl
 
 function findDuplicateCursorWhereBuilder(files: ReadonlyArray<FileData>): ReadonlyArray<Finding> {
   const matches: Finding[] = [];
-  const fnRe = /\bfunction\s+(?:equalsForCursor|compareForCursor|buildAfter[A-Za-z0-9]*CursorWhere)\s*\(/g;
+  const fnRe =
+    /\bfunction\s+(?:equalsForCursor|compareForCursor|buildAfter[A-Za-z0-9]*CursorWhere)\s*\(/g;
 
   for (const file of files) {
     if (!isAppOrLibPath(file.path)) continue;
@@ -531,7 +534,9 @@ function markdownReport(params: {
   lines.push('');
   lines.push(`Generated: ${new Date().toISOString()}`);
   lines.push(`Mode: ${params.options.ci ? 'CI' : 'Local'}`);
-  lines.push(`Baseline: ${params.options.baselinePath} (${params.baselineFound ? 'found' : 'not found'})`);
+  lines.push(
+    `Baseline: ${params.options.baselinePath} (${params.baselineFound ? 'found' : 'not found'})`,
+  );
   lines.push('');
   lines.push('## Summary');
   lines.push('');
@@ -732,7 +737,9 @@ async function main(): Promise<void> {
       `- report: ${options.reportPath}`,
       `- findings: high=${result.summary.high}, medium=${result.summary.medium}, low=${result.summary.low}, total=${result.findings.length}`,
       ...(options.ci
-        ? [`- new vs baseline: ${result.newFindings.length}${result.baselineFound ? '' : ' (baseline not found or empty)'}`]
+        ? [
+            `- new vs baseline: ${result.newFindings.length}${result.baselineFound ? '' : ' (baseline not found or empty)'}`,
+          ]
         : []),
     ].join('\n') + '\n',
   );

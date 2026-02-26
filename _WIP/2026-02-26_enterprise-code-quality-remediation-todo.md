@@ -14,14 +14,16 @@ Source review: `_WIP/2026-02-26_enterprise-code-quality-review.md`
 Goal: remove high-severity drift and establish shared primitives.
 
 ### P1-1 Architecture boundary fix (Finding #1)
-- [ ] Introduce `ProfileImageStoragePort` in `libs/features/users/app/ports`
-- [ ] Refactor `user-profile-image.service.ts` to depend on port only
-- [ ] Add infra adapter in users feature wrapping `ObjectStorageService`
-- [ ] Update users module DI wiring
-- [ ] Add/update unit tests for app service + adapter
-- [ ] Confirm no app->platform imports remain for this path
+
+- [x] Introduce `ProfileImageStoragePort` in `libs/features/users/app/ports`
+- [x] Refactor `user-profile-image.service.ts` to depend on port only
+- [x] Add infra adapter in users feature wrapping `ObjectStorageService`
+- [x] Update users module DI wiring
+- [x] Add/update unit tests for app service + adapter
+- [x] Confirm no app->platform imports remain for this path
 
 ### P1-2 Transaction retry standardization (Finding #3)
+
 - [ ] Create shared utility in `libs/platform/db/tx-retry.ts`
 - [ ] Move classifier + retry wrapper into shared utility
 - [ ] Refactor usages in:
@@ -32,6 +34,7 @@ Goal: remove high-severity drift and establish shared primitives.
 - [ ] Add tests for retry classification + retry behavior
 
 ### P1-3 Error code hygiene hardening (Finding #4)
+
 - [ ] Add typed `AUTH_PUSH_NOT_CONFIGURED` in shared auth error code enum
 - [ ] Remove raw string code usage in `me-push-token.controller.ts`
 - [ ] Tighten `ApiErrorCodes` decorator typing to accepted app error code union
@@ -39,12 +42,14 @@ Goal: remove high-severity drift and establish shared primitives.
 - [ ] Add/adjust tests for error mapping and response shape
 
 ### P1-4 Request metadata standardization (Finding #8)
+
 - [ ] Add request context decorators (`@RequestTraceId()`, `@ClientContext()` or equivalent)
 - [ ] Replace repeated `req.requestId ?? 'unknown'` in controllers
 - [ ] Replace ad-hoc client metadata extraction boilerplate
 - [ ] Validate correlation behavior still matches platform hooks
 
 ### P1 Exit Criteria
+
 - [ ] `npm run smells:arch:ci` reports no **new high** findings
 - [ ] `npm run openapi:check` passes after API changes
 - [ ] `npm run openapi:lint` passes
@@ -57,6 +62,7 @@ Goal: remove high-severity drift and establish shared primitives.
 Goal: reduce repeated infrastructure patterns and lower change cost for new endpoints.
 
 ### P2-1 Shared cursor-after builder (Finding #2)
+
 - [ ] Design reusable cursor comparator/where builder API under `libs/shared/list-query`
 - [ ] Refactor:
   - [ ] `prisma-admin-users.repository.ts`
@@ -65,6 +71,7 @@ Goal: reduce repeated infrastructure patterns and lower change cost for new endp
 - [ ] Add cross-feature tests for cursor stability and ordering
 
 ### P2-2 Shared feature-error mapper (Finding #6)
+
 - [ ] Create base helper in `libs/platform/http` for mapping feature errors -> Problem Details
 - [ ] Refactor feature filters:
   - [ ] `auth-error.filter.ts`
@@ -73,12 +80,14 @@ Goal: reduce repeated infrastructure patterns and lower change cost for new endp
 - [ ] Keep feature-specific codes/messages while removing repeated boilerplate
 
 ### P2-3 Best-effort side-effect helper (Finding #7)
+
 - [ ] Add `runBestEffort(...)` helper (logging + optional metric hook)
 - [ ] Refactor controller try/catch blocks using helper
 - [ ] Standardize logging fields and message shape
 - [ ] Add tests for failure path observability behavior
 
 ### P2 Exit Criteria
+
 - [ ] Duplicate helper findings trend reduced in smell scan
 - [ ] No behavior regressions in queue side-effect flows
 - [ ] Controller code paths become thinner and easier to review
@@ -90,11 +99,13 @@ Goal: reduce repeated infrastructure patterns and lower change cost for new endp
 Goal: make “new module/endpoint” mostly assembly using shared core patterns.
 
 ### P3-1 Module/provider wiring simplification (Finding #9)
+
 - [ ] Introduce provider-builder utility for pure app services
 - [ ] Remove repetitive `useFactory + new SystemClock()` wiring in feature modules
 - [ ] Document standard module assembly pattern
 
 ### P3-2 Feature scaffolder (Findings #9 + blueprint)
+
 - [ ] Create scaffold command under `tools/` for new feature slice
 - [ ] Generate defaults for:
   - [ ] module + tokens + app service + ports
@@ -104,6 +115,7 @@ Goal: make “new module/endpoint” mostly assembly using shared core patterns.
 - [ ] Document usage in `docs/guide/adding-a-feature.md`
 
 ### P3-3 High-complexity file decomposition (Finding #10)
+
 - [ ] Split `libs/features/auth/app/auth.service.ts`
 - [ ] Split `libs/platform/http/idempotency/idempotency.service.ts`
 - [ ] Split `apps/worker/src/jobs/users-account-deletion.worker.ts`
@@ -111,11 +123,13 @@ Goal: make “new module/endpoint” mostly assembly using shared core patterns.
 - [ ] Add focused tests around extracted units
 
 ### P3-4 E2E test modularization (Finding #11)
+
 - [ ] Split `test/auth.e2e-spec.ts` by capability areas
 - [ ] Extract shared fixtures/builders
 - [ ] Reduce merge-conflict hotspots
 
 ### P3 Exit Criteria
+
 - [ ] New feature/endpoint implementation time reduced (measured internally)
 - [ ] Large-file hotspots reduced below target LOC thresholds
 - [ ] E2E suite structure aligns with feature boundaries
@@ -125,16 +139,19 @@ Goal: make “new module/endpoint” mostly assembly using shared core patterns.
 ## Cross-Phase Governance
 
 ### CI / Quality Gates
+
 - [ ] Keep `smells:arch:ci` running in CI (fail on `high`)
 - [ ] Re-baseline only after explicit review
 - [ ] Track smell trend by phase in PR summary
 
 ### PR Template Additions
+
 - [ ] Add section: `Phase Task IDs Covered` (e.g., `P1-2`, `P2-1`)
 - [ ] Add section: `Architecture Smell Impact` (new/reduced/unchanged)
 - [ ] Add section: `OpenAPI / Error Code Impact`
 
 ### Suggested PR Sequence
+
 1. PR-1: P1-1 boundary port/adapters
 2. PR-2: P1-2 tx-retry shared utility + migrations of usages
 3. PR-3: P1-3 error-code typing + decorator hardening

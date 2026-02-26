@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import type { ObjectStorageService } from '../../../platform/storage/object-storage.service';
-import type { PresignedPutObject } from '../../../platform/storage/object-storage.types';
 import { ErrorCode } from '../../../shared/error-codes';
 import { UserNotFoundError, UsersError } from './users.errors';
 import { UsersErrorCode } from './users.error-codes';
 import type { ProfileImageRepository, StoredFileRecord } from './ports/profile-image.repository';
+import type {
+  ProfileImagePresignedPutObject,
+  ProfileImageStoragePort,
+} from './ports/profile-image.storage';
 import type { Clock } from './time';
 
 import {
@@ -16,7 +18,7 @@ import {
 
 export type ProfileImageUploadPlan = Readonly<{
   fileId: string;
-  upload: PresignedPutObject;
+  upload: ProfileImagePresignedPutObject;
   expiresAt: string;
 }>;
 
@@ -34,7 +36,7 @@ function isAllowedContentType(
 export class UserProfileImageService {
   constructor(
     private readonly repo: ProfileImageRepository,
-    private readonly storage: ObjectStorageService,
+    private readonly storage: ProfileImageStoragePort,
     private readonly clock: Clock,
   ) {}
 

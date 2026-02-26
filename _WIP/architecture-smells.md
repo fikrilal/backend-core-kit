@@ -1,29 +1,18 @@
 # Architecture Smell Scan Report
 
-Generated: 2026-02-26T02:51:11.603Z
+Generated: 2026-02-26T14:01:38.528Z
 Mode: CI
 Baseline: tools/architecture-smells.baseline.json (found)
 
 ## Summary
 
-- High: 6
+- High: 4
 - Medium: 30
 - Low: 12
-- Total: 48
+- Total: 46
 - New vs baseline: 0
 
 ## High
-
-### boundary_app_imports_platform_impl (2)
-
-- libs/features/users/app/user-profile-image.service.ts:2
-  - Feature app layer imports platform path "../../../platform/storage/object-storage.service"
-  - Snippet: `import type { ObjectStorageService } from '../../../platform/storage/object-storage.service';`
-  - Docs: `docs/standards/code-quality.md`
-- libs/features/users/app/user-profile-image.service.ts:3
-  - Feature app layer imports platform path "../../../platform/storage/object-storage.types"
-  - Snippet: `import type { PresignedPutObject } from '../../../platform/storage/object-storage.types';`
-  - Docs: `docs/standards/code-quality.md`
 
 ### duplicate_tx_retry_classifier (4)
 

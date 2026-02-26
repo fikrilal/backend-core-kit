@@ -14,12 +14,13 @@ import { UserAccountDeletionEmailJobs } from './jobs/user-account-deletion-email
 import { ProfileImageController } from './http/profile-image.controller';
 import { PrismaProfileImageRepository } from './persistence/prisma-profile-image.repository';
 import { UserProfileImageService } from '../app/user-profile-image.service';
-import { ObjectStorageService } from '../../../platform/storage/object-storage.service';
 import { RedisProfileImageUploadRateLimiter } from './rate-limit/redis-profile-image-upload-rate-limiter';
 import { ProfileImageCleanupJobs } from './jobs/profile-image-cleanup.jobs';
 import type { Clock } from '../app/time';
 import { SystemClock } from '../app/time';
 import { USERS_CLOCK } from './users.tokens';
+import type { ProfileImageStoragePort } from '../app/ports/profile-image.storage';
+import { UsersProfileImageStorageAdapter } from './storage/users-profile-image-storage.adapter';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { USERS_CLOCK } from './users.tokens';
     UserAccountDeletionEmailJobs,
     RedisProfileImageUploadRateLimiter,
     ProfileImageCleanupJobs,
+    UsersProfileImageStorageAdapter,
     { provide: USERS_CLOCK, useValue: new SystemClock() },
     {
       provide: UsersService,
@@ -50,10 +52,10 @@ import { USERS_CLOCK } from './users.tokens';
     },
     {
       provide: UserProfileImageService,
-      inject: [PrismaProfileImageRepository, ObjectStorageService, USERS_CLOCK],
+      inject: [PrismaProfileImageRepository, UsersProfileImageStorageAdapter, USERS_CLOCK],
       useFactory: (
         repo: PrismaProfileImageRepository,
-        storage: ObjectStorageService,
+        storage: ProfileImageStoragePort,
         clock: Clock,
       ) => new UserProfileImageService(repo, storage, clock),
     },

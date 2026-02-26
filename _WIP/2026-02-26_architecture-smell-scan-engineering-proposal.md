@@ -24,16 +24,20 @@ Architecture and maintainability issues are currently detected via manual review
 ## Proposal Summary
 
 Add a new script:
+
 - `scripts/architecture-smells.ts`
 
 Add new npm commands:
+
 - `npm run smells:arch` (local report; non-blocking)
 - `npm run smells:arch:ci` (CI mode; fails on configured severity/delta)
 
 Add baseline file:
+
 - `tools/architecture-smells.baseline.json`
 
 Add report artifact output:
+
 - `_WIP/architecture-smells.md`
 
 ## Detection Rules (v1)
@@ -43,31 +47,39 @@ Each finding includes: `id`, `severity`, `message`, `file`, `line`, `snippet?`, 
 ### High Severity
 
 1. `boundary_app_imports_platform_impl`
+
 - Feature `app` layer imports concrete platform services/adapters (except approved ports/types).
 
 2. `raw_error_code_literal`
+
 - Raw string code values in non-test source (e.g. `code: 'SOME_CODE'`) outside approved enum definitions.
 
 3. `duplicate_tx_retry_classifier`
+
 - Reimplementation of retryable transaction classifier instead of shared utility.
 
 ### Medium Severity
 
 1. `duplicate_cursor_where_builder`
+
 - Repeated cursor/equality/compare/after-where implementations across repositories.
 
 2. `repeated_request_trace_fallback`
+
 - Repeated `req.requestId ?? 'unknown'` and similar per-controller request metadata fallback patterns.
 
 3. `repeated_best_effort_job_try_catch`
+
 - Repeated best-effort enqueue/schedule try-catch logging blocks in controllers.
 
 4. `oversized_orchestration_file`
+
 - Non-test service/repository/worker files over threshold (default 350 LOC).
 
 ### Low Severity
 
 1. `repeated_local_string_normalizer`
+
 - Duplicate local helpers like `asNonEmptyString` where shared utility exists.
 
 ## Implementation Design
@@ -82,16 +94,19 @@ Each finding includes: `id`, `severity`, `message`, `file`, `line`, `snippet?`, 
 ## Output Model
 
 1. Console summary:
+
 - Total findings by severity
 - New vs baseline counts
 - Top repeated rule IDs
 
 2. Markdown report:
+
 - Write `_WIP/architecture-smells.md`
 - Group by severity then rule
 - Include exact file:line entries
 
 3. JSON output (optional flag):
+
 - `--json <path>` for CI artifact/analytics
 
 ## Baseline + Delta Strategy
@@ -101,6 +116,7 @@ Use baseline to avoid “big bang” blocking:
 1. First run generates `tools/architecture-smells.baseline.json`.
 2. CI mode compares current findings against baseline keys (`id + file + line + normalized_message`).
 3. `smells:arch:ci` fails only when:
+
 - New High findings appear, or
 - Total High findings exceed baseline (configurable), or
 - `--strict` is enabled.
@@ -118,10 +134,12 @@ Use baseline to avoid “big bang” blocking:
 ## npm + CI Integration
 
 In `package.json`:
+
 - `"smells:arch": "ts-node --files scripts/architecture-smells.ts --report _WIP/architecture-smells.md"`
 - `"smells:arch:ci": "ts-node --files scripts/architecture-smells.ts --ci --baseline tools/architecture-smells.baseline.json"`
 
 Rollout path:
+
 1. Phase 1: Add `smells:arch` local only.
 2. Phase 2: Add `smells:arch:ci` in non-blocking CI job (informational).
 3. Phase 3: Enforce fail on new High findings.
@@ -161,18 +179,22 @@ Rollout path:
 ## Suppression Policy
 
 Allowed only with explicit comment in suppression file:
+
 - `tools/architecture-smells.suppressions.json`
 - Must include `reason`, `owner`, and `expiry_date`.
 
 ## Risks and Mitigations
 
 1. False positives create noise.
+
 - Mitigation: baseline/delta rollout + suppression with expiry + rule tests.
 
 2. Overlap with existing gates.
+
 - Mitigation: keep smell scanner focused on heuristics not covered by lint/depcruise.
 
 3. Performance concerns.
+
 - Mitigation: `rg`-first implementation and narrow globs (`apps`, `libs`, `scripts`).
 
 ## Success Metrics
@@ -193,7 +215,9 @@ Allowed only with explicit comment in suppression file:
 
 ```md
 ## High
+
 ### raw_error_code_literal (2)
+
 - libs/features/auth/infra/http/me-push-token.controller.ts:25
   - Raw string error code literal `PUSH_NOT_CONFIGURED`
 - libs/features/auth/infra/http/me-push-token.controller.ts:60
