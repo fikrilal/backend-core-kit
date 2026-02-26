@@ -1,16 +1,16 @@
 # Architecture Smell Scan Report
 
-Generated: 2026-02-26T14:38:33.713Z
+Generated: 2026-02-26T14:58:51.985Z
 Mode: CI
 Baseline: tools/architecture-smells.baseline.json (found)
 
 ## Summary
 
 - High: 0
-- Medium: 30
+- Medium: 22
 - Low: 12
-- Total: 42
-- New vs baseline: 5
+- Total: 34
+- New vs baseline: 10
 
 ## Medium
 
@@ -78,23 +78,23 @@ Baseline: tools/architecture-smells.baseline.json (found)
 
 ### repeated_best_effort_job_try_catch (8)
 
-- libs/features/auth/infra/http/auth.controller.ts:105
+- libs/features/auth/infra/http/auth.controller.ts:92 [new]
   - Repeated best-effort job enqueue/schedule/cancel logging block
   - Snippet: `'Failed to enqueue verification email job',`
   - Docs: `docs/guide/adding-a-job.md`
-- libs/features/auth/infra/http/auth.controller.ts:274
+- libs/features/auth/infra/http/auth.controller.ts:267 [new]
   - Repeated best-effort job enqueue/schedule/cancel logging block
   - Snippet: `'Failed to enqueue password reset email job',`
   - Docs: `docs/guide/adding-a-job.md`
-- libs/features/users/infra/http/profile-image.controller.ts:99
+- libs/features/users/infra/http/profile-image.controller.ts:104 [new]
   - Repeated best-effort job enqueue/schedule/cancel logging block
   - Snippet: `'Failed to schedule profile image upload expiry job',`
   - Docs: `docs/guide/adding-a-job.md`
-- libs/features/users/infra/http/profile-image.controller.ts:143
+- libs/features/users/infra/http/profile-image.controller.ts:148 [new]
   - Repeated best-effort job enqueue/schedule/cancel logging block
   - Snippet: `'Failed to enqueue profile image cleanup job',`
   - Docs: `docs/guide/adding-a-job.md`
-- libs/features/users/infra/http/profile-image.controller.ts:176
+- libs/features/users/infra/http/profile-image.controller.ts:181 [new]
   - Repeated best-effort job enqueue/schedule/cancel logging block
   - Snippet: `'Failed to enqueue profile image cleanup job',`
   - Docs: `docs/guide/adding-a-job.md`
@@ -110,41 +110,6 @@ Baseline: tools/architecture-smells.baseline.json (found)
   - Repeated best-effort job enqueue/schedule/cancel logging block
   - Snippet: `'Failed to cancel account deletion reminder email job',`
   - Docs: `docs/guide/adding-a-job.md`
-
-### repeated_request_trace_fallback (8)
-
-- libs/features/admin/infra/http/admin-users.controller.ts:107
-  - Repeated request trace fallback `req.requestId ?? "unknown"`
-  - Snippet: `traceId: req.requestId ?? 'unknown',`
-  - Docs: `docs/standards/observability.md`
-- libs/features/admin/infra/http/admin-users.controller.ts:144
-  - Repeated request trace fallback `req.requestId ?? "unknown"`
-  - Snippet: `traceId: req.requestId ?? 'unknown',`
-  - Docs: `docs/standards/observability.md`
-- libs/features/users/infra/http/profile-image.controller.ts:91
-  - Repeated request trace fallback `req.requestId ?? "unknown"`
-  - Snippet: `traceId: req.requestId ?? 'unknown',`
-  - Docs: `docs/standards/observability.md`
-- libs/features/users/infra/http/profile-image.controller.ts:134
-  - Repeated request trace fallback `req.requestId ?? "unknown"`
-  - Snippet: `traceId: req.requestId ?? 'unknown',`
-  - Docs: `docs/standards/observability.md`
-- libs/features/users/infra/http/profile-image.controller.ts:167
-  - Repeated request trace fallback `req.requestId ?? "unknown"`
-  - Snippet: `traceId: req.requestId ?? 'unknown',`
-  - Docs: `docs/standards/observability.md`
-- libs/features/users/infra/http/profile-image.controller.ts:205
-  - Repeated request trace fallback `req.requestId ?? "unknown"`
-  - Snippet: `traceId: req.requestId ?? 'unknown',`
-  - Docs: `docs/standards/observability.md`
-- libs/features/users/infra/http/user-account-deletion.controller.ts:56
-  - Repeated request trace fallback `req.requestId ?? "unknown"`
-  - Snippet: `traceId: req.requestId ?? 'unknown',`
-  - Docs: `docs/standards/observability.md`
-- libs/features/users/infra/http/user-account-deletion.controller.ts:101
-  - Repeated request trace fallback `req.requestId ?? "unknown"`
-  - Snippet: `traceId: req.requestId ?? 'unknown',`
-  - Docs: `docs/standards/observability.md`
 
 ## Low
 

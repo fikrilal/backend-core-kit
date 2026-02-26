@@ -1,6 +1,5 @@
-import { Controller, HttpCode, Post, Req, UseFilters, UseGuards } from '@nestjs/common';
+import { Controller, HttpCode, Post, UseFilters, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { FastifyRequest } from 'fastify';
 import { PinoLogger } from 'nestjs-pino';
 import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
@@ -9,6 +8,7 @@ import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
+import { RequestTraceId } from '../../../../platform/http/request-context.decorator';
 import { UsersErrorCode } from '../../app/users.error-codes';
 import { UsersService } from '../../app/users.service';
 import { UserAccountDeletionEmailJobs } from '../jobs/user-account-deletion-email.jobs';
@@ -48,12 +48,12 @@ export class UserAccountDeletionController {
   @ApiNoContentResponse()
   async requestDeletion(
     @CurrentPrincipal() principal: AuthPrincipal,
-    @Req() req: FastifyRequest,
+    @RequestTraceId() traceId: string,
   ): Promise<void> {
     const result = await this.users.requestAccountDeletion({
       userId: principal.userId,
       sessionId: principal.sessionId,
-      traceId: req.requestId ?? 'unknown',
+      traceId,
     });
 
     // Notifications are best-effort and must not affect the API result.
@@ -93,12 +93,12 @@ export class UserAccountDeletionController {
   @ApiNoContentResponse()
   async cancelDeletion(
     @CurrentPrincipal() principal: AuthPrincipal,
-    @Req() req: FastifyRequest,
+    @RequestTraceId() traceId: string,
   ): Promise<void> {
     await this.users.cancelAccountDeletion({
       userId: principal.userId,
       sessionId: principal.sessionId,
-      traceId: req.requestId ?? 'unknown',
+      traceId,
     });
 
     // Best-effort cleanup.

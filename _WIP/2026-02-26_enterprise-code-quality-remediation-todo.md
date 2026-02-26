@@ -43,10 +43,10 @@ Goal: remove high-severity drift and establish shared primitives.
 
 ### P1-4 Request metadata standardization (Finding #8)
 
-- [ ] Add request context decorators (`@RequestTraceId()`, `@ClientContext()` or equivalent)
-- [ ] Replace repeated `req.requestId ?? 'unknown'` in controllers
-- [ ] Replace ad-hoc client metadata extraction boilerplate
-- [ ] Validate correlation behavior still matches platform hooks
+- [x] Add request context decorators (`@RequestTraceId()`, `@ClientContext()` or equivalent)
+- [x] Replace repeated `req.requestId ?? 'unknown'` in controllers
+- [x] Replace ad-hoc client metadata extraction boilerplate
+- [x] Validate correlation behavior still matches platform hooks
 
 ### P1 Exit Criteria
 

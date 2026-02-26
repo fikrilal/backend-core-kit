@@ -1,6 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Req, UseFilters, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, UseFilters, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { FastifyRequest } from 'fastify';
 import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
@@ -16,6 +15,7 @@ import { RbacGuard } from '../../../../platform/rbac/rbac.guard';
 import { RequirePermissions } from '../../../../platform/rbac/rbac.decorator';
 import { UseDbRoles } from '../../../../platform/rbac/use-db-roles.decorator';
 import type { ListQueryPipeOptions } from '../../../../platform/http/list-query/list-query.pipe';
+import { RequestTraceId } from '../../../../platform/http/request-context.decorator';
 import type { AdminUsersFilterField, AdminUsersSortField } from '../../app/admin-users.types';
 import { AdminUsersService } from '../../app/admin-users.service';
 import { AdminErrorFilter } from './admin-error.filter';
@@ -97,14 +97,14 @@ export class AdminUsersController {
   @Idempotent({ scopeKey: 'admin.users.role.patch' })
   async setUserRole(
     @CurrentPrincipal() principal: AuthPrincipal,
-    @Req() req: FastifyRequest,
+    @RequestTraceId() traceId: string,
     @Param() params: AdminUserIdParamDto,
     @Body() body: SetAdminUserRoleRequestDto,
   ) {
     const user = await this.users.setUserRole({
       actorUserId: principal.userId,
       actorSessionId: principal.sessionId,
-      traceId: req.requestId ?? 'unknown',
+      traceId,
       targetUserId: params.userId,
       role: body.role,
     });
@@ -134,14 +134,14 @@ export class AdminUsersController {
   @Idempotent({ scopeKey: 'admin.users.status.patch' })
   async setUserStatus(
     @CurrentPrincipal() principal: AuthPrincipal,
-    @Req() req: FastifyRequest,
+    @RequestTraceId() traceId: string,
     @Param() params: AdminUserIdParamDto,
     @Body() body: SetAdminUserStatusRequestDto,
   ) {
     const user = await this.users.setUserStatus({
       actorUserId: principal.userId,
       actorSessionId: principal.sessionId,
-      traceId: req.requestId ?? 'unknown',
+      traceId,
       targetUserId: params.userId,
       status: body.status,
       reason: body.reason,
