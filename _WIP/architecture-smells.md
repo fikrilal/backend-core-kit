@@ -1,16 +1,16 @@
 # Architecture Smell Scan Report
 
-Generated: 2026-02-27T13:58:18.916Z
+Generated: 2026-02-27T14:15:40.111Z
 Mode: CI
 Baseline: tools/architecture-smells.baseline.json (found)
 
 ## Summary
 
 - High: 0
-- Medium: 10
+- Medium: 8
 - Low: 12
-- Total: 22
-- New vs baseline: 5
+- Total: 20
+- New vs baseline: 6
 
 ## Medium
 
@@ -33,14 +33,10 @@ Baseline: tools/architecture-smells.baseline.json (found)
   - Snippet: `function compareForCursor(`
   - Docs: `docs/standards/code-quality.md`
 
-### oversized_orchestration_file (6)
+### oversized_orchestration_file (4)
 
 - apps/worker/src/jobs/emails.worker.ts:1
   - File has 398 LOC (threshold 350)
-  - Snippet: `import { Injectable, type OnModuleInit } from '@nestjs/common';`
-  - Docs: `docs/standards/code-quality.md`
-- apps/worker/src/jobs/users-account-deletion.worker.ts:1 [new]
-  - File has 400 LOC (threshold 350)
   - Snippet: `import { Injectable, type OnModuleInit } from '@nestjs/common';`
   - Docs: `docs/standards/code-quality.md`
 - libs/features/admin/infra/persistence/prisma-admin-audit.repository.ts:1 [new]
@@ -51,13 +47,9 @@ Baseline: tools/architecture-smells.baseline.json (found)
   - File has 443 LOC (threshold 350)
   - Snippet: `import { Injectable } from '@nestjs/common';`
   - Docs: `docs/standards/code-quality.md`
-- libs/features/auth/app/auth.service.ts:1
-  - File has 653 LOC (threshold 350)
+- libs/features/auth/app/auth.service.ts:1 [new]
+  - File has 569 LOC (threshold 350)
   - Snippet: `import { normalizeEmail } from '../domain/email';`
-  - Docs: `docs/standards/code-quality.md`
-- libs/platform/http/idempotency/idempotency.service.ts:1
-  - File has 428 LOC (threshold 350)
-  - Snippet: `import { createHash } from 'crypto';`
   - Docs: `docs/standards/code-quality.md`
 
 ## Low
@@ -92,11 +84,11 @@ Baseline: tools/architecture-smells.baseline.json (found)
   - Repeated local `asNonEmptyString` helper; consider shared utility
   - Snippet: `function asNonEmptyString(value: unknown): string | undefined {`
   - Docs: `docs/standards/code-quality.md`
-- libs/platform/http/idempotency/idempotency.interceptor.ts:12
+- libs/platform/http/idempotency/idempotency.core.ts:38 [new]
   - Repeated local `asNonEmptyString` helper; consider shared utility
-  - Snippet: `function asNonEmptyString(value: unknown): string | undefined {`
+  - Snippet: `export function asNonEmptyString(value: unknown): string | undefined {`
   - Docs: `docs/standards/code-quality.md`
-- libs/platform/http/idempotency/idempotency.service.ts:67
+- libs/platform/http/idempotency/idempotency.interceptor.ts:12
   - Repeated local `asNonEmptyString` helper; consider shared utility
   - Snippet: `function asNonEmptyString(value: unknown): string | undefined {`
   - Docs: `docs/standards/code-quality.md`

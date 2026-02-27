@@ -116,11 +116,11 @@ Goal: make “new module/endpoint” mostly assembly using shared core patterns.
 
 ### P3-3 High-complexity file decomposition (Finding #10)
 
-- [ ] Split `libs/features/auth/app/auth.service.ts`
-- [ ] Split `libs/platform/http/idempotency/idempotency.service.ts`
-- [ ] Split `apps/worker/src/jobs/users-account-deletion.worker.ts`
-- [ ] Preserve external behavior and contracts
-- [ ] Add focused tests around extracted units
+- [x] Split `libs/features/auth/app/auth.service.ts`
+- [x] Split `libs/platform/http/idempotency/idempotency.service.ts`
+- [x] Split `apps/worker/src/jobs/users-account-deletion.worker.ts`
+- [x] Preserve external behavior and contracts
+- [x] Add focused tests around extracted units
 
 ### P3-4 E2E test modularization (Finding #11)
 
