@@ -12,6 +12,27 @@ A feature should own:
 
 ## Steps
 
+0. Scaffold the baseline slice (recommended)
+
+- Run `npm run scaffold:feature -- --name <feature-name>`.
+- Optional: add queue skeleton with `--with-queue`.
+- Optional: preview without writing files via `--dry-run`.
+
+Examples:
+
+```bash
+npm run scaffold:feature -- --name billing
+npm run scaffold:feature -- --name user-preferences --with-queue
+npm run scaffold:feature -- --name reporting --dry-run
+```
+
+This scaffolds:
+
+- `app`: service, error types, port
+- `infra`: module, tokens, controller, dto, error filter, prisma repository
+- optional `infra/jobs` queue files
+- baseline tests (`*.spec.ts`) and `test/<feature>.e2e-spec.ts` TODO skeleton
+
 1. Define the domain model
 
 - Create domain types and invariants.

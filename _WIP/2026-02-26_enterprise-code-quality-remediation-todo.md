@@ -106,13 +106,13 @@ Goal: make “new module/endpoint” mostly assembly using shared core patterns.
 
 ### P3-2 Feature scaffolder (Findings #9 + blueprint)
 
-- [ ] Create scaffold command under `tools/` for new feature slice
-- [ ] Generate defaults for:
-  - [ ] module + tokens + app service + ports
-  - [ ] controller + DTO + error filter
-  - [ ] optional queue job skeleton
-  - [ ] baseline test skeletons
-- [ ] Document usage in `docs/guide/adding-a-feature.md`
+- [x] Create scaffold command under `tools/` for new feature slice
+- [x] Generate defaults for:
+  - [x] module + tokens + app service + ports
+  - [x] controller + DTO + error filter
+  - [x] optional queue job skeleton
+  - [x] baseline test skeletons
+- [x] Document usage in `docs/guide/adding-a-feature.md`
 
 ### P3-3 High-complexity file decomposition (Finding #10)
 
