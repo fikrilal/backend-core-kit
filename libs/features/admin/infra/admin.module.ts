@@ -9,23 +9,24 @@ import { AdminUsersController } from './http/admin-users.controller';
 import { AdminWhoamiController } from './http/whoami.controller';
 import { PrismaAdminAuditRepository } from './persistence/prisma-admin-audit.repository';
 import { PrismaAdminUsersRepository } from './persistence/prisma-admin-users.repository';
+import { provideConstructedAppService } from '../../../platform/di/app-service.provider';
 
 @Module({
   imports: [PrismaModule, PlatformAuthModule, PlatformRbacModule],
   controllers: [AdminWhoamiController, AdminUsersController, AdminAuditController],
   providers: [
     PrismaAdminUsersRepository,
-    {
+    provideConstructedAppService({
       provide: AdminUsersService,
       inject: [PrismaAdminUsersRepository],
-      useFactory: (repo: PrismaAdminUsersRepository) => new AdminUsersService(repo),
-    },
+      useClass: AdminUsersService,
+    }),
     PrismaAdminAuditRepository,
-    {
+    provideConstructedAppService({
       provide: AdminAuditService,
       inject: [PrismaAdminAuditRepository],
-      useFactory: (repo: PrismaAdminAuditRepository) => new AdminAuditService(repo),
-    },
+      useClass: AdminAuditService,
+    }),
   ],
 })
 export class AdminModule {}

@@ -88,9 +88,9 @@ Goal: reduce repeated infrastructure patterns and lower change cost for new endp
 
 ### P2 Exit Criteria
 
-- [ ] Duplicate helper findings trend reduced in smell scan
-- [ ] No behavior regressions in queue side-effect flows
-- [ ] Controller code paths become thinner and easier to review
+- [x] Duplicate helper findings trend reduced in smell scan
+- [x] No behavior regressions in queue side-effect flows
+- [x] Controller code paths become thinner and easier to review
 
 ---
 
@@ -100,9 +100,9 @@ Goal: make “new module/endpoint” mostly assembly using shared core patterns.
 
 ### P3-1 Module/provider wiring simplification (Finding #9)
 
-- [ ] Introduce provider-builder utility for pure app services
-- [ ] Remove repetitive `useFactory + new SystemClock()` wiring in feature modules
-- [ ] Document standard module assembly pattern
+- [x] Introduce provider-builder utility for pure app services
+- [x] Remove repetitive `useFactory + new SystemClock()` wiring in feature modules
+- [x] Document standard module assembly pattern
 
 ### P3-2 Feature scaffolder (Findings #9 + blueprint)
 
