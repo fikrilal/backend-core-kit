@@ -43,6 +43,7 @@ import {
   ProfileImageUrlEnvelopeDto,
 } from './dtos/profile-image.dto';
 import { UsersErrorFilter } from './users-error.filter';
+import { runBestEffort } from '../../../../platform/logging/best-effort';
 
 @ApiTags('Users')
 @Controller()
@@ -96,14 +97,14 @@ export class ProfileImageController {
       traceId,
     });
 
-    try {
-      await this.jobs.scheduleExpireUpload(principal.userId, plan.fileId);
-    } catch (err: unknown) {
-      this.logger.error(
-        { err, userId: principal.userId, fileId: plan.fileId },
-        'Failed to schedule profile image upload expiry job',
-      );
-    }
+    await runBestEffort({
+      logger: this.logger,
+      operation: 'users.scheduleProfileImageUploadExpiry',
+      context: { userId: principal.userId, fileId: plan.fileId },
+      run: async () => {
+        await this.jobs.scheduleExpireUpload(principal.userId, plan.fileId);
+      },
+    });
 
     return plan;
   }
@@ -140,14 +141,14 @@ export class ProfileImageController {
     });
 
     if (previousFileId) {
-      try {
-        await this.jobs.enqueueDeleteStoredFile(principal.userId, previousFileId);
-      } catch (err: unknown) {
-        this.logger.error(
-          { err, userId: principal.userId, fileId: previousFileId },
-          'Failed to enqueue profile image cleanup job',
-        );
-      }
+      await runBestEffort({
+        logger: this.logger,
+        operation: 'users.enqueueProfileImageCleanup',
+        context: { userId: principal.userId, fileId: previousFileId },
+        run: async () => {
+          await this.jobs.enqueueDeleteStoredFile(principal.userId, previousFileId);
+        },
+      });
     }
   }
 
@@ -173,14 +174,14 @@ export class ProfileImageController {
     });
 
     if (clearedFileId) {
-      try {
-        await this.jobs.enqueueDeleteStoredFile(principal.userId, clearedFileId);
-      } catch (err: unknown) {
-        this.logger.error(
-          { err, userId: principal.userId, fileId: clearedFileId },
-          'Failed to enqueue profile image cleanup job',
-        );
-      }
+      await runBestEffort({
+        logger: this.logger,
+        operation: 'users.enqueueProfileImageCleanup',
+        context: { userId: principal.userId, fileId: clearedFileId },
+        run: async () => {
+          await this.jobs.enqueueDeleteStoredFile(principal.userId, clearedFileId);
+        },
+      });
     }
   }
 

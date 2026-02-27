@@ -41,6 +41,7 @@ import {
   VerifyEmailRequestDto,
 } from './dtos/auth.dto';
 import { AuthErrorFilter } from './auth-error.filter';
+import { runBestEffort } from '../../../../platform/logging/best-effort';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -84,14 +85,14 @@ export class AuthController {
       userAgent: client.userAgent,
     });
 
-    try {
-      await this.emailVerificationJobs.enqueueSendVerificationEmail(result.user.id);
-    } catch (err: unknown) {
-      this.logger.error(
-        { err, userId: result.user.id },
-        'Failed to enqueue verification email job',
-      );
-    }
+    await runBestEffort({
+      logger: this.logger,
+      operation: 'auth.enqueueVerificationEmail',
+      context: { userId: result.user.id },
+      run: async () => {
+        await this.emailVerificationJobs.enqueueSendVerificationEmail(result.user.id);
+      },
+    });
 
     const user = await this.users.getMe(result.user.id);
     return { ...result, user };
@@ -259,14 +260,14 @@ export class AuthController {
     const target = await this.auth.requestPasswordReset({ email: body.email });
     if (!target) return;
 
-    try {
-      await this.passwordResetJobs.enqueueSendPasswordResetEmail(target.userId);
-    } catch (err: unknown) {
-      this.logger.error(
-        { err, userId: target.userId },
-        'Failed to enqueue password reset email job',
-      );
-    }
+    await runBestEffort({
+      logger: this.logger,
+      operation: 'auth.enqueuePasswordResetEmail',
+      context: { userId: target.userId },
+      run: async () => {
+        await this.passwordResetJobs.enqueueSendPasswordResetEmail(target.userId);
+      },
+    });
   }
 
   @Post('password/reset/confirm')

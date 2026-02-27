@@ -81,10 +81,10 @@ Goal: reduce repeated infrastructure patterns and lower change cost for new endp
 
 ### P2-3 Best-effort side-effect helper (Finding #7)
 
-- [ ] Add `runBestEffort(...)` helper (logging + optional metric hook)
-- [ ] Refactor controller try/catch blocks using helper
-- [ ] Standardize logging fields and message shape
-- [ ] Add tests for failure path observability behavior
+- [x] Add `runBestEffort(...)` helper (logging + optional metric hook)
+- [x] Refactor controller try/catch blocks using helper
+- [x] Standardize logging fields and message shape
+- [x] Add tests for failure path observability behavior
 
 ### P2 Exit Criteria
 

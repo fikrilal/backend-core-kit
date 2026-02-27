@@ -1,16 +1,16 @@
 # Architecture Smell Scan Report
 
-Generated: 2026-02-27T13:05:11.386Z
+Generated: 2026-02-27T13:19:54.270Z
 Mode: CI
 Baseline: tools/architecture-smells.baseline.json (found)
 
 ## Summary
 
 - High: 0
-- Medium: 18
+- Medium: 10
 - Low: 12
-- Total: 30
-- New vs baseline: 10
+- Total: 22
+- New vs baseline: 5
 
 ## Medium
 
@@ -59,41 +59,6 @@ Baseline: tools/architecture-smells.baseline.json (found)
   - File has 428 LOC (threshold 350)
   - Snippet: `import { createHash } from 'crypto';`
   - Docs: `docs/standards/code-quality.md`
-
-### repeated_best_effort_job_try_catch (8)
-
-- libs/features/auth/infra/http/auth.controller.ts:92 [new]
-  - Repeated best-effort job enqueue/schedule/cancel logging block
-  - Snippet: `'Failed to enqueue verification email job',`
-  - Docs: `docs/guide/adding-a-job.md`
-- libs/features/auth/infra/http/auth.controller.ts:267 [new]
-  - Repeated best-effort job enqueue/schedule/cancel logging block
-  - Snippet: `'Failed to enqueue password reset email job',`
-  - Docs: `docs/guide/adding-a-job.md`
-- libs/features/users/infra/http/profile-image.controller.ts:104 [new]
-  - Repeated best-effort job enqueue/schedule/cancel logging block
-  - Snippet: `'Failed to schedule profile image upload expiry job',`
-  - Docs: `docs/guide/adding-a-job.md`
-- libs/features/users/infra/http/profile-image.controller.ts:148 [new]
-  - Repeated best-effort job enqueue/schedule/cancel logging block
-  - Snippet: `'Failed to enqueue profile image cleanup job',`
-  - Docs: `docs/guide/adding-a-job.md`
-- libs/features/users/infra/http/profile-image.controller.ts:181 [new]
-  - Repeated best-effort job enqueue/schedule/cancel logging block
-  - Snippet: `'Failed to enqueue profile image cleanup job',`
-  - Docs: `docs/guide/adding-a-job.md`
-- libs/features/users/infra/http/user-account-deletion.controller.ts:66
-  - Repeated best-effort job enqueue/schedule/cancel logging block
-  - Snippet: `'Failed to enqueue account deletion requested email job',`
-  - Docs: `docs/guide/adding-a-job.md`
-- libs/features/users/infra/http/user-account-deletion.controller.ts:76
-  - Repeated best-effort job enqueue/schedule/cancel logging block
-  - Snippet: `'Failed to schedule account deletion reminder email job',`
-  - Docs: `docs/guide/adding-a-job.md`
-- libs/features/users/infra/http/user-account-deletion.controller.ts:110
-  - Repeated best-effort job enqueue/schedule/cancel logging block
-  - Snippet: `'Failed to cancel account deletion reminder email job',`
-  - Docs: `docs/guide/adding-a-job.md`
 
 ## Low
 

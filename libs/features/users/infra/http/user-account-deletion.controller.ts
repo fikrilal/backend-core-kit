@@ -13,6 +13,7 @@ import { UsersErrorCode } from '../../app/users.error-codes';
 import { UsersService } from '../../app/users.service';
 import { UserAccountDeletionEmailJobs } from '../jobs/user-account-deletion-email.jobs';
 import { UsersErrorFilter } from './users-error.filter';
+import { runBestEffort } from '../../../../platform/logging/best-effort';
 
 @ApiTags('Users')
 @Controller()
@@ -58,24 +59,24 @@ export class UserAccountDeletionController {
 
     // Notifications are best-effort and must not affect the API result.
     if (result.newlyRequested) {
-      try {
-        await this.emails.enqueueDeletionRequestedEmail(principal.userId, result.scheduledFor);
-      } catch (err: unknown) {
-        this.logger.error(
-          { err, userId: principal.userId },
-          'Failed to enqueue account deletion requested email job',
-        );
-      }
+      await runBestEffort({
+        logger: this.logger,
+        operation: 'users.enqueueAccountDeletionRequestedEmail',
+        context: { userId: principal.userId },
+        run: async () => {
+          await this.emails.enqueueDeletionRequestedEmail(principal.userId, result.scheduledFor);
+        },
+      });
     }
 
-    try {
-      await this.emails.scheduleDeletionReminderEmail(principal.userId, result.scheduledFor);
-    } catch (err: unknown) {
-      this.logger.error(
-        { err, userId: principal.userId },
-        'Failed to schedule account deletion reminder email job',
-      );
-    }
+    await runBestEffort({
+      logger: this.logger,
+      operation: 'users.scheduleAccountDeletionReminderEmail',
+      context: { userId: principal.userId },
+      run: async () => {
+        await this.emails.scheduleDeletionReminderEmail(principal.userId, result.scheduledFor);
+      },
+    });
   }
 
   @Post('me/account-deletion/cancel')
@@ -102,13 +103,13 @@ export class UserAccountDeletionController {
     });
 
     // Best-effort cleanup.
-    try {
-      await this.emails.cancelDeletionReminderEmail(principal.userId);
-    } catch (err: unknown) {
-      this.logger.error(
-        { err, userId: principal.userId },
-        'Failed to cancel account deletion reminder email job',
-      );
-    }
+    await runBestEffort({
+      logger: this.logger,
+      operation: 'users.cancelAccountDeletionReminderEmail',
+      context: { userId: principal.userId },
+      run: async () => {
+        await this.emails.cancelDeletionReminderEmail(principal.userId);
+      },
+    });
   }
 }
