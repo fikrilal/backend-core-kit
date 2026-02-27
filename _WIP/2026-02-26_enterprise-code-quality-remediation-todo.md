@@ -72,12 +72,12 @@ Goal: reduce repeated infrastructure patterns and lower change cost for new endp
 
 ### P2-2 Shared feature-error mapper (Finding #6)
 
-- [ ] Create base helper in `libs/platform/http` for mapping feature errors -> Problem Details
-- [ ] Refactor feature filters:
-  - [ ] `auth-error.filter.ts`
-  - [ ] `users-error.filter.ts`
-  - [ ] `admin-error.filter.ts`
-- [ ] Keep feature-specific codes/messages while removing repeated boilerplate
+- [x] Create base helper in `libs/platform/http` for mapping feature errors -> Problem Details
+- [x] Refactor feature filters:
+  - [x] `auth-error.filter.ts`
+  - [x] `users-error.filter.ts`
+  - [x] `admin-error.filter.ts`
+- [x] Keep feature-specific codes/messages while removing repeated boilerplate
 
 ### P2-3 Best-effort side-effect helper (Finding #7)
 
