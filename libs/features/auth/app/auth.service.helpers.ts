@@ -1,6 +1,7 @@
 import { AuthErrorCode } from './auth.error-codes';
 import { AuthError } from './auth.errors';
 import { ErrorCode } from '../../../shared/error-codes';
+import type { AuthRepository } from './ports/auth.repository';
 import type {
   OidcIdTokenVerifier,
   OidcProvider,
@@ -102,4 +103,15 @@ export function buildActiveSessionKey(userId: string, deviceId?: string): string
 
 export function sessionExpiresAtFrom(now: Date, refreshTokenTtlSeconds: number): Date {
   return new Date(now.getTime() + refreshTokenTtlSeconds * 1000);
+}
+
+export async function requireExistingNonDeletedUser(
+  repo: AuthRepository,
+  userId: string,
+): Promise<AuthUserRecord> {
+  const user = await repo.findUserById(userId);
+  if (!user || user.status === 'DELETED') {
+    throw new AuthError({ status: 401, code: ErrorCode.UNAUTHORIZED, message: 'Unauthorized' });
+  }
+  return user;
 }

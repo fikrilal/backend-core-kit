@@ -1,16 +1,16 @@
 # Architecture Smell Scan Report
 
-Generated: 2026-02-28T02:03:16.985Z
+Generated: 2026-02-28T02:35:58.176Z
 Mode: CI
 Baseline: tools/architecture-smells.baseline.json (found)
 
 ## Summary
 
 - High: 0
-- Medium: 8
+- Medium: 7
 - Low: 12
-- Total: 20
-- New vs baseline: 6
+- Total: 19
+- New vs baseline: 5
 
 ## Medium
 
@@ -33,7 +33,7 @@ Baseline: tools/architecture-smells.baseline.json (found)
   - Snippet: `function compareForCursor(`
   - Docs: `docs/standards/code-quality.md`
 
-### oversized_orchestration_file (4)
+### oversized_orchestration_file (3)
 
 - apps/worker/src/jobs/emails.worker.ts:1
   - File has 398 LOC (threshold 350)
@@ -46,10 +46,6 @@ Baseline: tools/architecture-smells.baseline.json (found)
 - libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:1 [new]
   - File has 443 LOC (threshold 350)
   - Snippet: `import { Injectable } from '@nestjs/common';`
-  - Docs: `docs/standards/code-quality.md`
-- libs/features/auth/app/auth.service.ts:1 [new]
-  - File has 569 LOC (threshold 350)
-  - Snippet: `import { normalizeEmail } from '../domain/email';`
   - Docs: `docs/standards/code-quality.md`
 
 ## Low
