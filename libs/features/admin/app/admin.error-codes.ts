@@ -1,4 +1,1 @@
-export enum AdminErrorCode {
-  ADMIN_CANNOT_DEMOTE_LAST_ADMIN = 'ADMIN_CANNOT_DEMOTE_LAST_ADMIN',
-  ADMIN_CANNOT_SUSPEND_LAST_ADMIN = 'ADMIN_CANNOT_SUSPEND_LAST_ADMIN',
-}
+export { AdminErrorCode } from '../../../shared/admin/admin-error-codes';

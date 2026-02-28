@@ -1,5 +1,4 @@
-import { Body, Controller, HttpCode, Post, Req, UseFilters, UseGuards } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import { Body, Controller, HttpCode, Post, UseFilters, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiNoContentResponse,
@@ -15,6 +14,10 @@ import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
+import {
+  ClientContext,
+  type ClientContextValue,
+} from '../../../../platform/http/request-context.decorator';
 import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
@@ -38,25 +41,7 @@ import {
   VerifyEmailRequestDto,
 } from './dtos/auth.dto';
 import { AuthErrorFilter } from './auth-error.filter';
-
-const SESSION_USER_AGENT_MAX_LENGTH = 512;
-
-function normalizeUserAgent(value: unknown): string | undefined {
-  const raw = (() => {
-    if (typeof value === 'string') return value;
-    if (Array.isArray(value) && typeof value[0] === 'string') return value[0];
-    return undefined;
-  })();
-
-  if (!raw) return undefined;
-
-  const trimmed = raw.trim();
-  if (trimmed === '') return undefined;
-
-  return trimmed.length <= SESSION_USER_AGENT_MAX_LENGTH
-    ? trimmed
-    : trimmed.slice(0, SESSION_USER_AGENT_MAX_LENGTH);
-}
+import { runBestEffort } from '../../../../platform/logging/best-effort';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -87,24 +72,27 @@ export class AuthController {
     ErrorCode.INTERNAL,
   ])
   @ApiOkResponse({ type: AuthResultWithMeEnvelopeDto })
-  async register(@Body() body: PasswordRegisterRequestDto, @Req() req: FastifyRequest) {
+  async register(
+    @Body() body: PasswordRegisterRequestDto,
+    @ClientContext() client: ClientContextValue,
+  ) {
     const result = await this.auth.registerWithPassword({
       email: body.email,
       password: body.password,
       deviceId: body.deviceId,
       deviceName: body.deviceName,
-      ip: req.ip,
-      userAgent: normalizeUserAgent(req.headers['user-agent']),
+      ip: client.ip,
+      userAgent: client.userAgent,
     });
 
-    try {
-      await this.emailVerificationJobs.enqueueSendVerificationEmail(result.user.id);
-    } catch (err: unknown) {
-      this.logger.error(
-        { err, userId: result.user.id },
-        'Failed to enqueue verification email job',
-      );
-    }
+    await runBestEffort({
+      logger: this.logger,
+      operation: 'auth.enqueueVerificationEmail',
+      context: { userId: result.user.id },
+      run: async () => {
+        await this.emailVerificationJobs.enqueueSendVerificationEmail(result.user.id);
+      },
+    });
 
     const user = await this.users.getMe(result.user.id);
     return { ...result, user };
@@ -128,14 +116,17 @@ export class AuthController {
     ErrorCode.INTERNAL,
   ])
   @ApiOkResponse({ type: AuthResultWithMeEnvelopeDto })
-  async exchangeOidc(@Body() body: OidcExchangeRequestDto, @Req() req: FastifyRequest) {
+  async exchangeOidc(
+    @Body() body: OidcExchangeRequestDto,
+    @ClientContext() client: ClientContextValue,
+  ) {
     const result = await this.auth.exchangeOidc({
       provider: body.provider,
       idToken: body.idToken,
       deviceId: body.deviceId,
       deviceName: body.deviceName,
-      ip: req.ip,
-      userAgent: normalizeUserAgent(req.headers['user-agent']),
+      ip: client.ip,
+      userAgent: client.userAgent,
     });
 
     const user = await this.users.getMe(result.user.id);
@@ -209,7 +200,7 @@ export class AuthController {
   @ApiNoContentResponse()
   async resendVerificationEmail(
     @CurrentPrincipal() principal: AuthPrincipal,
-    @Req() req: FastifyRequest,
+    @ClientContext() client: ClientContextValue,
   ): Promise<void> {
     if (!this.emailVerificationJobs.isEnabled()) {
       throw new AuthError({
@@ -224,7 +215,7 @@ export class AuthController {
 
     await this.emailVerificationRateLimiter.assertResendAllowed({
       userId: principal.userId,
-      ip: req.ip,
+      ip: client.ip,
     });
 
     const enqueued = await this.emailVerificationJobs.enqueueSendVerificationEmail(
@@ -251,7 +242,7 @@ export class AuthController {
   @ApiNoContentResponse()
   async requestPasswordReset(
     @Body() body: PasswordResetRequestDto,
-    @Req() req: FastifyRequest,
+    @ClientContext() client: ClientContextValue,
   ): Promise<void> {
     if (!this.passwordResetJobs.isEnabled()) {
       throw new AuthError({
@@ -261,19 +252,22 @@ export class AuthController {
       });
     }
 
-    await this.passwordResetRateLimiter.assertRequestAllowed({ email: body.email, ip: req.ip });
+    await this.passwordResetRateLimiter.assertRequestAllowed({
+      email: body.email,
+      ip: client.ip,
+    });
 
     const target = await this.auth.requestPasswordReset({ email: body.email });
     if (!target) return;
 
-    try {
-      await this.passwordResetJobs.enqueueSendPasswordResetEmail(target.userId);
-    } catch (err: unknown) {
-      this.logger.error(
-        { err, userId: target.userId },
-        'Failed to enqueue password reset email job',
-      );
-    }
+    await runBestEffort({
+      logger: this.logger,
+      operation: 'auth.enqueuePasswordResetEmail',
+      context: { userId: target.userId },
+      run: async () => {
+        await this.passwordResetJobs.enqueueSendPasswordResetEmail(target.userId);
+      },
+    });
   }
 
   @Post('password/reset/confirm')
@@ -309,14 +303,14 @@ export class AuthController {
     ErrorCode.INTERNAL,
   ])
   @ApiOkResponse({ type: AuthResultWithMeEnvelopeDto })
-  async login(@Body() body: PasswordLoginRequestDto, @Req() req: FastifyRequest) {
+  async login(@Body() body: PasswordLoginRequestDto, @ClientContext() client: ClientContextValue) {
     const result = await this.auth.loginWithPassword({
       email: body.email,
       password: body.password,
       deviceId: body.deviceId,
       deviceName: body.deviceName,
-      ip: req.ip,
-      userAgent: normalizeUserAgent(req.headers['user-agent']),
+      ip: client.ip,
+      userAgent: client.userAgent,
     });
 
     const user = await this.users.getMe(result.user.id);
@@ -374,11 +368,11 @@ export class AuthController {
     ErrorCode.INTERNAL,
   ])
   @ApiOkResponse({ type: AuthResultEnvelopeDto })
-  async refresh(@Body() body: RefreshRequestDto, @Req() req: FastifyRequest) {
+  async refresh(@Body() body: RefreshRequestDto, @ClientContext() client: ClientContextValue) {
     return await this.auth.refresh({
       refreshToken: body.refreshToken,
-      ip: req.ip,
-      userAgent: normalizeUserAgent(req.headers['user-agent']),
+      ip: client.ip,
+      userAgent: client.userAgent,
     });
   }
 

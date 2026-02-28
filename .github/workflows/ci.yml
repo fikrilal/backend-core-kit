@@ -55,6 +55,9 @@ jobs:
       - name: Dependency boundaries
         run: npm run deps:check
 
+      - name: Architecture smell scan (fail on new high)
+        run: npm run smells:arch:ci
+
       - name: Unit tests
         run: npm test
 

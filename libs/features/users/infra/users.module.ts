@@ -14,12 +14,14 @@ import { UserAccountDeletionEmailJobs } from './jobs/user-account-deletion-email
 import { ProfileImageController } from './http/profile-image.controller';
 import { PrismaProfileImageRepository } from './persistence/prisma-profile-image.repository';
 import { UserProfileImageService } from '../app/user-profile-image.service';
-import { ObjectStorageService } from '../../../platform/storage/object-storage.service';
 import { RedisProfileImageUploadRateLimiter } from './rate-limit/redis-profile-image-upload-rate-limiter';
 import { ProfileImageCleanupJobs } from './jobs/profile-image-cleanup.jobs';
-import type { Clock } from '../app/time';
-import { SystemClock } from '../app/time';
 import { USERS_CLOCK } from './users.tokens';
+import { UsersProfileImageStorageAdapter } from './storage/users-profile-image-storage.adapter';
+import {
+  provideConstructedAppService,
+  provideSystemClockToken,
+} from '../../../platform/di/app-service.provider';
 
 @Module({
   imports: [
@@ -38,25 +40,18 @@ import { USERS_CLOCK } from './users.tokens';
     UserAccountDeletionEmailJobs,
     RedisProfileImageUploadRateLimiter,
     ProfileImageCleanupJobs,
-    { provide: USERS_CLOCK, useValue: new SystemClock() },
-    {
+    UsersProfileImageStorageAdapter,
+    provideSystemClockToken(USERS_CLOCK),
+    provideConstructedAppService({
       provide: UsersService,
       inject: [PrismaUsersRepository, UserAccountDeletionJobs, USERS_CLOCK],
-      useFactory: (
-        usersRepo: PrismaUsersRepository,
-        deletion: UserAccountDeletionJobs,
-        clock: Clock,
-      ) => new UsersService(usersRepo, deletion, clock),
-    },
-    {
+      useClass: UsersService,
+    }),
+    provideConstructedAppService({
       provide: UserProfileImageService,
-      inject: [PrismaProfileImageRepository, ObjectStorageService, USERS_CLOCK],
-      useFactory: (
-        repo: PrismaProfileImageRepository,
-        storage: ObjectStorageService,
-        clock: Clock,
-      ) => new UserProfileImageService(repo, storage, clock),
-    },
+      inject: [PrismaProfileImageRepository, UsersProfileImageStorageAdapter, USERS_CLOCK],
+      useClass: UserProfileImageService,
+    }),
   ],
   exports: [UsersService],
 })

@@ -1,9 +1,12 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
-import type { FastifyReply } from 'fastify';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { ProblemException } from '../../../../platform/http/errors/problem.exception';
+import {
+  applyRetryAfterHeader,
+  mapFeatureErrorToProblem,
+} from '../../../../platform/http/filters/feature-error.mapper';
 import { ProblemDetailsFilter } from '../../../../platform/http/filters/problem-details.filter';
-import { UserNotFoundError, UsersError, type UsersErrorCodeValue } from '../../app/users.errors';
+import { UserNotFoundError, UsersError } from '../../app/users.errors';
 
 @Catch(UserNotFoundError, UsersError)
 export class UsersErrorFilter implements ExceptionFilter {
@@ -20,48 +23,16 @@ export class UsersErrorFilter implements ExceptionFilter {
       return;
     }
 
-    if (
-      exception.status === 429 &&
-      typeof exception.retryAfterSeconds === 'number' &&
-      Number.isInteger(exception.retryAfterSeconds) &&
-      exception.retryAfterSeconds > 0
-    ) {
-      host
-        .switchToHttp()
-        .getResponse<FastifyReply>()
-        .header('Retry-After', String(exception.retryAfterSeconds));
-    }
+    applyRetryAfterHeader(host, exception.retryAfterSeconds);
 
-    const mapped = new ProblemException(exception.status, {
-      title: this.titleForStatus(exception.status, exception.code),
-      detail: exception.message,
+    const mapped = mapFeatureErrorToProblem({
+      status: exception.status,
       code: exception.code,
-      errors: exception.issues ? [...exception.issues] : undefined,
+      detail: exception.message,
+      issues: exception.issues,
+      titleStrategy: 'status-default',
     });
 
     this.problemDetailsFilter.catch(mapped, host);
-  }
-
-  private titleForStatus(status: number, code: UsersErrorCodeValue): string {
-    if (code === ErrorCode.VALIDATION_FAILED) return 'Validation Failed';
-
-    switch (status) {
-      case 400:
-        return 'Bad Request';
-      case 401:
-        return 'Unauthorized';
-      case 403:
-        return 'Forbidden';
-      case 404:
-        return 'Not Found';
-      case 409:
-        return 'Conflict';
-      case 429:
-        return 'Too Many Requests';
-      case 501:
-        return 'Not Implemented';
-      default:
-        return status >= 500 ? 'Internal Server Error' : 'Error';
-    }
   }
 }

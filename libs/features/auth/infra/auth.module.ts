@@ -8,7 +8,7 @@ import { PlatformPushModule } from '../../../platform/push/push.module';
 import { QueueModule } from '../../../platform/queue/queue.module';
 import { UsersModule } from '../../users/infra/users.module';
 import { AuthService } from '../app/auth.service';
-import { SystemClock } from '../app/time';
+import type { Clock } from '../app/time';
 import { AuthSessionsService } from '../app/auth-sessions.service';
 import { AuthPushTokensService } from '../app/auth-push-tokens.service';
 import { AuthController } from './http/auth.controller';
@@ -24,6 +24,10 @@ import { RedisPasswordResetRateLimiter } from './rate-limit/redis-password-reset
 import { Argon2PasswordHasher } from './security/argon2.password-hasher';
 import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
 import { GoogleOidcIdTokenVerifier } from './security/google-oidc-id-token-verifier';
+import {
+  provideClockedAppService,
+  provideConstructedClockedAppService,
+} from '../../../platform/di/app-service.provider';
 
 @Module({
   imports: [
@@ -46,18 +50,17 @@ import { GoogleOidcIdTokenVerifier } from './security/google-oidc-id-token-verif
     RedisEmailVerificationRateLimiter,
     RedisLoginRateLimiter,
     RedisPasswordResetRateLimiter,
-    {
+    provideConstructedClockedAppService({
       provide: AuthSessionsService,
       inject: [PrismaAuthRepository],
-      useFactory: (repo: PrismaAuthRepository) => new AuthSessionsService(repo, new SystemClock()),
-    },
-    {
+      useClass: AuthSessionsService,
+    }),
+    provideConstructedClockedAppService({
       provide: AuthPushTokensService,
       inject: [PrismaAuthRepository],
-      useFactory: (repo: PrismaAuthRepository) =>
-        new AuthPushTokensService(repo, new SystemClock()),
-    },
-    {
+      useClass: AuthPushTokensService,
+    }),
+    provideClockedAppService({
       provide: AuthService,
       inject: [
         PrismaAuthRepository,
@@ -67,13 +70,14 @@ import { GoogleOidcIdTokenVerifier } from './security/google-oidc-id-token-verif
         RedisLoginRateLimiter,
         ConfigService,
       ],
-      useFactory: async (
+      factory: async (
         repo: PrismaAuthRepository,
         passwordHasher: Argon2PasswordHasher,
         accessTokens: CryptoAccessTokenIssuer,
         oidcVerifier: GoogleOidcIdTokenVerifier,
         loginRateLimiter: RedisLoginRateLimiter,
         config: ConfigService,
+        clock: Clock,
       ) => {
         const dummyPasswordHash = await passwordHasher.hash('dummy-password-for-timing');
 
@@ -83,7 +87,7 @@ import { GoogleOidcIdTokenVerifier } from './security/google-oidc-id-token-verif
           accessTokens,
           oidcVerifier,
           loginRateLimiter,
-          new SystemClock(),
+          clock,
           dummyPasswordHash,
           {
             accessTokenTtlSeconds: config.get<number>('AUTH_ACCESS_TOKEN_TTL_SECONDS') ?? 900,
@@ -93,7 +97,7 @@ import { GoogleOidcIdTokenVerifier } from './security/google-oidc-id-token-verif
           },
         );
       },
-    },
+    }),
   ],
   exports: [AuthService],
 })

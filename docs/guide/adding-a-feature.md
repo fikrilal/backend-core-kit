@@ -12,6 +12,27 @@ A feature should own:
 
 ## Steps
 
+0. Scaffold the baseline slice (recommended)
+
+- Run `npm run scaffold:feature -- --name <feature-name>`.
+- Optional: add queue skeleton with `--with-queue`.
+- Optional: preview without writing files via `--dry-run`.
+
+Examples:
+
+```bash
+npm run scaffold:feature -- --name billing
+npm run scaffold:feature -- --name user-preferences --with-queue
+npm run scaffold:feature -- --name reporting --dry-run
+```
+
+This scaffolds:
+
+- `app`: service, error types, port
+- `infra`: module, tokens, controller, dto, error filter, prisma repository
+- optional `infra/jobs` queue files
+- baseline tests (`*.spec.ts`) and `test/<feature>.e2e-spec.ts` TODO skeleton
+
 1. Define the domain model
 
 - Create domain types and invariants.
@@ -31,6 +52,38 @@ A feature should own:
 
 - Add controllers/modules in the API app wiring.
 - Use DTOs + validation and follow the response/error standards.
+
+### Module Assembly Pattern (Standard)
+
+Use provider builders from `libs/platform/di/app-service.provider.ts` for pure app services. This keeps module wiring consistent and removes repeated `useFactory` boilerplate.
+
+Example:
+
+```ts
+import {
+  provideConstructedAppService,
+  provideConstructedClockedAppService,
+  provideSystemClockToken,
+} from '../../../platform/di/app-service.provider';
+
+providers: [
+  PrismaUsersRepository,
+  UserAccountDeletionJobs,
+  provideSystemClockToken(USERS_CLOCK),
+  provideConstructedAppService({
+    provide: UsersService,
+    inject: [PrismaUsersRepository, UserAccountDeletionJobs, USERS_CLOCK],
+    useClass: UsersService,
+  }),
+  provideConstructedClockedAppService({
+    provide: AuthSessionsService,
+    inject: [PrismaAuthRepository],
+    useClass: AuthSessionsService,
+  }),
+];
+```
+
+Use `provideClockedAppService(...)` when you need custom async factory logic plus a `Clock` (for example, precomputed config values) but still want centralized `SystemClock` injection.
 
 ### RBAC wiring checklist
 

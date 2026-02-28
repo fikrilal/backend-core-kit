@@ -1,5 +1,9 @@
 import type { Prisma } from '@prisma/client';
-import { encodeCursorV1, type ListQuery, type SortSpec } from '../../../../shared/list-query';
+import {
+  buildCursorAfterWhere,
+  encodeCursorV1,
+  type ListQuery,
+} from '../../../../shared/list-query';
 import type { PrismaService } from '../../../../platform/db/prisma.service';
 import type {
   CreateSessionInput,
@@ -64,39 +68,6 @@ function compareSessionForCursor(
   }
 }
 
-function buildAfterSessionCursorWhere(
-  sort: ReadonlyArray<SortSpec<UserSessionsSortField>>,
-  after: Readonly<Partial<Record<UserSessionsSortField, string | number | boolean>>>,
-): Prisma.SessionWhereInput {
-  if (sort.length === 0) return {};
-
-  const clauses: Prisma.SessionWhereInput[] = [];
-
-  for (let i = 0; i < sort.length; i += 1) {
-    const and: Prisma.SessionWhereInput[] = [];
-
-    for (let j = 0; j < i; j += 1) {
-      const field = sort[j].field;
-      const value = after[field];
-      if (value === undefined) {
-        throw new Error(`Cursor missing value for sort field "${String(field)}"`);
-      }
-      and.push(equalsSessionForCursor(field, value));
-    }
-
-    const field = sort[i].field;
-    const value = after[field];
-    if (value === undefined) {
-      throw new Error(`Cursor missing value for sort field "${String(field)}"`);
-    }
-    and.push(compareSessionForCursor(field, sort[i].direction, value));
-
-    clauses.push({ AND: and });
-  }
-
-  return { OR: clauses };
-}
-
 export async function listUserSessions(
   prisma: PrismaService,
   userId: string,
@@ -106,7 +77,17 @@ export async function listUserSessions(
 
   const afterWhere =
     query.cursor && query.cursor.after
-      ? buildAfterSessionCursorWhere(query.sort, query.cursor.after)
+      ? buildCursorAfterWhere({
+          sort: query.sort,
+          after: query.cursor.after,
+          builders: {
+            equals: equalsSessionForCursor,
+            compare: compareSessionForCursor,
+            and: (clauses) => ({ AND: clauses }),
+            or: (clauses) => ({ OR: clauses }),
+            empty: () => ({}),
+          },
+        })
       : {};
 
   const where = query.cursor && query.cursor.after ? { AND: [{ userId }, afterWhere] } : { userId };

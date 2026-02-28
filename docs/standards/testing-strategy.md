@@ -66,6 +66,8 @@ Rules:
 Conventions:
 
 - Files: `test/**/*.e2e-spec.ts`
+- Prefer capability-scoped suites for large features (for example `test/auth/auth-core.e2e-spec.ts`, `test/auth/auth-admin.e2e-spec.ts`) instead of a single monolithic file.
+- Extract shared setup/teardown and common builders into reusable test harness modules under the same feature test folder.
 - Command: `npm run test:e2e`
 - Optional escape hatch: set `SKIP_DEPS_TESTS=true` to intentionally skip deps-required e2e suites.
 

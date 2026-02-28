@@ -5,7 +5,6 @@ import {
   Get,
   HttpCode,
   Post,
-  Req,
   Res,
   UseFilters,
   UseGuards,
@@ -17,12 +16,17 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyReply } from 'fastify';
 import { PinoLogger } from 'nestjs-pino';
 import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
+import {
+  ClientContext,
+  type ClientContextValue,
+  RequestTraceId,
+} from '../../../../platform/http/request-context.decorator';
 import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
@@ -39,6 +43,7 @@ import {
   ProfileImageUrlEnvelopeDto,
 } from './dtos/profile-image.dto';
 import { UsersErrorFilter } from './users-error.filter';
+import { runBestEffort } from '../../../../platform/logging/best-effort';
 
 @ApiTags('Users')
 @Controller()
@@ -80,25 +85,26 @@ export class ProfileImageController {
   })
   async createUploadPlan(
     @CurrentPrincipal() principal: AuthPrincipal,
-    @Req() req: FastifyRequest,
+    @ClientContext() client: ClientContextValue,
+    @RequestTraceId() traceId: string,
     @Body() body: CreateProfileImageUploadRequestDto,
   ) {
-    await this.rateLimiter.assertAllowed({ userId: principal.userId, ip: req.ip });
+    await this.rateLimiter.assertAllowed({ userId: principal.userId, ip: client.ip });
     const plan = await this.images.createUploadPlan({
       userId: principal.userId,
       contentType: body.contentType,
       sizeBytes: body.sizeBytes,
-      traceId: req.requestId ?? 'unknown',
+      traceId,
     });
 
-    try {
-      await this.jobs.scheduleExpireUpload(principal.userId, plan.fileId);
-    } catch (err: unknown) {
-      this.logger.error(
-        { err, userId: principal.userId, fileId: plan.fileId },
-        'Failed to schedule profile image upload expiry job',
-      );
-    }
+    await runBestEffort({
+      logger: this.logger,
+      operation: 'users.scheduleProfileImageUploadExpiry',
+      context: { userId: principal.userId, fileId: plan.fileId },
+      run: async () => {
+        await this.jobs.scheduleExpireUpload(principal.userId, plan.fileId);
+      },
+    });
 
     return plan;
   }
@@ -125,24 +131,24 @@ export class ProfileImageController {
   @ApiNoContentResponse()
   async completeUpload(
     @CurrentPrincipal() principal: AuthPrincipal,
-    @Req() req: FastifyRequest,
+    @RequestTraceId() traceId: string,
     @Body() body: CompleteProfileImageUploadRequestDto,
   ): Promise<void> {
     const previousFileId = await this.images.completeUpload({
       userId: principal.userId,
       fileId: body.fileId,
-      traceId: req.requestId ?? 'unknown',
+      traceId,
     });
 
     if (previousFileId) {
-      try {
-        await this.jobs.enqueueDeleteStoredFile(principal.userId, previousFileId);
-      } catch (err: unknown) {
-        this.logger.error(
-          { err, userId: principal.userId, fileId: previousFileId },
-          'Failed to enqueue profile image cleanup job',
-        );
-      }
+      await runBestEffort({
+        logger: this.logger,
+        operation: 'users.enqueueProfileImageCleanup',
+        context: { userId: principal.userId, fileId: previousFileId },
+        run: async () => {
+          await this.jobs.enqueueDeleteStoredFile(principal.userId, previousFileId);
+        },
+      });
     }
   }
 
@@ -160,22 +166,22 @@ export class ProfileImageController {
   @ApiNoContentResponse()
   async clearProfileImage(
     @CurrentPrincipal() principal: AuthPrincipal,
-    @Req() req: FastifyRequest,
+    @RequestTraceId() traceId: string,
   ): Promise<void> {
     const clearedFileId = await this.images.clearProfileImage({
       userId: principal.userId,
-      traceId: req.requestId ?? 'unknown',
+      traceId,
     });
 
     if (clearedFileId) {
-      try {
-        await this.jobs.enqueueDeleteStoredFile(principal.userId, clearedFileId);
-      } catch (err: unknown) {
-        this.logger.error(
-          { err, userId: principal.userId, fileId: clearedFileId },
-          'Failed to enqueue profile image cleanup job',
-        );
-      }
+      await runBestEffort({
+        logger: this.logger,
+        operation: 'users.enqueueProfileImageCleanup',
+        context: { userId: principal.userId, fileId: clearedFileId },
+        run: async () => {
+          await this.jobs.enqueueDeleteStoredFile(principal.userId, clearedFileId);
+        },
+      });
     }
   }
 
@@ -197,12 +203,12 @@ export class ProfileImageController {
   @ApiNoContentResponse()
   async getProfileImageUrl(
     @CurrentPrincipal() principal: AuthPrincipal,
-    @Req() req: FastifyRequest,
+    @RequestTraceId() traceId: string,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<ProfileImageUrlView | undefined> {
     const url = await this.images.getProfileImageUrl({
       userId: principal.userId,
-      traceId: req.requestId ?? 'unknown',
+      traceId,
     });
 
     if (!url) {
