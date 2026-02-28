@@ -12,6 +12,7 @@ On every PR:
 - format check
 - typecheck
 - dependency boundary check (architecture rules + cycle detection)
+- architecture smell scan (`npm run smells:arch:ci`; fail on new findings at/above configured severity)
 
 2. Test gates
 
@@ -37,6 +38,12 @@ Meta gate (recommended):
 Reference implementation:
 
 - GitHub Actions workflow: `.github/workflows/ci.yml`
+
+## Architecture Smell Baseline Governance
+
+- Baseline updates must be explicit and reviewed.
+- The smell scan refuses baseline writes unless `ARCH_SMELLS_BASELINE_APPROVED=true` is set for the update command.
+- PR summaries must include smell impact by phase (`new/reduced/unchanged`) to keep trend visibility.
 
 ## Build + Release (Baseline)
 

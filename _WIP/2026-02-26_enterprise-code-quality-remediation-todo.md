@@ -124,15 +124,22 @@ Goal: make “new module/endpoint” mostly assembly using shared core patterns.
 
 ### P3-4 E2E test modularization (Finding #11)
 
-- [ ] Split `test/auth.e2e-spec.ts` by capability areas
-- [ ] Extract shared fixtures/builders
-- [ ] Reduce merge-conflict hotspots
+- [x] Split `test/auth.e2e-spec.ts` by capability areas
+- [x] Extract shared fixtures/builders
+- [x] Reduce merge-conflict hotspots
 
 ### P3 Exit Criteria
 
 - [ ] New feature/endpoint implementation time reduced (measured internally)
 - [ ] Large-file hotspots reduced below target LOC thresholds
-- [ ] E2E suite structure aligns with feature boundaries
+- [x] E2E suite structure aligns with feature boundaries
+
+Verification snapshot (2026-02-27):
+
+- `npm run verify`: pass
+- `DATABASE_URL=... REDIS_URL=... npm run verify:e2e`: pass
+- `npm run smells:arch:ci`: pass (`high=0`, `medium=8`, `low=12`, `new vs baseline=6`)
+- Remaining gap for criterion #2: `libs/features/auth/app/auth.service.ts` still exceeds current smell threshold (`568 > 350`).
 
 ---
 
@@ -140,15 +147,15 @@ Goal: make “new module/endpoint” mostly assembly using shared core patterns.
 
 ### CI / Quality Gates
 
-- [ ] Keep `smells:arch:ci` running in CI (fail on `high`)
-- [ ] Re-baseline only after explicit review
-- [ ] Track smell trend by phase in PR summary
+- [x] Keep `smells:arch:ci` running in CI (fail on `high`)
+- [x] Re-baseline only after explicit review
+- [x] Track smell trend by phase in PR summary
 
 ### PR Template Additions
 
-- [ ] Add section: `Phase Task IDs Covered` (e.g., `P1-2`, `P2-1`)
-- [ ] Add section: `Architecture Smell Impact` (new/reduced/unchanged)
-- [ ] Add section: `OpenAPI / Error Code Impact`
+- [x] Add section: `Phase Task IDs Covered` (e.g., `P1-2`, `P2-1`)
+- [x] Add section: `Architecture Smell Impact` (new/reduced/unchanged)
+- [x] Add section: `OpenAPI / Error Code Impact`
 
 ### Suggested PR Sequence
 

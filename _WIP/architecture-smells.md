@@ -1,6 +1,6 @@
 # Architecture Smell Scan Report
 
-Generated: 2026-02-27T14:15:40.111Z
+Generated: 2026-02-28T02:03:16.985Z
 Mode: CI
 Baseline: tools/architecture-smells.baseline.json (found)
 

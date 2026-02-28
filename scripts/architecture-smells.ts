@@ -702,6 +702,12 @@ async function scan(options: CliOptions): Promise<ScanResult> {
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
+  if (options.updateBaseline && process.env.ARCH_SMELLS_BASELINE_APPROVED !== 'true') {
+    throw new Error(
+      'Refusing to update architecture smell baseline without explicit approval (set ARCH_SMELLS_BASELINE_APPROVED=true)',
+    );
+  }
+
   const result = await scan(options);
 
   const report = markdownReport({
