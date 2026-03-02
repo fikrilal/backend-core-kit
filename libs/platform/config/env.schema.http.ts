@@ -17,6 +17,36 @@ export class EnvVarsHttp {
   @IsBoolean()
   HTTP_TRUST_PROXY?: boolean;
 
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 10_000))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  HTTP_CONNECTION_TIMEOUT_MS: number = 10_000;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 72_000))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  HTTP_KEEP_ALIVE_TIMEOUT_MS: number = 72_000;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 30_000))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  HTTP_REQUEST_TIMEOUT_MS: number = 30_000;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 1_048_576))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  HTTP_BODY_LIMIT_BYTES: number = 1_048_576;
+
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 10_000))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  HTTP_PLUGIN_TIMEOUT_MS: number = 10_000;
+
   @IsOptional()
   @IsString()
   HOST?: string;

@@ -18,6 +18,7 @@ import type { JsonObject } from './json.types';
 import { queueName } from './queue-name';
 import { QueueProducer } from './queue.producer';
 import { QueueWorkerFactory } from './queue.worker';
+import { DEFAULT_WORKER_OPTIONS } from './queue.defaults';
 
 type AddCall = Readonly<{ name: string; data: unknown; options: unknown }>;
 
@@ -41,6 +42,8 @@ jest.mock('bullmq', () => {
     }),
   };
 });
+
+const WorkerCtor = jest.requireMock('bullmq').Worker as jest.Mock;
 
 function stubConfig(values: Record<string, unknown>): ConfigService {
   return {
@@ -108,6 +111,11 @@ describe('Queue trace propagation', () => {
 
     // Register a worker and execute its wrapped processor with the enqueued job payload.
     workers.createWorker<JsonObject, unknown>(queue, async () => ({ ok: true }));
+    expect(WorkerCtor).toHaveBeenCalledWith(
+      queue,
+      expect.any(Function),
+      expect.objectContaining(DEFAULT_WORKER_OPTIONS),
+    );
 
     const worker = createdWorkers[0] as { __processor?: unknown } | undefined;
     expect(worker?.__processor).toBeDefined();

@@ -3,6 +3,22 @@ import qs from 'qs';
 
 type NodeEnv = 'development' | 'test' | 'staging' | 'production';
 
+type HttpServerPolicy = Readonly<{
+  connectionTimeoutMs: number;
+  keepAliveTimeoutMs: number;
+  requestTimeoutMs: number;
+  bodyLimitBytes: number;
+  pluginTimeoutMs: number;
+}>;
+
+const DEFAULT_HTTP_SERVER_POLICY: HttpServerPolicy = Object.freeze({
+  connectionTimeoutMs: 10_000,
+  keepAliveTimeoutMs: 72_000,
+  requestTimeoutMs: 30_000,
+  bodyLimitBytes: 1_048_576,
+  pluginTimeoutMs: 10_000,
+});
+
 function getNodeEnv(): NodeEnv {
   const raw = typeof process.env.NODE_ENV === 'string' ? process.env.NODE_ENV : undefined;
   const env = raw?.trim().toLowerCase();
@@ -23,6 +39,18 @@ function parseOptionalBooleanOrThrow(name: string, value: unknown): boolean | un
   throw new Error(`Invalid ${name}: expected boolean, got "${String(value)}"`);
 }
 
+function parsePositiveIntOrThrow(name: string, value: unknown, fallback: number): number {
+  if (value === undefined) return fallback;
+  const normalized = String(value).trim();
+  if (normalized === '') return fallback;
+
+  const n = Number(normalized);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
+    throw new Error(`Invalid ${name}: expected positive integer, got "${String(value)}"`);
+  }
+  return n;
+}
+
 export function createFastifyAdapter(): FastifyAdapter {
   const nodeEnv = getNodeEnv();
 
@@ -32,8 +60,39 @@ export function createFastifyAdapter(): FastifyAdapter {
     throw new Error(`Missing required HTTP_TRUST_PROXY for NODE_ENV=${nodeEnv}`);
   }
 
+  const connectionTimeout = parsePositiveIntOrThrow(
+    'HTTP_CONNECTION_TIMEOUT_MS',
+    process.env.HTTP_CONNECTION_TIMEOUT_MS,
+    DEFAULT_HTTP_SERVER_POLICY.connectionTimeoutMs,
+  );
+  const keepAliveTimeout = parsePositiveIntOrThrow(
+    'HTTP_KEEP_ALIVE_TIMEOUT_MS',
+    process.env.HTTP_KEEP_ALIVE_TIMEOUT_MS,
+    DEFAULT_HTTP_SERVER_POLICY.keepAliveTimeoutMs,
+  );
+  const requestTimeout = parsePositiveIntOrThrow(
+    'HTTP_REQUEST_TIMEOUT_MS',
+    process.env.HTTP_REQUEST_TIMEOUT_MS,
+    DEFAULT_HTTP_SERVER_POLICY.requestTimeoutMs,
+  );
+  const bodyLimit = parsePositiveIntOrThrow(
+    'HTTP_BODY_LIMIT_BYTES',
+    process.env.HTTP_BODY_LIMIT_BYTES,
+    DEFAULT_HTTP_SERVER_POLICY.bodyLimitBytes,
+  );
+  const pluginTimeout = parsePositiveIntOrThrow(
+    'HTTP_PLUGIN_TIMEOUT_MS',
+    process.env.HTTP_PLUGIN_TIMEOUT_MS,
+    DEFAULT_HTTP_SERVER_POLICY.pluginTimeoutMs,
+  );
+
   return new FastifyAdapter({
     ...(trustProxy !== undefined ? { trustProxy } : {}),
+    connectionTimeout,
+    keepAliveTimeout,
+    requestTimeout,
+    bodyLimit,
+    pluginTimeout,
     routerOptions: {
       querystringParser: (str) =>
         qs.parse(str, {

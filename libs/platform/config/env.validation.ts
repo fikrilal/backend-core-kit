@@ -3,6 +3,7 @@ import { validateSync } from 'class-validator';
 import {
   assertEmailConfigConsistency,
   assertPushConfigConsistency,
+  assertRedisConfigConsistency,
   assertStorageConfigConsistency,
   requireInProductionLike,
 } from './env.invariants';
@@ -50,5 +51,6 @@ export function validateEnv(config: Record<string, unknown>): EnvVars {
   assertEmailConfigConsistency(validated);
   assertPushConfigConsistency(validated);
   assertStorageConfigConsistency(validated);
+  assertRedisConfigConsistency(validated);
   return validated;
 }

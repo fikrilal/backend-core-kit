@@ -52,6 +52,60 @@ describe('tx-retry', () => {
     expect(attempts).toBe(2);
   });
 
+  it('applies exponential backoff between retry attempts', async () => {
+    let attempts = 0;
+    const sleepCalls: number[] = [];
+    const client = asPrismaClient(async (fn) => {
+      attempts += 1;
+      if (attempts < 4) throw new Error('deadlock detected');
+      return await fn({} as Prisma.TransactionClient);
+    });
+
+    const result = await withTransactionRetry(client, async () => 'ok', {
+      maxAttempts: 4,
+      shouldRetry: () => true,
+      backoff: {
+        baseDelayMs: 10,
+        maxDelayMs: 100,
+        jitterRatio: 0,
+        sleep: async (delayMs) => {
+          sleepCalls.push(delayMs);
+        },
+      },
+    });
+
+    expect(result).toBe('ok');
+    expect(attempts).toBe(4);
+    expect(sleepCalls).toEqual([10, 20, 40]);
+  });
+
+  it('caps exponential backoff at max delay and applies jitter', async () => {
+    let attempts = 0;
+    const sleepCalls: number[] = [];
+    const client = asPrismaClient(async (fn) => {
+      attempts += 1;
+      if (attempts < 4) throw new Error('deadlock detected');
+      return await fn({} as Prisma.TransactionClient);
+    });
+
+    await withTransactionRetry(client, async () => 'ok', {
+      maxAttempts: 4,
+      shouldRetry: () => true,
+      backoff: {
+        baseDelayMs: 80,
+        maxDelayMs: 100,
+        jitterRatio: 0.5,
+        random: () => 0,
+        sleep: async (delayMs) => {
+          sleepCalls.push(delayMs);
+        },
+      },
+    });
+
+    // With jitterRatio=0.5 and random=0, delay floors to 50% of exponential value.
+    expect(sleepCalls).toEqual([40, 50, 50]);
+  });
+
   it('does not retry non-retryable errors', async () => {
     let attempts = 0;
     const err = new Error('unique constraint');
@@ -92,5 +146,22 @@ describe('tx-retry', () => {
     expect(optionsSeen).toEqual([
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     ]);
+  });
+
+  it('does not sleep when maxAttempts is 1', async () => {
+    const err = new Error('deadlock detected');
+    const sleep = jest.fn(async () => undefined);
+    const client = asPrismaClient(async () => {
+      throw err;
+    });
+
+    await expect(
+      withTransactionRetry(client, async () => 'ok', {
+        maxAttempts: 1,
+        shouldRetry: () => true,
+        backoff: { sleep },
+      }),
+    ).rejects.toBe(err);
+    expect(sleep).not.toHaveBeenCalled();
   });
 });

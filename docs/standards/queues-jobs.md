@@ -44,6 +44,18 @@ Rules:
 - Use exponential backoff with jitter for external calls.
 - Do not retry non-idempotent operations without an idempotency strategy.
 
+Implementation defaults (current):
+
+- Queue producer defaults (`libs/platform/queue/queue.defaults.ts`)
+  - `attempts: 5`
+  - exponential backoff (`delay: 1000`, `jitter: 0.2`)
+  - bounded retention (`removeOnComplete`/`removeOnFail`)
+- Queue worker defaults (`libs/platform/queue/queue.defaults.ts`)
+  - `lockDuration: 30000`
+  - `stalledInterval: 30000`
+  - `maxStalledCount: 1`
+  - `drainDelay: 5`
+
 ## Dead Letter / Failure Handling
 
 Baseline:

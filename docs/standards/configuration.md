@@ -44,6 +44,11 @@ This is the typical minimal set (exact keys may evolve):
 - Runtime
   - `NODE_ENV`
   - `HTTP_TRUST_PROXY`
+  - `HTTP_REQUEST_TIMEOUT_MS`
+  - `HTTP_CONNECTION_TIMEOUT_MS`
+  - `HTTP_KEEP_ALIVE_TIMEOUT_MS`
+  - `HTTP_BODY_LIMIT_BYTES`
+  - `HTTP_PLUGIN_TIMEOUT_MS`
   - `HOST`
   - `PORT`
   - `WORKER_HOST`
@@ -53,6 +58,12 @@ This is the typical minimal set (exact keys may evolve):
   - `DATABASE_URL`
 - Redis / BullMQ
   - `REDIS_URL`
+  - `REDIS_CONNECT_TIMEOUT_MS`
+  - `REDIS_COMMAND_TIMEOUT_MS`
+  - `REDIS_MAX_RETRIES_PER_REQUEST`
+  - `REDIS_RETRY_BASE_DELAY_MS`
+  - `REDIS_RETRY_MAX_DELAY_MS`
+  - `REDIS_ENABLE_OFFLINE_QUEUE`
 - Auth
   - `AUTH_ISSUER`
   - `AUTH_AUDIENCE`

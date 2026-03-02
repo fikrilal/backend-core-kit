@@ -49,20 +49,34 @@ Done when:
 
 ### Timeout posture
 
-- [ ] Add explicit Fastify timeout/body-limit configuration in platform HTTP adapter.
-- [ ] Add explicit Redis connection/retry/command timeout policy in platform Redis service.
-- [ ] Add queue/job timeout defaults where appropriate.
-- [ ] Add tests validating timeout behavior and error shape.
+- [x] Add explicit Fastify timeout/body-limit configuration in platform HTTP adapter.
+- [x] Add explicit Redis connection/retry/command timeout policy in platform Redis service.
+- [x] Add queue/job timeout defaults where appropriate.
+- [x] Add tests validating timeout behavior and error shape.
 
 ### Transaction retry behavior
 
-- [ ] Add bounded exponential backoff + jitter to `withTransactionRetry`.
-- [ ] Ensure retry policy is configurable and test-covered.
+- [x] Add bounded exponential backoff + jitter to `withTransactionRetry`.
+- [x] Ensure retry policy is configurable and test-covered.
 
 Done when:
 
-- [ ] Reliability-related tests pass.
-- [ ] Timeout and retry behavior is documented in standards/guides.
+- [x] Reliability-related tests pass.
+- [x] Timeout and retry behavior is documented in standards/guides.
+
+Implemented in:
+
+- `libs/platform/http/fastify-adapter.ts` + `libs/platform/http/fastify-adapter.spec.ts`
+- `libs/platform/redis/redis.service.ts` + `libs/platform/redis/redis.service.spec.ts`
+- `libs/platform/queue/queue.defaults.ts` + `libs/platform/queue/queue.worker.ts`
+- `libs/platform/db/tx-retry.ts` + `libs/platform/db/tx-retry.spec.ts`
+- docs: `docs/standards/reliability.md`, `docs/standards/configuration.md`, `docs/standards/queues-jobs.md`, `env.example`
+
+Validation run:
+
+- `npm run verify` ✅
+- `npm run smells:arch` ✅ (`high=0, medium=7, low=12`)
+- `DATABASE_URL=... REDIS_URL=... npm run verify:e2e` ✅
 
 ## Phase 2: Architecture Simplification (Medium)
 
