@@ -1,16 +1,11 @@
 import { createHash } from 'crypto';
 import type { RedisService } from '../../../../platform/redis/redis.service';
+export { asNonEmptyString } from '../../../../shared/string';
 
 export { asPositiveInt } from '../../../../platform/config/env-parsing';
 
 export function hashKey(value: string): string {
   return createHash('sha256').update(value).digest('base64url');
-}
-
-export function asNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed !== '' ? trimmed : undefined;
 }
 
 export async function getRetryAfterSeconds(

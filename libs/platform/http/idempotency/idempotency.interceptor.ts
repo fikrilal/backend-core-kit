@@ -4,16 +4,11 @@ import { Reflector } from '@nestjs/core';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Observable, from, of, throwError } from 'rxjs';
 import { catchError, mergeMap, switchMap } from 'rxjs/operators';
+import { asNonEmptyString } from '../../../shared/string';
 import { ErrorCode } from '../errors/error-codes';
 import { ProblemException } from '../errors/problem.exception';
 import { getIdempotencyOptions } from './idempotency.decorator';
 import { IdempotencyService } from './idempotency.service';
-
-function asNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed !== '' ? trimmed : undefined;
-}
 
 function pickReplayHeaders(reply: FastifyReply): Record<string, string> {
   const out: Record<string, string> = {};

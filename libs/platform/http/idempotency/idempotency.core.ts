@@ -1,5 +1,7 @@
 import { createHash } from 'crypto';
 import type { FastifyRequest } from 'fastify';
+import { asNonEmptyString } from '../../../shared/string';
+export { asNonEmptyString };
 
 export type WriteMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -33,12 +35,6 @@ export type StoredRecord = InProgressRecord | CompletedRecord;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
-}
-
-export function asNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed !== '' ? trimmed : undefined;
 }
 
 function asFiniteNumber(value: unknown): number | undefined {

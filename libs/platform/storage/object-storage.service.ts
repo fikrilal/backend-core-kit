@@ -8,6 +8,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { asNonEmptyString } from '../../shared/string';
 import type {
   HeadObjectResult,
   PresignedGetObject,
@@ -15,12 +16,6 @@ import type {
 } from './object-storage.types';
 import { ObjectStorageError } from './object-storage.types';
 import { assertObjectKey, assertPresignedUrlTtlSeconds } from './object-storage.policy';
-
-function asNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed !== '' ? trimmed : undefined;
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

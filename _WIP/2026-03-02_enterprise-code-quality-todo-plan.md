@@ -146,13 +146,22 @@ Validation run:
 
 ## Phase 5: Low-Risk Consistency Cleanup (Low)
 
-- [ ] Centralize `asNonEmptyString` helper in one shared utility and migrate usages incrementally.
-- [ ] Move password policy env read (`password-policy.ts`) behind validated config flow.
-- [ ] Re-run architecture smell scan and update baseline only after review.
+- [x] Centralize `asNonEmptyString` helper in one shared utility and migrate usages incrementally.
+- [x] Move password policy env read (`password-policy.ts`) behind validated config flow.
+- [x] Re-run architecture smell scan and update baseline only after review.
 
 Done when:
 
-- [ ] Low-level duplication is reduced without behavior changes.
+- [x] Low-level duplication is reduced without behavior changes.
+
+Validation run:
+
+- `npm test -- libs/platform/config/auth-password-policy.spec.ts libs/platform/config/env.runtime.spec.ts libs/platform/email/email.service.spec.ts libs/platform/http/idempotency/idempotency.core.spec.ts libs/platform/http/request-id.spec.ts libs/platform/push/fcm-push.service.spec.ts libs/platform/storage/object-storage.service.spec.ts` ✅
+- `npm run verify` ✅
+- `npm run smells:arch` ✅ (`high=0, medium=0, low=0`)
+- `ARCH_SMELLS_BASELINE_APPROVED=true npm run smells:arch -- --update-baseline` ✅
+- `npm run smells:arch:ci` ✅ (`new vs baseline: 0`)
+- `DATABASE_URL=postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public REDIS_URL=redis://127.0.0.1:63790/0 npm run verify:e2e` ✅
 
 ## Validation Checklist (every phase)
 

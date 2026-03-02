@@ -4,18 +4,13 @@ import { randomUUID, sign as cryptoSign, type KeyObject } from 'crypto';
 import type { AccessTokenIssuer, SignAccessTokenInput } from '../../app/ports/access-token-issuer';
 import { AuthKeyRing } from '../../../../platform/auth/auth-keyring.service';
 import type { JwtAlg } from '../../../../platform/auth/auth.types';
+import { asNonEmptyString } from '../../../../shared/string';
 
 type SigningKey = Readonly<{
   kid: string;
   alg: JwtAlg;
   privateKey: KeyObject;
 }>;
-
-function asNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed !== '' ? trimmed : undefined;
-}
 
 function encodeSegment(value: Record<string, unknown>): string {
   return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');

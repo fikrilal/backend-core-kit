@@ -1,13 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
+import { asNonEmptyString } from '../../shared/string';
 import { EmailSendError, type SendEmailInput, type SendEmailResult } from './email.types';
-
-function asNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed !== '' ? trimmed : undefined;
-}
 
 function normalizeRecipients(to: SendEmailInput['to']): string | string[] {
   if (typeof to === 'string') {

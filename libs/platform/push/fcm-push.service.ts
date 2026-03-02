@@ -10,17 +10,12 @@ import {
   type ServiceAccount,
 } from 'firebase-admin/app';
 import { getMessaging, type Message } from 'firebase-admin/messaging';
+import { asNonEmptyString } from '../../shared/string';
 import type { PushService } from './push.service';
 import type { PushNotification, SendPushToTokenInput, SendPushToTokenResult } from './push.types';
 import { PushErrorCode, PushSendError } from './push.types';
 
 const FCM_APP_NAME = 'push';
-
-function asNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed !== '' ? trimmed : undefined;
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

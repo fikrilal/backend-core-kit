@@ -1,10 +1,5 @@
 import { NodeEnv } from './env.enums';
-
-function asNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed !== '' ? trimmed : undefined;
-}
+import { asNonEmptyString } from '../../shared/string';
 
 export function normalizeNodeEnv(raw: unknown): NodeEnv {
   if (typeof raw !== 'string') return NodeEnv.Development;
