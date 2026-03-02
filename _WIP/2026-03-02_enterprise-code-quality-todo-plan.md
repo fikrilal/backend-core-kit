@@ -106,18 +106,25 @@ Validation run:
 
 ### Auth orchestration composition
 
-- [ ] Refactor `AuthService` composition so sub-services are injected/composed through provider wiring (not manual `new` chains in constructor).
-- [ ] Keep app layer framework-free while improving substitutability and test seams.
+- [x] Refactor `AuthService` composition so sub-services are injected/composed through provider wiring (not manual `new` chains in constructor).
+- [x] Keep app layer framework-free while improving substitutability and test seams.
 
 ### Error code typing hardening
 
-- [ ] Tighten `ProblemException` code typing to approved code unions (remove open-ended `string` where possible).
-- [ ] Add compile-time guardrails for feature/global code usage.
+- [x] Tighten `ProblemException` code typing to approved code unions (remove open-ended `string` where possible).
+- [x] Add compile-time guardrails for feature/global code usage.
 
 Done when:
 
-- [ ] Auth service remains functionally identical with improved testability.
-- [ ] Raw/unapproved error code drift is prevented by types/lint/tests.
+- [x] Auth service remains functionally identical with improved testability.
+- [x] Raw/unapproved error code drift is prevented by types/lint/tests.
+
+Validation run:
+
+- `npm test -- libs/features/auth/app/auth.service.oidc.spec.ts libs/features/auth/app/auth.service.deleted-user.spec.ts libs/platform/http/filters/problem-details.filter.spec.ts libs/platform/http/filters/feature-error.mapper.spec.ts` ✅
+- `npm run verify` ✅
+- `npm run smells:arch` ✅ (`high=0, medium=0, low=11`)
+- `DATABASE_URL=postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public REDIS_URL=redis://127.0.0.1:63790/0 npm run verify:e2e` ✅
 
 ## Phase 4: Functional Edge Cases (Medium)
 

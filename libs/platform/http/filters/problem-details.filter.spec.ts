@@ -84,6 +84,31 @@ describe('ProblemDetailsFilter', () => {
     });
   });
 
+  it('uses default code mapping when HttpException contains an unknown code', () => {
+    const filter = new ProblemDetailsFilter();
+    const { reply, state } = createReply();
+    const req = { requestId: 'req-bad-code', headers: {} } as unknown as FastifyRequest;
+
+    const ex = new HttpException(
+      {
+        title: 'Bad Request',
+        detail: 'invalid',
+        code: 'NOT_A_REAL_ERROR_CODE',
+      },
+      400,
+    );
+    filter.catch(ex, hostFor(req, reply));
+
+    expect(state.status).toBe(400);
+    expect(state.body).toMatchObject({
+      title: 'Bad Request',
+      detail: 'invalid',
+      status: 400,
+      code: ErrorCode.VALIDATION_FAILED,
+      traceId: 'req-bad-code',
+    });
+  });
+
   it('joins message arrays into a single detail string', () => {
     const filter = new ProblemDetailsFilter();
     const { reply, state } = createReply();

@@ -9,6 +9,12 @@ import type { Clock } from './time';
 import type { Email } from '../domain/email';
 import type { AuthUserRecord } from './auth.types';
 import { ErrorCode } from '../../../shared/error-codes';
+import { AuthSessionLifecycleService } from './auth-session-lifecycle.service';
+import { AuthPasswordAuthService } from './auth-password-auth.service';
+import { AuthOidcAuthService } from './auth-oidc-auth.service';
+import { AuthEmailVerificationService } from './auth-email-verification.service';
+import { AuthPasswordResetService } from './auth-password-reset.service';
+import type { AuthConfig } from './auth.config';
 
 function unimplemented(): never {
   throw new Error('Not implemented');
@@ -70,21 +76,31 @@ function makeService(params: {
 
   const now = new Date('2026-01-11T14:00:00.000Z');
   const clock = fixedClock(now);
-
-  return new AuthService(
+  const config: AuthConfig = {
+    accessTokenTtlSeconds: 900,
+    refreshTokenTtlSeconds: 60 * 60 * 24 * 30,
+    passwordMinLength: 10,
+  };
+  const sessions = new AuthSessionLifecycleService(params.repo, accessTokens, clock, config);
+  const passwordAuth = new AuthPasswordAuthService(
     params.repo,
     params.passwordHasher,
-    accessTokens,
-    params.oidcVerifier,
     params.loginRateLimiter,
     clock,
     'dummy-password-hash',
-    {
-      accessTokenTtlSeconds: 900,
-      refreshTokenTtlSeconds: 60 * 60 * 24 * 30,
-      passwordMinLength: 10,
-    },
+    config,
+    sessions,
   );
+  const oidcAuth = new AuthOidcAuthService(params.repo, params.oidcVerifier, clock, sessions);
+  const emailVerification = new AuthEmailVerificationService(params.repo, clock);
+  const passwordReset = new AuthPasswordResetService(
+    params.repo,
+    params.passwordHasher,
+    clock,
+    config,
+  );
+
+  return new AuthService(sessions, passwordAuth, oidcAuth, emailVerification, passwordReset);
 }
 
 describe('AuthService (deleted user semantics)', () => {
