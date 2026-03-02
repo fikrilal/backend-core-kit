@@ -257,8 +257,10 @@ export class ${dtoClass} {
     {
       path: join(base, 'infra', 'http', `${names.kebab}-error.filter.ts`),
       content: `import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
+import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { mapFeatureErrorToProblem } from '../../../../platform/http/filters/feature-error.mapper';
 import { ProblemDetailsFilter } from '../../../../platform/http/filters/problem-details.filter';
+import { isAppErrorCode } from '../../../../shared/app-error-codes';
 import { ${errorClass} } from '../../app/${names.kebab}.errors';
 
 @Catch(${errorClass})
@@ -266,9 +268,10 @@ export class ${filterClass} implements ExceptionFilter {
   private readonly problemDetailsFilter = new ProblemDetailsFilter();
 
   catch(exception: ${errorClass}, host: ArgumentsHost): void {
+    const code = isAppErrorCode(exception.code) ? exception.code : ErrorCode.INTERNAL;
     const mapped = mapFeatureErrorToProblem({
       status: exception.status,
-      code: exception.code,
+      code,
       detail: exception.message,
       issues: exception.issues,
       titleStrategy: 'status-default',
