@@ -82,19 +82,25 @@ Validation run:
 
 ### Decompose hotspot files
 
-- [ ] Split `apps/worker/src/jobs/emails.worker.ts` by job type/concern.
-- [ ] Split `libs/features/admin/infra/persistence/prisma-admin-audit.repository.ts` into query/filter/cursor builders + repository entry.
-- [ ] Split `libs/features/admin/infra/persistence/prisma-admin-users.repository.ts` similarly.
+- [x] Split `apps/worker/src/jobs/emails.worker.ts` by job type/concern.
+- [x] Split `libs/features/admin/infra/persistence/prisma-admin-audit.repository.ts` into query/filter/cursor builders + repository entry.
+- [x] Split `libs/features/admin/infra/persistence/prisma-admin-users.repository.ts` similarly.
 
 ### Remove duplicated cursor logic
 
-- [ ] Extract shared cursor/filter helpers (likely under `libs/shared/list-query` or feature-local shared infra).
-- [ ] Replace duplicated local implementations in admin repositories.
+- [x] Extract shared cursor/filter helpers (likely under `libs/shared/list-query` or feature-local shared infra).
+- [x] Replace duplicated local implementations in admin repositories.
 
 Done when:
 
-- [ ] Architecture smell scan decreases medium findings for oversized/duplicate cursor builders.
-- [ ] Behavior and tests remain unchanged.
+- [x] Architecture smell scan decreases medium findings for oversized/duplicate cursor builders.
+- [x] Behavior and tests remain unchanged.
+
+Validation run:
+
+- `npm run verify` ✅
+- `npm run smells:arch` ✅ (`high=0, medium=0, low=11`)
+- `npm run verify:e2e` ⚠️ blocked locally (`DATABASE_URL` missing for `prisma migrate deploy`)
 
 ## Phase 3: Auth and Contract Hygiene (Medium)
 

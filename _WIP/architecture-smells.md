@@ -1,60 +1,20 @@
 # Architecture Smell Scan Report
 
-Generated: 2026-03-02T05:27:39.019Z
+Generated: 2026-03-02T05:46:59.314Z
 Mode: Local
 Baseline: tools/architecture-smells.baseline.json (found)
 
 ## Summary
 
 - High: 0
-- Medium: 7
-- Low: 12
-- Total: 19
-
-## Medium
-
-### duplicate_cursor_where_builder (4)
-
-- libs/features/admin/infra/persistence/prisma-admin-audit.repository.ts:62
-  - Repeated cursor where-builder helper detected
-  - Snippet: `function equalsForCursor(`
-  - Docs: `docs/standards/code-quality.md`
-- libs/features/admin/infra/persistence/prisma-admin-audit.repository.ts:98
-  - Repeated cursor where-builder helper detected
-  - Snippet: `function compareForCursor(`
-  - Docs: `docs/standards/code-quality.md`
-- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:47
-  - Repeated cursor where-builder helper detected
-  - Snippet: `function equalsForCursor(`
-  - Docs: `docs/standards/code-quality.md`
-- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:69
-  - Repeated cursor where-builder helper detected
-  - Snippet: `function compareForCursor(`
-  - Docs: `docs/standards/code-quality.md`
-
-### oversized_orchestration_file (3)
-
-- apps/worker/src/jobs/emails.worker.ts:1
-  - File has 398 LOC (threshold 350)
-  - Snippet: `import { Injectable, type OnModuleInit } from '@nestjs/common';`
-  - Docs: `docs/standards/code-quality.md`
-- libs/features/admin/infra/persistence/prisma-admin-audit.repository.ts:1
-  - File has 479 LOC (threshold 350)
-  - Snippet: `import { Injectable } from '@nestjs/common';`
-  - Docs: `docs/standards/code-quality.md`
-- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:1
-  - File has 443 LOC (threshold 350)
-  - Snippet: `import { Injectable } from '@nestjs/common';`
-  - Docs: `docs/standards/code-quality.md`
+- Medium: 0
+- Low: 11
+- Total: 11
 
 ## Low
 
-### repeated_local_string_normalizer (12)
+### repeated_local_string_normalizer (11)
 
-- apps/worker/src/jobs/emails.worker.ts:87
-  - Repeated local `asNonEmptyString` helper; consider shared utility
-  - Snippet: `function asNonEmptyString(value: unknown): string | undefined {`
-  - Docs: `docs/standards/code-quality.md`
 - libs/features/auth/infra/jobs/auth-password-reset.jobs.ts:11
   - Repeated local `asNonEmptyString` helper; consider shared utility
   - Snippet: `function asNonEmptyString(value: unknown): string | undefined {`
