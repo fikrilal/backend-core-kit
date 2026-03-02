@@ -9,6 +9,7 @@ import type {
 } from './ports/oidc-id-token-verifier';
 import type { AuthMethod } from '../../../shared/auth/auth-method';
 import type { AuthUserRecord, AuthUserView } from './auth.types';
+import { addSeconds } from './time';
 
 export async function verifyOidcIdentityOrThrow(
   oidcVerifier: OidcIdTokenVerifier,
@@ -102,7 +103,7 @@ export function buildActiveSessionKey(userId: string, deviceId?: string): string
 }
 
 export function sessionExpiresAtFrom(now: Date, refreshTokenTtlSeconds: number): Date {
-  return new Date(now.getTime() + refreshTokenTtlSeconds * 1000);
+  return addSeconds(now, refreshTokenTtlSeconds);
 }
 
 export async function requireExistingNonDeletedUser(

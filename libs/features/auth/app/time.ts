@@ -1,1 +1,1 @@
-export { Clock, SystemClock } from '../../../shared/time';
+export { Clock, SystemClock, addSeconds } from '../../../shared/time';

@@ -34,6 +34,23 @@ export default [
     },
   },
   {
+    files: ['libs/features/*/app/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "NewExpression[callee.name='Date']",
+          message: 'App layer must use injected Clock/time helpers (no new Date()).',
+        },
+        {
+          selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+          message: 'App layer must use injected Clock/time helpers (no Date.now()).',
+        },
+      ],
+    },
+  },
+  {
     files: ['test/**/*.ts', '**/*.spec.ts', '**/*.test.ts'],
     rules: {
       'no-console': 'off',

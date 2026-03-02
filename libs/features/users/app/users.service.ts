@@ -4,7 +4,7 @@ import { UserNotFoundError, UsersError } from './users.errors';
 import { UsersErrorCode } from './users.error-codes';
 import type { MeView } from './users.types';
 import type { UpdateMeProfilePatch, UserProfileRecord, UserRecord } from './users.types';
-import type { Clock } from './time';
+import { addDays, type Clock } from './time';
 
 const ACCOUNT_DELETION_GRACE_PERIOD_DAYS = 30;
 
@@ -41,9 +41,7 @@ export class UsersService {
     traceId: string;
   }): Promise<Readonly<{ scheduledFor: Date; newlyRequested: boolean }>> {
     const now = this.clock.now();
-    const scheduledFor = new Date(
-      now.getTime() + ACCOUNT_DELETION_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000,
-    );
+    const scheduledFor = addDays(now, ACCOUNT_DELETION_GRACE_PERIOD_DAYS);
 
     const res = await this.users.requestAccountDeletion({
       userId: input.userId,

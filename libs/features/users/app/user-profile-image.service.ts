@@ -7,7 +7,7 @@ import type {
   ProfileImagePresignedPutObject,
   ProfileImageStoragePort,
 } from './ports/profile-image.storage';
-import type { Clock } from './time';
+import { addSeconds, type Clock } from './time';
 
 import {
   PROFILE_IMAGE_ALLOWED_CONTENT_TYPES,
@@ -93,9 +93,7 @@ export class UserProfileImageService {
     });
 
     const now = this.clock.now();
-    const expiresAt = new Date(
-      now.getTime() + PROFILE_IMAGE_PRESIGN_TTL_SECONDS * 1000,
-    ).toISOString();
+    const expiresAt = addSeconds(now, PROFILE_IMAGE_PRESIGN_TTL_SECONDS).toISOString();
 
     const created = await this.repo.createProfileImageFile({
       fileId,
@@ -228,9 +226,7 @@ export class UserProfileImageService {
     });
 
     const now = this.clock.now();
-    const expiresAt = new Date(
-      now.getTime() + PROFILE_IMAGE_GET_URL_TTL_SECONDS * 1000,
-    ).toISOString();
+    const expiresAt = addSeconds(now, PROFILE_IMAGE_GET_URL_TTL_SECONDS).toISOString();
 
     return { url: presigned.url, expiresAt };
   }
