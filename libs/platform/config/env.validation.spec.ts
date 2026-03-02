@@ -35,6 +35,27 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ NODE_ENV: NodeEnv.Production })).toThrow(/DATABASE_URL/i);
   });
 
+  it('throws on invalid HTTP timeout env values', () => {
+    expect(() => validateEnv({ HTTP_REQUEST_TIMEOUT_MS: 'nope' })).toThrow(
+      /HTTP_REQUEST_TIMEOUT_MS/i,
+    );
+  });
+
+  it('throws on invalid Redis timeout env values', () => {
+    expect(() => validateEnv({ REDIS_CONNECT_TIMEOUT_MS: 'zero' })).toThrow(
+      /REDIS_CONNECT_TIMEOUT_MS/i,
+    );
+  });
+
+  it('throws when Redis retry delay max is below base', () => {
+    expect(() =>
+      validateEnv({
+        REDIS_RETRY_BASE_DELAY_MS: 250,
+        REDIS_RETRY_MAX_DELAY_MS: 200,
+      }),
+    ).toThrow(/REDIS_RETRY_MAX_DELAY_MS/i);
+  });
+
   it('allows minimal config in development', () => {
     expect(() => validateEnv({ NODE_ENV: NodeEnv.Development })).not.toThrow();
   });

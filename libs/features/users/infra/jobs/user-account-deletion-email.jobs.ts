@@ -52,11 +52,16 @@ export class UserAccountDeletionEmailJobs {
     if (!this.queue.isEnabled()) return false;
     if (!this.email.isEnabled()) return false;
 
+    const now = this.clock.now();
+    const reminderAt = new Date(scheduledFor.getTime() - ACCOUNT_DELETION_REMINDER_BEFORE_MS);
+    if (reminderAt.getTime() <= now.getTime()) {
+      // Too close (or past) the reminder window: avoid repeated immediate reminder enqueue loops.
+      return false;
+    }
+
     const jobId = accountDeletionReminderEmailJobId(userId);
     await this.queue.removeJob(EMAIL_QUEUE, jobId);
 
-    const now = this.clock.now();
-    const reminderAt = new Date(scheduledFor.getTime() - ACCOUNT_DELETION_REMINDER_BEFORE_MS);
     const delayMs = Math.max(0, reminderAt.getTime() - now.getTime());
 
     const data: UsersSendAccountDeletionReminderEmailJobData = {

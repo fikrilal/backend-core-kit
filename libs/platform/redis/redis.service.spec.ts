@@ -12,11 +12,12 @@ type RedisClientStub = Readonly<{
 }>;
 
 const clients: RedisClientStub[] = [];
+const constructorCalls: Array<Readonly<{ url: string; options?: unknown }>> = [];
 
 jest.mock('ioredis', () => {
   return {
     __esModule: true,
-    default: jest.fn((url: string) => {
+    default: jest.fn((url: string, options?: unknown) => {
       const status = typeof url === 'string' && url.includes('ready') ? 'ready' : 'wait';
 
       const client: RedisClientStub = {
@@ -27,6 +28,7 @@ jest.mock('ioredis', () => {
         disconnect: jest.fn(() => undefined),
       };
       clients.push(client);
+      constructorCalls.push({ url, options });
       return client;
     }),
   };
@@ -41,6 +43,7 @@ function stubConfig(values: Record<string, unknown>): ConfigService {
 describe('RedisService', () => {
   beforeEach(() => {
     clients.length = 0;
+    constructorCalls.length = 0;
     jest.clearAllMocks();
   });
 
@@ -126,5 +129,59 @@ describe('RedisService', () => {
 
     new RedisService(stubConfig({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://unused' }));
     expect((Redis as unknown as jest.Mock).mock.calls).toHaveLength(1);
+  });
+
+  it('applies explicit Redis reliability defaults', () => {
+    new RedisService(stubConfig({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://unused' }));
+
+    const ctor = constructorCalls[0] as { options?: Record<string, unknown> } | undefined;
+    expect(ctor).toBeDefined();
+    expect(ctor?.options?.lazyConnect).toBe(true);
+    expect(ctor?.options?.connectTimeout).toBe(10_000);
+    expect(ctor?.options?.commandTimeout).toBe(5_000);
+    expect(ctor?.options?.maxRetriesPerRequest).toBe(2);
+    expect(ctor?.options?.enableOfflineQueue).toBe(true);
+    expect(typeof ctor?.options?.retryStrategy).toBe('function');
+
+    const retryStrategy = ctor?.options?.retryStrategy as ((times: number) => number) | undefined;
+    expect(retryStrategy?.(1)).toBe(100);
+    expect(retryStrategy?.(50)).toBe(2_000);
+  });
+
+  it('applies Redis reliability env overrides', () => {
+    new RedisService(
+      stubConfig({
+        NODE_ENV: NodeEnv.Development,
+        REDIS_URL: 'redis://unused',
+        REDIS_CONNECT_TIMEOUT_MS: 1500,
+        REDIS_COMMAND_TIMEOUT_MS: 900,
+        REDIS_MAX_RETRIES_PER_REQUEST: 4,
+        REDIS_RETRY_BASE_DELAY_MS: 50,
+        REDIS_RETRY_MAX_DELAY_MS: 500,
+        REDIS_ENABLE_OFFLINE_QUEUE: true,
+      }),
+    );
+
+    const ctor = constructorCalls[0] as { options?: Record<string, unknown> } | undefined;
+    expect(ctor?.options?.connectTimeout).toBe(1500);
+    expect(ctor?.options?.commandTimeout).toBe(900);
+    expect(ctor?.options?.maxRetriesPerRequest).toBe(4);
+    expect(ctor?.options?.enableOfflineQueue).toBe(true);
+    const retryStrategy = ctor?.options?.retryStrategy as ((times: number) => number) | undefined;
+    expect(retryStrategy?.(1)).toBe(50);
+    expect(retryStrategy?.(20)).toBe(500);
+  });
+
+  it('throws on invalid Redis timeout/retry settings', () => {
+    expect(
+      () =>
+        new RedisService(
+          stubConfig({
+            NODE_ENV: NodeEnv.Development,
+            REDIS_URL: 'redis://unused',
+            REDIS_COMMAND_TIMEOUT_MS: 0,
+          }),
+        ),
+    ).toThrow(/REDIS_COMMAND_TIMEOUT_MS/i);
   });
 });

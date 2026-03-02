@@ -11,6 +11,22 @@ Rules:
 - Redis commands have timeouts and bounded retries.
 - Outbound HTTP calls have timeouts by default.
 
+Implementation defaults (current):
+
+- Fastify (`libs/platform/http/fastify-adapter.ts`)
+  - `HTTP_REQUEST_TIMEOUT_MS` default `30000`
+  - `HTTP_CONNECTION_TIMEOUT_MS` default `10000`
+  - `HTTP_KEEP_ALIVE_TIMEOUT_MS` default `72000`
+  - `HTTP_BODY_LIMIT_BYTES` default `1048576`
+  - `HTTP_PLUGIN_TIMEOUT_MS` default `10000`
+- Redis (`libs/platform/redis/redis.service.ts`)
+  - `REDIS_CONNECT_TIMEOUT_MS` default `10000`
+  - `REDIS_COMMAND_TIMEOUT_MS` default `5000`
+  - `REDIS_MAX_RETRIES_PER_REQUEST` default `2`
+  - `REDIS_RETRY_BASE_DELAY_MS` default `100`
+  - `REDIS_RETRY_MAX_DELAY_MS` default `2000`
+  - `REDIS_ENABLE_OFFLINE_QUEUE` default `true`
+
 ## Retries (Only Where Safe)
 
 Rules:
@@ -18,6 +34,14 @@ Rules:
 - Only retry idempotent operations or operations protected by idempotency keys.
 - Use exponential backoff with jitter.
 - Bound retries (no infinite loops).
+
+Implementation defaults (current):
+
+- Platform DB transaction retry (`libs/platform/db/tx-retry.ts`)
+  - `maxAttempts` default `3`
+  - exponential backoff base delay `25ms`
+  - max delay cap `250ms`
+  - jitter ratio `0.2`
 
 ## Idempotency Keys (Write Endpoints)
 

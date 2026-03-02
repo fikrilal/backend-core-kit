@@ -1,13 +1,8 @@
 import { randomUUID } from 'crypto';
+import { asNonEmptyString } from '../../shared/string';
 
 const MAX_REQUEST_ID_LENGTH = 128;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
-
-function asNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed !== '' ? trimmed : undefined;
-}
 
 function normalizeCandidate(value: unknown): string | undefined {
   const raw = asNonEmptyString(value);

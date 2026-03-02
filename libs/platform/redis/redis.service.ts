@@ -4,6 +4,48 @@ import Redis from 'ioredis';
 import { buildRedisConnectionOptions } from '../config/redis-connection';
 import { NodeEnv } from '../config/env.validation';
 
+const DEFAULT_REDIS_CONNECT_TIMEOUT_MS = 10_000;
+const DEFAULT_REDIS_COMMAND_TIMEOUT_MS = 5_000;
+const DEFAULT_REDIS_MAX_RETRIES_PER_REQUEST = 2;
+const DEFAULT_REDIS_RETRY_BASE_DELAY_MS = 100;
+const DEFAULT_REDIS_RETRY_MAX_DELAY_MS = 2_000;
+const DEFAULT_REDIS_ENABLE_OFFLINE_QUEUE = true;
+
+function asInteger(value: unknown): number | undefined {
+  if (typeof value === 'number') return Number.isInteger(value) ? value : undefined;
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (trimmed === '') return undefined;
+  const n = Number(trimmed);
+  return Number.isInteger(n) ? n : undefined;
+}
+
+function readIntConfig(
+  config: ConfigService,
+  name: string,
+  fallback: number,
+  minimum: number,
+): number {
+  const raw = config.get<unknown>(name);
+  const parsed = asInteger(raw);
+  if (parsed === undefined) return fallback;
+  if (parsed < minimum) {
+    throw new Error(`Invalid ${name}: expected integer >= ${minimum}, got "${String(raw)}"`);
+  }
+  return parsed;
+}
+
+function readBooleanConfig(config: ConfigService, name: string, fallback: boolean): boolean {
+  const raw = config.get<unknown>(name);
+  if (typeof raw === 'boolean') return raw;
+  if (typeof raw !== 'string') return fallback;
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === '') return fallback;
+  if (normalized === 'true' || normalized === '1') return true;
+  if (normalized === 'false' || normalized === '0') return false;
+  throw new Error(`Invalid ${name}: expected boolean, got "${String(raw)}"`);
+}
+
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   private readonly client?: Redis;
@@ -20,8 +62,52 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     });
 
     if (redis) {
+      const connectTimeout = readIntConfig(
+        this.config,
+        'REDIS_CONNECT_TIMEOUT_MS',
+        DEFAULT_REDIS_CONNECT_TIMEOUT_MS,
+        1,
+      );
+      const commandTimeout = readIntConfig(
+        this.config,
+        'REDIS_COMMAND_TIMEOUT_MS',
+        DEFAULT_REDIS_COMMAND_TIMEOUT_MS,
+        1,
+      );
+      const maxRetriesPerRequest = readIntConfig(
+        this.config,
+        'REDIS_MAX_RETRIES_PER_REQUEST',
+        DEFAULT_REDIS_MAX_RETRIES_PER_REQUEST,
+        0,
+      );
+      const retryBaseDelayMs = readIntConfig(
+        this.config,
+        'REDIS_RETRY_BASE_DELAY_MS',
+        DEFAULT_REDIS_RETRY_BASE_DELAY_MS,
+        1,
+      );
+      const retryMaxDelayMs = readIntConfig(
+        this.config,
+        'REDIS_RETRY_MAX_DELAY_MS',
+        DEFAULT_REDIS_RETRY_MAX_DELAY_MS,
+        retryBaseDelayMs,
+      );
+      const enableOfflineQueue = readBooleanConfig(
+        this.config,
+        'REDIS_ENABLE_OFFLINE_QUEUE',
+        DEFAULT_REDIS_ENABLE_OFFLINE_QUEUE,
+      );
+
       const { url, ...options } = redis;
-      this.client = new Redis(url, { lazyConnect: true, ...options });
+      this.client = new Redis(url, {
+        lazyConnect: true,
+        connectTimeout,
+        commandTimeout,
+        maxRetriesPerRequest,
+        enableOfflineQueue,
+        retryStrategy: (times) => Math.min(retryMaxDelayMs, times * retryBaseDelayMs),
+        ...options,
+      });
     }
   }
 

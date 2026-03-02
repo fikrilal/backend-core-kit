@@ -19,6 +19,7 @@ import {
   buildRedisConnectionOptions,
   type RedisConnectionOptions,
 } from '../config/redis-connection';
+import { DEFAULT_WORKER_OPTIONS } from './queue.defaults';
 
 type OtelCarrier = Record<string, string>;
 
@@ -107,6 +108,7 @@ export class QueueWorkerFactory implements OnModuleDestroy {
     };
 
     const worker = new Worker<TData, TResult, string>(queueName, wrappedProcessor, {
+      ...DEFAULT_WORKER_OPTIONS,
       ...options,
       connection: this.redis,
     });

@@ -119,3 +119,11 @@ export function assertPushConfigConsistency(env: EnvVars) {
     );
   }
 }
+
+export function assertRedisConfigConsistency(env: EnvVars) {
+  if (env.REDIS_RETRY_MAX_DELAY_MS < env.REDIS_RETRY_BASE_DELAY_MS) {
+    throw new Error(
+      'Invalid REDIS retry configuration: REDIS_RETRY_MAX_DELAY_MS must be >= REDIS_RETRY_BASE_DELAY_MS',
+    );
+  }
+}

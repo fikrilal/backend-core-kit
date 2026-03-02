@@ -8,9 +8,13 @@ import { PlatformPushModule } from '../../../platform/push/push.module';
 import { QueueModule } from '../../../platform/queue/queue.module';
 import { UsersModule } from '../../users/infra/users.module';
 import { AuthService } from '../app/auth.service';
-import type { Clock } from '../app/time';
 import { AuthSessionsService } from '../app/auth-sessions.service';
 import { AuthPushTokensService } from '../app/auth-push-tokens.service';
+import { AuthSessionLifecycleService } from '../app/auth-session-lifecycle.service';
+import { AuthPasswordAuthService } from '../app/auth-password-auth.service';
+import { AuthOidcAuthService } from '../app/auth-oidc-auth.service';
+import { AuthEmailVerificationService } from '../app/auth-email-verification.service';
+import { AuthPasswordResetService } from '../app/auth-password-reset.service';
 import { AuthController } from './http/auth.controller';
 import { JwksController } from './http/jwks.controller';
 import { MeSessionsController } from './http/me-sessions.controller';
@@ -25,9 +29,13 @@ import { Argon2PasswordHasher } from './security/argon2.password-hasher';
 import { CryptoAccessTokenIssuer } from './security/crypto-access-token-issuer';
 import { GoogleOidcIdTokenVerifier } from './security/google-oidc-id-token-verifier';
 import {
+  provideAppService,
   provideClockedAppService,
+  provideConstructedAppService,
   provideConstructedClockedAppService,
 } from '../../../platform/di/app-service.provider';
+import type { AuthConfig } from '../app/auth.config';
+import { AUTH_CONFIG, AUTH_DUMMY_PASSWORD_HASH } from './auth.tokens';
 
 @Module({
   imports: [
@@ -60,43 +68,115 @@ import {
       inject: [PrismaAuthRepository],
       useClass: AuthPushTokensService,
     }),
-    provideClockedAppService({
-      provide: AuthService,
+    provideAppService({
+      provide: AUTH_CONFIG,
+      inject: [ConfigService],
+      factory: (config: ConfigService): AuthConfig => ({
+        accessTokenTtlSeconds: config.get<number>('AUTH_ACCESS_TOKEN_TTL_SECONDS') ?? 900,
+        refreshTokenTtlSeconds:
+          config.get<number>('AUTH_REFRESH_TOKEN_TTL_SECONDS') ?? 60 * 60 * 24 * 30,
+        passwordMinLength: config.get<number>('AUTH_PASSWORD_MIN_LENGTH') ?? 10,
+      }),
+    }),
+    provideAppService({
+      provide: AUTH_DUMMY_PASSWORD_HASH,
+      inject: [Argon2PasswordHasher],
+      factory: async (passwordHasher: Argon2PasswordHasher) =>
+        await passwordHasher.hash('dummy-password-for-timing'),
+    }),
+    provideClockedAppService<
+      AuthSessionLifecycleService,
+      [PrismaAuthRepository, CryptoAccessTokenIssuer, AuthConfig]
+    >({
+      provide: AuthSessionLifecycleService,
+      inject: [PrismaAuthRepository, CryptoAccessTokenIssuer, AUTH_CONFIG],
+      factory: (
+        repo: PrismaAuthRepository,
+        accessTokens: CryptoAccessTokenIssuer,
+        config: AuthConfig,
+        clock,
+      ) => new AuthSessionLifecycleService(repo, accessTokens, clock, config),
+    }),
+    provideClockedAppService<
+      AuthPasswordAuthService,
+      [
+        PrismaAuthRepository,
+        Argon2PasswordHasher,
+        RedisLoginRateLimiter,
+        string,
+        AuthConfig,
+        AuthSessionLifecycleService,
+      ]
+    >({
+      provide: AuthPasswordAuthService,
       inject: [
         PrismaAuthRepository,
         Argon2PasswordHasher,
-        CryptoAccessTokenIssuer,
-        GoogleOidcIdTokenVerifier,
         RedisLoginRateLimiter,
-        ConfigService,
+        AUTH_DUMMY_PASSWORD_HASH,
+        AUTH_CONFIG,
+        AuthSessionLifecycleService,
       ],
-      factory: async (
+      factory: (
         repo: PrismaAuthRepository,
         passwordHasher: Argon2PasswordHasher,
-        accessTokens: CryptoAccessTokenIssuer,
-        oidcVerifier: GoogleOidcIdTokenVerifier,
         loginRateLimiter: RedisLoginRateLimiter,
-        config: ConfigService,
-        clock: Clock,
-      ) => {
-        const dummyPasswordHash = await passwordHasher.hash('dummy-password-for-timing');
-
-        return new AuthService(
+        dummyPasswordHash: string,
+        config: AuthConfig,
+        sessions: AuthSessionLifecycleService,
+        clock,
+      ) =>
+        new AuthPasswordAuthService(
           repo,
           passwordHasher,
-          accessTokens,
-          oidcVerifier,
           loginRateLimiter,
           clock,
           dummyPasswordHash,
-          {
-            accessTokenTtlSeconds: config.get<number>('AUTH_ACCESS_TOKEN_TTL_SECONDS') ?? 900,
-            refreshTokenTtlSeconds:
-              config.get<number>('AUTH_REFRESH_TOKEN_TTL_SECONDS') ?? 60 * 60 * 24 * 30,
-            passwordMinLength: config.get<number>('AUTH_PASSWORD_MIN_LENGTH') ?? 10,
-          },
-        );
-      },
+          config,
+          sessions,
+        ),
+    }),
+    provideClockedAppService<
+      AuthOidcAuthService,
+      [PrismaAuthRepository, GoogleOidcIdTokenVerifier, AuthSessionLifecycleService]
+    >({
+      provide: AuthOidcAuthService,
+      inject: [PrismaAuthRepository, GoogleOidcIdTokenVerifier, AuthSessionLifecycleService],
+      factory: (
+        repo: PrismaAuthRepository,
+        oidcVerifier: GoogleOidcIdTokenVerifier,
+        sessions: AuthSessionLifecycleService,
+        clock,
+      ) => new AuthOidcAuthService(repo, oidcVerifier, clock, sessions),
+    }),
+    provideClockedAppService<AuthEmailVerificationService, [PrismaAuthRepository]>({
+      provide: AuthEmailVerificationService,
+      inject: [PrismaAuthRepository],
+      factory: (repo: PrismaAuthRepository, clock) => new AuthEmailVerificationService(repo, clock),
+    }),
+    provideClockedAppService<
+      AuthPasswordResetService,
+      [PrismaAuthRepository, Argon2PasswordHasher, AuthConfig]
+    >({
+      provide: AuthPasswordResetService,
+      inject: [PrismaAuthRepository, Argon2PasswordHasher, AUTH_CONFIG],
+      factory: (
+        repo: PrismaAuthRepository,
+        passwordHasher: Argon2PasswordHasher,
+        config: AuthConfig,
+        clock,
+      ) => new AuthPasswordResetService(repo, passwordHasher, clock, config),
+    }),
+    provideConstructedAppService({
+      provide: AuthService,
+      inject: [
+        AuthSessionLifecycleService,
+        AuthPasswordAuthService,
+        AuthOidcAuthService,
+        AuthEmailVerificationService,
+        AuthPasswordResetService,
+      ],
+      useClass: AuthService,
     }),
   ],
   exports: [AuthService],

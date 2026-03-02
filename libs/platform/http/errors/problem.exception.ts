@@ -1,5 +1,6 @@
 import { HttpException } from '@nestjs/common';
 import { ErrorCode } from './error-codes';
+import type { AppErrorCode } from '../../../shared/app-error-codes';
 
 export class ProblemException extends HttpException {
   constructor(
@@ -7,7 +8,7 @@ export class ProblemException extends HttpException {
     options: {
       title?: string;
       detail?: string;
-      code?: ErrorCode | string;
+      code?: AppErrorCode;
       type?: string;
       errors?: Array<{ field?: string; message: string }>;
     } = {},
@@ -20,7 +21,7 @@ export class ProblemException extends HttpException {
     return new ProblemException(404, { title: 'Not Found', detail, code: ErrorCode.NOT_FOUND });
   }
 
-  static conflict(detail?: string, code: ErrorCode | string = ErrorCode.CONFLICT) {
+  static conflict(detail?: string, code: AppErrorCode = ErrorCode.CONFLICT) {
     return new ProblemException(409, { title: 'Conflict', detail, code });
   }
 

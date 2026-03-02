@@ -1,184 +1,33 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type UserRole, type UserStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import { UserStatus as PrismaUserStatus } from '@prisma/client';
-import {
-  buildCursorAfterWhere,
-  encodeCursorV1,
-  type FilterExpr,
-  type ListQuery,
-} from '../../../../shared/list-query';
+import type { ListQuery } from '../../../../shared/list-query';
 import type {
-  AdminUserListItem,
-  AdminUserRole,
   AdminUsersFilterField,
   AdminUsersListResult,
   AdminUsersSortField,
 } from '../../app/admin-users.types';
 import type {
   AdminUsersRepository,
-  SetUserRoleResult,
   SetUserRoleInput,
+  SetUserRoleResult,
   SetUserStatusInput,
   SetUserStatusResult,
 } from '../../app/ports/admin-users.repository';
 import { PrismaService } from '../../../../platform/db/prisma.service';
 import { lockActiveAdminInvariant } from '../../../../platform/db/row-locks';
 import { withTransactionRetry } from '../../../../platform/db/tx-retry';
-
-function isPrismaUserRole(value: string): value is UserRole {
-  return value === PrismaUserRole.USER || value === PrismaUserRole.ADMIN;
-}
-
-function sortFieldOrderBy(
-  field: AdminUsersSortField,
-  direction: 'asc' | 'desc',
-): Prisma.UserOrderByWithRelationInput {
-  switch (field) {
-    case 'createdAt':
-      return { createdAt: direction };
-    case 'email':
-      return { email: direction };
-    case 'id':
-      return { id: direction };
-  }
-}
-
-function equalsForCursor(
-  field: AdminUsersSortField,
-  value: string | number | boolean,
-): Prisma.UserWhereInput {
-  switch (field) {
-    case 'createdAt': {
-      if (typeof value !== 'string') {
-        throw new Error('Cursor value for createdAt must be an ISO datetime string');
-      }
-      return { createdAt: { equals: new Date(value) } };
-    }
-    case 'email': {
-      if (typeof value !== 'string') throw new Error('Cursor value for email must be a string');
-      return { email: { equals: value } };
-    }
-    case 'id': {
-      if (typeof value !== 'string') throw new Error('Cursor value for id must be a string');
-      return { id: { equals: value } };
-    }
-  }
-}
-
-function compareForCursor(
-  field: AdminUsersSortField,
-  direction: 'asc' | 'desc',
-  value: string | number | boolean,
-): Prisma.UserWhereInput {
-  switch (field) {
-    case 'createdAt': {
-      if (typeof value !== 'string') {
-        throw new Error('Cursor value for createdAt must be an ISO datetime string');
-      }
-      const date = new Date(value);
-      return direction === 'asc' ? { createdAt: { gt: date } } : { createdAt: { lt: date } };
-    }
-    case 'email': {
-      if (typeof value !== 'string') throw new Error('Cursor value for email must be a string');
-      return direction === 'asc' ? { email: { gt: value } } : { email: { lt: value } };
-    }
-    case 'id': {
-      if (typeof value !== 'string') throw new Error('Cursor value for id must be a string');
-      return direction === 'asc' ? { id: { gt: value } } : { id: { lt: value } };
-    }
-  }
-}
-
-function mapFilters(
-  filters: ReadonlyArray<FilterExpr<AdminUsersFilterField>>,
-): Prisma.UserWhereInput {
-  const and: Prisma.UserWhereInput[] = [];
-
-  for (const filter of filters) {
-    switch (filter.field) {
-      case 'role': {
-        if (filter.op === 'eq') {
-          if (typeof filter.value !== 'string' || !isPrismaUserRole(filter.value)) break;
-          and.push({ role: { equals: filter.value } });
-        } else if (filter.op === 'in') {
-          const roles = filter.value.filter((v): v is string => typeof v === 'string');
-          const parsed = roles.filter(isPrismaUserRole);
-          if (parsed.length > 0) {
-            and.push({ role: { in: parsed } });
-          }
-        }
-        break;
-      }
-      case 'emailVerified': {
-        if (filter.op !== 'eq') break;
-        if (typeof filter.value !== 'boolean') break;
-        if (filter.value) {
-          and.push({ emailVerifiedAt: { not: null } });
-        } else {
-          and.push({ emailVerifiedAt: null });
-        }
-        break;
-      }
-      case 'createdAt': {
-        if (typeof filter.value !== 'string') break;
-        const date = new Date(filter.value);
-        if (Number.isNaN(date.getTime())) break;
-        if (filter.op === 'gte') {
-          and.push({ createdAt: { gte: date } });
-        } else if (filter.op === 'lte') {
-          and.push({ createdAt: { lte: date } });
-        }
-        break;
-      }
-      case 'email': {
-        if (filter.op !== 'eq') break;
-        if (typeof filter.value !== 'string') break;
-        and.push({ email: { equals: filter.value, mode: 'insensitive' } });
-        break;
-      }
-    }
-  }
-
-  return and.length > 0 ? { AND: and } : {};
-}
-
-function mapSearch(q: string | undefined): Prisma.UserWhereInput {
-  if (!q || q.trim() === '') return {};
-  const term = q.trim();
-  return { email: { contains: term, mode: 'insensitive' } };
-}
-
-function mergeWhere(parts: Prisma.UserWhereInput[]): Prisma.UserWhereInput {
-  const nonEmpty = parts.filter((p) => Object.keys(p).length > 0);
-  if (nonEmpty.length === 0) return {};
-  if (nonEmpty.length === 1) return nonEmpty[0];
-  return { AND: nonEmpty };
-}
-
-function toListItem(user: {
-  id: string;
-  email: string;
-  emailVerifiedAt: Date | null;
-  role: UserRole;
-  status: UserStatus;
-  suspendedAt: Date | null;
-  suspendedReason: string | null;
-  createdAt: Date;
-}): AdminUserListItem {
-  const role = String(user.role) as AdminUserRole;
-
-  return {
-    id: user.id,
-    email: user.email,
-    emailVerified: user.emailVerifiedAt !== null,
-    roles: [role],
-    status: String(user.status) as AdminUserListItem['status'],
-    suspendedAt: user.suspendedAt ? user.suspendedAt.toISOString() : null,
-    suspendedReason: user.suspendedReason ?? null,
-    createdAt: user.createdAt.toISOString(),
-  };
-}
+import {
+  ADMIN_USER_LIST_SELECT,
+  buildUsersAfterCursorWhere,
+  buildUsersNextCursor,
+  mapUsersFilters,
+  mapUsersSearchWhere,
+  mergeUsersWhere,
+  toAdminUserListItem,
+  usersSortOrderBy,
+} from './prisma-admin-users.query-builders';
 
 @Injectable()
 export class PrismaAdminUsersRepository implements AdminUsersRepository {
@@ -189,67 +38,28 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
   ): Promise<AdminUsersListResult> {
     const client = this.prisma.getClient();
 
-    const baseWhere = mergeWhere([mapSearch(query.q), mapFilters(query.filters)]);
+    const baseWhere = mergeUsersWhere([
+      mapUsersSearchWhere(query.q),
+      mapUsersFilters(query.filters),
+    ]);
+    const afterWhere = buildUsersAfterCursorWhere(query);
+    const where = mergeUsersWhere([baseWhere, afterWhere]);
 
-    const afterWhere =
-      query.cursor && query.cursor.after
-        ? buildCursorAfterWhere({
-            sort: query.sort,
-            after: query.cursor.after,
-            builders: {
-              equals: equalsForCursor,
-              compare: compareForCursor,
-              and: (clauses) => ({ AND: clauses }),
-              or: (clauses) => ({ OR: clauses }),
-              empty: () => ({}),
-            },
-          })
-        : {};
-
-    const where = mergeWhere([baseWhere, afterWhere]);
-
-    const orderBy = query.sort.map((s) => sortFieldOrderBy(s.field, s.direction));
+    const orderBy = query.sort.map((spec) => usersSortOrderBy(spec.field, spec.direction));
 
     const take = query.limit + 1;
     const users = await client.user.findMany({
       where,
       orderBy,
       take,
-      select: {
-        id: true,
-        email: true,
-        emailVerifiedAt: true,
-        role: true,
-        status: true,
-        suspendedAt: true,
-        suspendedReason: true,
-        createdAt: true,
-      },
+      select: ADMIN_USER_LIST_SELECT,
     });
 
     const hasMore = users.length > query.limit;
     const page = hasMore ? users.slice(0, query.limit) : users;
 
-    const items = page.map(toListItem);
-
-    const nextCursor = (() => {
-      if (!hasMore) return undefined;
-      const last = page.at(-1);
-      if (!last) return undefined;
-
-      const after: Partial<Record<AdminUsersSortField, string | number | boolean>> = {};
-      for (const s of query.sort) {
-        if (s.field === 'createdAt') after.createdAt = last.createdAt.toISOString();
-        else if (s.field === 'email') after.email = last.email;
-        else if (s.field === 'id') after.id = last.id;
-      }
-
-      return encodeCursorV1({
-        v: 1,
-        sort: query.normalizedSort,
-        after,
-      });
-    })();
+    const items = page.map(toAdminUserListItem);
+    const nextCursor = buildUsersNextCursor(query, hasMore, page.at(-1));
 
     return {
       items,
@@ -268,16 +78,7 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
       async (tx) => {
         const found = await tx.user.findUnique({
           where: { id: input.targetUserId },
-          select: {
-            id: true,
-            email: true,
-            emailVerifiedAt: true,
-            role: true,
-            status: true,
-            suspendedAt: true,
-            suspendedReason: true,
-            createdAt: true,
-          },
+          select: ADMIN_USER_LIST_SELECT,
         });
 
         if (!found) return { kind: 'not_found' };
@@ -287,7 +88,7 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
         }
 
         if (found.role === nextRole) {
-          return { kind: 'ok', user: toListItem(found) };
+          return { kind: 'ok', user: toAdminUserListItem(found) };
         }
 
         if (
@@ -302,16 +103,7 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
         const updated = await tx.user.update({
           where: { id: input.targetUserId },
           data: { role: nextRole },
-          select: {
-            id: true,
-            email: true,
-            emailVerifiedAt: true,
-            role: true,
-            status: true,
-            suspendedAt: true,
-            suspendedReason: true,
-            createdAt: true,
-          },
+          select: ADMIN_USER_LIST_SELECT,
         });
 
         await tx.userRoleChangeAudit.create({
@@ -325,7 +117,7 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
           },
         });
 
-        return { kind: 'ok', user: toListItem(updated) };
+        return { kind: 'ok', user: toAdminUserListItem(updated) };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
     );
@@ -351,16 +143,7 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
       async (tx) => {
         const found = await tx.user.findUnique({
           where: { id: input.targetUserId },
-          select: {
-            id: true,
-            email: true,
-            emailVerifiedAt: true,
-            role: true,
-            status: true,
-            suspendedAt: true,
-            suspendedReason: true,
-            createdAt: true,
-          },
+          select: ADMIN_USER_LIST_SELECT,
         });
 
         if (!found) return { kind: 'not_found' };
@@ -370,7 +153,7 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
         }
 
         if (found.status === nextStatus) {
-          return { kind: 'ok', user: toListItem(found) };
+          return { kind: 'ok', user: toAdminUserListItem(found) };
         }
 
         if (
@@ -397,16 +180,7 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
                   suspendedAt: null,
                   suspendedReason: null,
                 },
-          select: {
-            id: true,
-            email: true,
-            emailVerifiedAt: true,
-            role: true,
-            status: true,
-            suspendedAt: true,
-            suspendedReason: true,
-            createdAt: true,
-          },
+          select: ADMIN_USER_LIST_SELECT,
         });
 
         await tx.userStatusChangeAudit.create({
@@ -434,7 +208,7 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
           });
         }
 
-        return { kind: 'ok', user: toListItem(updated) };
+        return { kind: 'ok', user: toAdminUserListItem(updated) };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
     );

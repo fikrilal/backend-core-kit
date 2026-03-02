@@ -2,6 +2,7 @@ import type { ArgumentsHost } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 import { ErrorCode } from '../errors/error-codes';
 import { ProblemException } from '../errors/problem.exception';
+import type { AppErrorCode } from '../../../shared/app-error-codes';
 
 export type FeatureErrorIssue = Readonly<{ field?: string; message: string }>;
 
@@ -9,7 +10,7 @@ export type FeatureErrorTitleStrategy = 'validation-only' | 'status-default';
 
 type MapFeatureErrorToProblemParams = Readonly<{
   status: number;
-  code: ErrorCode | string;
+  code: AppErrorCode;
   detail?: string;
   issues?: ReadonlyArray<FeatureErrorIssue>;
   titleStrategy: FeatureErrorTitleStrategy;
@@ -44,7 +45,7 @@ function statusTitle(status: number): string {
 
 function resolveTitle(params: {
   status: number;
-  code: ErrorCode | string;
+  code: AppErrorCode;
   strategy: FeatureErrorTitleStrategy;
 }): string | undefined {
   if (params.code === ErrorCode.VALIDATION_FAILED) return 'Validation Failed';

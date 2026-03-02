@@ -2,6 +2,8 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
 import { ErrorCode } from '../errors/error-codes';
+import type { AppErrorCode } from '../../../shared/app-error-codes';
+import { isAppErrorCode } from '../../../shared/app-error-codes';
 
 @Catch()
 export class ProblemDetailsFilter implements ExceptionFilter {
@@ -17,7 +19,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let title = 'Internal Server Error';
     let detail: string | undefined;
-    let code: string | ErrorCode | undefined;
+    let code: AppErrorCode | undefined;
     let type = 'about:blank';
     let errors: Array<{ field?: string; message: string }> | undefined;
 
@@ -32,7 +34,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
           title?: string;
           message?: string | string[];
           detail?: string;
-          code?: string;
+          code?: unknown;
           type?: string;
           errors?: Array<{ field?: string; message: string }>;
         };
@@ -46,7 +48,9 @@ export class ProblemDetailsFilter implements ExceptionFilter {
           detail = r.detail ?? (typeof r.message === 'string' ? r.message : undefined);
         }
 
-        code = r.code ?? code;
+        if (isAppErrorCode(r.code)) {
+          code = r.code;
+        }
         type = r.type ?? type;
         errors = r.errors ?? errors;
       } else {
