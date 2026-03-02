@@ -123,12 +123,19 @@ Done when:
 
 ### Account deletion reminder spam risk
 
-- [ ] Make reminder scheduling idempotent near due-date windows (prevent immediate re-send loops).
-- [ ] Add explicit guard condition + tests for repeated request calls close to scheduled deletion date.
+- [x] Make reminder scheduling idempotent near due-date windows (prevent immediate re-send loops).
+- [x] Add explicit guard condition + tests for repeated request calls close to scheduled deletion date.
 
 Done when:
 
-- [ ] Repeated calls do not enqueue duplicate immediate reminders.
+- [x] Repeated calls do not enqueue duplicate immediate reminders.
+
+Validation run:
+
+- `npm test -- libs/features/users/infra/jobs/user-account-deletion-email.jobs.spec.ts libs/features/users/app/users.service.spec.ts` ✅
+- `npm run verify` ✅
+- `npm run smells:arch` ✅ (`high=0, medium=0, low=11`)
+- `DATABASE_URL=postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public REDIS_URL=redis://127.0.0.1:63790/0 npm run verify:e2e` ✅
 
 ## Phase 5: Low-Risk Consistency Cleanup (Low)
 
