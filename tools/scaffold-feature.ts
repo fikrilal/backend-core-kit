@@ -161,7 +161,7 @@ function buildFiles(names: FeatureNames, withQueue: boolean): ScaffoldFile[] {
   const files: ScaffoldFile[] = [
     {
       path: join(base, 'app', `${names.kebab}.error-codes.ts`),
-      content: `import { ErrorCode } from '../../../shared/error-codes';
+      content: `import type { ErrorCode } from '../../../shared/error-codes';
 
 export enum ${errorCodeEnum} {
   ${names.upperSnake}_NOT_IMPLEMENTED = '${names.upperSnake}_NOT_IMPLEMENTED',
@@ -204,11 +204,9 @@ export class ${errorClass} extends Error {
     },
     {
       path: join(base, 'app', `${names.kebab}.service.ts`),
-      content: `import { Injectable } from '@nestjs/common';
-import type { Clock } from '../../../shared/time';
+      content: `import type { Clock } from '../../../shared/time';
 import type { ${repositoryInterface} } from './ports/${names.kebab}.repository';
 
-@Injectable()
 export class ${serviceClass} {
   constructor(
     private readonly repo: ${repositoryInterface},
@@ -351,9 +349,7 @@ export class ${moduleClass} {}
     },
     {
       path: join(base, 'app', `${names.kebab}.service.spec.ts`),
-      content: `import { ${serviceClass} } from './${names.kebab}.service';
-
-describe('${serviceClass}', () => {
+      content: `describe('${serviceClass}', () => {
   it.todo('returns deterministic health check values');
   it.todo('propagates repository failures as feature errors when needed');
 });
@@ -361,9 +357,7 @@ describe('${serviceClass}', () => {
     },
     {
       path: join(base, 'infra', 'persistence', `prisma-${names.kebab}.repository.spec.ts`),
-      content: `import { ${repositoryClass} } from './prisma-${names.kebab}.repository';
-
-describe('${repositoryClass}', () => {
+      content: `describe('${repositoryClass}', () => {
   it.todo('implements ${repositoryInterface}.ping against Prisma');
 });
 `,
@@ -381,23 +375,37 @@ describe('${repositoryClass}', () => {
     files.push(
       {
         path: join(base, 'infra', 'jobs', `${names.kebab}.job.ts`),
-        content: `export const ${queueNameConst} = '${names.kebab}' as const;
-export const ${queueJobConst} = '${names.kebab}.sync' as const;
+        content: `import { jobName } from '../../../../platform/queue/job-name';
+import type { JsonObject } from '../../../../platform/queue/json.types';
+import { queueName } from '../../../../platform/queue/queue-name';
+
+export const ${queueNameConst} = queueName('${names.kebab}');
+export const ${queueJobConst} = jobName('${names.camel}.sync');
 
 export type ${names.pascal}SyncJobData = Readonly<{
   resourceId: string;
   enqueuedAt: string;
-}>;
+}> &
+  JsonObject;
+
+export function ${names.camel}SyncJobId(resourceId: string): string {
+  // BullMQ job ids cannot contain ":".
+  return '${names.camel}.sync-' + resourceId;
+}
 `,
       },
       {
         path: join(base, 'infra', 'jobs', `${names.kebab}.jobs.ts`),
-        content: `import { Injectable } from '@nestjs/common';
+        content: `import { Inject, Injectable } from '@nestjs/common';
 import { QueueProducer } from '../../../../platform/queue/queue.producer';
 import type { Clock } from '../../../../shared/time';
-import { ${queueJobConst}, ${queueNameConst}, type ${names.pascal}SyncJobData } from './${names.kebab}.job';
+import {
+  ${queueJobConst},
+  ${queueNameConst},
+  ${names.camel}SyncJobId,
+  type ${names.pascal}SyncJobData,
+} from './${names.kebab}.job';
 import { ${clockToken} } from '../${names.kebab}.tokens';
-import { Inject } from '@nestjs/common';
 
 @Injectable()
 export class ${jobsClass} {
@@ -415,7 +423,7 @@ export class ${jobsClass} {
     };
 
     await this.queue.enqueue(${queueNameConst}, ${queueJobConst}, data, {
-      jobId: \`\${${queueJobConst}}:\${resourceId}\`,
+      jobId: ${names.camel}SyncJobId(resourceId),
     });
     return true;
   }

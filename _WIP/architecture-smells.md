@@ -1,7 +1,7 @@
 # Architecture Smell Scan Report
 
-Generated: 2026-02-28T02:35:58.176Z
-Mode: CI
+Generated: 2026-03-02T03:38:57.552Z
+Mode: Local
 Baseline: tools/architecture-smells.baseline.json (found)
 
 ## Summary
@@ -10,7 +10,6 @@ Baseline: tools/architecture-smells.baseline.json (found)
 - Medium: 7
 - Low: 12
 - Total: 19
-- New vs baseline: 5
 
 ## Medium
 
@@ -24,11 +23,11 @@ Baseline: tools/architecture-smells.baseline.json (found)
   - Repeated cursor where-builder helper detected
   - Snippet: `function compareForCursor(`
   - Docs: `docs/standards/code-quality.md`
-- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:47 [new]
+- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:47
   - Repeated cursor where-builder helper detected
   - Snippet: `function equalsForCursor(`
   - Docs: `docs/standards/code-quality.md`
-- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:69 [new]
+- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:69
   - Repeated cursor where-builder helper detected
   - Snippet: `function compareForCursor(`
   - Docs: `docs/standards/code-quality.md`
@@ -39,11 +38,11 @@ Baseline: tools/architecture-smells.baseline.json (found)
   - File has 398 LOC (threshold 350)
   - Snippet: `import { Injectable, type OnModuleInit } from '@nestjs/common';`
   - Docs: `docs/standards/code-quality.md`
-- libs/features/admin/infra/persistence/prisma-admin-audit.repository.ts:1 [new]
+- libs/features/admin/infra/persistence/prisma-admin-audit.repository.ts:1
   - File has 479 LOC (threshold 350)
   - Snippet: `import { Injectable } from '@nestjs/common';`
   - Docs: `docs/standards/code-quality.md`
-- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:1 [new]
+- libs/features/admin/infra/persistence/prisma-admin-users.repository.ts:1
   - File has 443 LOC (threshold 350)
   - Snippet: `import { Injectable } from '@nestjs/common';`
   - Docs: `docs/standards/code-quality.md`
@@ -80,7 +79,7 @@ Baseline: tools/architecture-smells.baseline.json (found)
   - Repeated local `asNonEmptyString` helper; consider shared utility
   - Snippet: `function asNonEmptyString(value: unknown): string | undefined {`
   - Docs: `docs/standards/code-quality.md`
-- libs/platform/http/idempotency/idempotency.core.ts:38 [new]
+- libs/platform/http/idempotency/idempotency.core.ts:38
   - Repeated local `asNonEmptyString` helper; consider shared utility
   - Snippet: `export function asNonEmptyString(value: unknown): string | undefined {`
   - Docs: `docs/standards/code-quality.md`
