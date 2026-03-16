@@ -8,8 +8,9 @@ import type {
   AdminUserRoleChangeAuditsFilterField,
   AdminUserRoleChangeAuditsSortField,
 } from '../../app/admin-audit.types';
-import type { PrismaService } from '../../../../platform/db/prisma.service';
+import { PrismaService } from '../../../../platform/db/prisma.service';
 import { PrismaAdminAuditRepository } from './prisma-admin-audit.repository';
+import { createPrototypeStub } from '../../../../../test/support/stubs';
 
 type RoleChangeAuditRow = Readonly<{
   id: string;
@@ -61,7 +62,7 @@ function createPrismaStub(params: {
     },
   };
 
-  const prisma = { getClient: () => client } as unknown as PrismaService;
+  const prisma = createPrototypeStub(PrismaService, { getClient: () => client });
   return { prisma, roleChangeCalls, accountDeletionCalls };
 }
 
@@ -172,7 +173,11 @@ describe('PrismaAdminAuditRepository', () => {
       expect(res.hasMore).toBe(true);
       expect(res.nextCursor).toBeDefined();
 
-      const decoded = decodeCursorV1(res.nextCursor as string, {
+      expect(res.nextCursor).toBeDefined();
+      if (!res.nextCursor) {
+        throw new Error('Expected nextCursor');
+      }
+      const decoded = decodeCursorV1(res.nextCursor, {
         expectedSort: '-createdAt,-id',
         sortFields: ['createdAt', 'id'],
         allowed: { createdAt: { type: 'datetime' }, id: { type: 'uuid' } },
@@ -297,7 +302,11 @@ describe('PrismaAdminAuditRepository', () => {
       expect(res.hasMore).toBe(true);
       expect(res.nextCursor).toBeDefined();
 
-      const decoded = decodeCursorV1(res.nextCursor as string, {
+      expect(res.nextCursor).toBeDefined();
+      if (!res.nextCursor) {
+        throw new Error('Expected nextCursor');
+      }
+      const decoded = decodeCursorV1(res.nextCursor, {
         expectedSort: '-createdAt,-id',
         sortFields: ['createdAt', 'id'],
         allowed: { createdAt: { type: 'datetime' }, id: { type: 'uuid' } },

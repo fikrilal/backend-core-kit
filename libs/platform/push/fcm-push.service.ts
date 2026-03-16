@@ -55,12 +55,12 @@ function loadServiceAccountFromPath(path: string): ServiceAccount {
   }
 
   const raw = readFileSync(path, 'utf8');
-  const parsed: unknown = JSON.parse(raw) as unknown;
+  const parsed: unknown = JSON.parse(raw);
   return parseServiceAccount(parsed);
 }
 
 function loadServiceAccountFromEnv(json: string): ServiceAccount {
-  const parsed: unknown = JSON.parse(json) as unknown;
+  const parsed: unknown = JSON.parse(json);
   return parseServiceAccount(parsed);
 }
 
@@ -76,7 +76,7 @@ function loadServiceAccountFromBase64(value: string): ServiceAccount {
     throw new Error('FCM_SERVICE_ACCOUNT_JSON_BASE64 decoded to an empty string');
   }
 
-  const parsed: unknown = JSON.parse(decoded) as unknown;
+  const parsed: unknown = JSON.parse(decoded);
   return parseServiceAccount(parsed);
 }
 

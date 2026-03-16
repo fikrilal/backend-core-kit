@@ -2,7 +2,7 @@
 
 Date: 2026-03-16
 Scope: `apps/*`, `libs/*`, `test/*`, `eslint.config.mjs`, `AGENTS.md`
-Status: Active
+Status: Done
 
 ## Goal
 
@@ -56,7 +56,7 @@ TODO:
 - [x] Replace `HttpException#getResponse()` assertions with guarded parsing in [problem-details.filter.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/filters/problem-details.filter.ts)
 - [x] Replace Fastify raw request mutation assertions with typed wrapper/interface extension in [fastify-hooks.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/fastify-hooks.ts)
 - [x] Remove adapter response-object assertions in [fastify-adapter.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/fastify-adapter.ts)
-- [ ] Remove request/response serializer assertions in [logging.module.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/logging/logging.module.ts)
+- [x] Remove request/response serializer assertions in [logging.module.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/logging/logging.module.ts)
 
 ## 2. Prisma to Domain Mapping
 
@@ -71,7 +71,7 @@ TODO:
 - [x] Replace user role/status casts in [prisma-users.repository.ts](/home/fikrilal/devs/core/backend-core-kit/libs/features/users/infra/persistence/prisma-users.repository.ts)
 - [x] Replace admin user role/status casts in [prisma-admin-users.query-builders.ts](/home/fikrilal/devs/core/backend-core-kit/libs/features/admin/infra/persistence/prisma-admin-users.query-builders.ts)
 - [x] Replace audit action/role casts in [prisma-admin-audit.query-builders.ts](/home/fikrilal/devs/core/backend-core-kit/libs/features/admin/infra/persistence/prisma-admin-audit.query-builders.ts)
-- [ ] Replace Prisma error `meta` shape assertions with guards in [prisma-auth.repository.prisma-errors.ts](/home/fikrilal/devs/core/backend-core-kit/libs/features/auth/infra/persistence/prisma-auth.repository.prisma-errors.ts)
+- [x] Replace Prisma error `meta` shape assertions with guards in [prisma-auth.repository.prisma-errors.ts](/home/fikrilal/devs/core/backend-core-kit/libs/features/auth/infra/persistence/prisma-auth.repository.prisma-errors.ts)
 
 ## 3. JSON.parse and Payload Decoding
 
@@ -84,9 +84,9 @@ TODO:
 
 - [x] Add guarded cursor payload parsing in [cursor.ts](/home/fikrilal/devs/core/backend-core-kit/libs/shared/list-query/cursor.ts)
 - [x] Replace token payload assertions in [access-token-verifier.service.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/auth/access-token-verifier.service.ts)
-- [ ] Replace signing-key JSON assertions in [auth-keyring.service.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/auth/auth-keyring.service.ts)
-- [ ] Replace push config JSON assertions in [fcm-push.service.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/push/fcm-push.service.ts)
-- [ ] Replace idempotency payload assertions in [idempotency.core.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/idempotency/idempotency.core.ts)
+- [x] Replace signing-key JSON assertions in [auth-keyring.service.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/auth/auth-keyring.service.ts)
+- [x] Replace push config JSON assertions in [fcm-push.service.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/push/fcm-push.service.ts)
+- [x] Replace idempotency payload assertions in [idempotency.core.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/idempotency/idempotency.core.ts)
 
 ## 4. Auth and Security-Sensitive Dynamic Boundaries
 
@@ -109,8 +109,8 @@ Why fifth:
 
 TODO:
 
-- [ ] Remove generic payload/job assertions in [queue.producer.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/queue/queue.producer.ts)
-- [ ] Replace worker job assertions with typed dispatch or helper wrappers in [users-account-deletion.worker.ts](/home/fikrilal/devs/core/backend-core-kit/apps/worker/src/jobs/users-account-deletion.worker.ts)
+- [x] Remove generic payload/job assertions in [queue.producer.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/queue/queue.producer.ts)
+- [x] Replace worker job assertions with typed dispatch or helper wrappers in [users-account-deletion.worker.ts](/home/fikrilal/devs/core/backend-core-kit/apps/worker/src/jobs/users-account-deletion.worker.ts)
 
 ## 6. Shared Query Utilities
 
@@ -121,11 +121,11 @@ Why sixth:
 
 TODO:
 
-- [ ] Replace field-list assertions in [sort.ts](/home/fikrilal/devs/core/backend-core-kit/libs/shared/list-query/sort.ts)
-- [ ] Replace object/field assertions in [filter.ts](/home/fikrilal/devs/core/backend-core-kit/libs/shared/list-query/filter.ts)
-- [ ] Replace filter-object assertion in [list-query.ts](/home/fikrilal/devs/core/backend-core-kit/libs/shared/list-query/list-query.ts)
-- [ ] Replace decorator/filter config assertions in [api-list-query.decorator.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/list-query/api-list-query.decorator.ts)
-- [ ] Replace decorator cast in [list-query.decorator.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/list-query/list-query.decorator.ts)
+- [x] Replace field-list assertions in [sort.ts](/home/fikrilal/devs/core/backend-core-kit/libs/shared/list-query/sort.ts)
+- [x] Replace object/field assertions in [filter.ts](/home/fikrilal/devs/core/backend-core-kit/libs/shared/list-query/filter.ts)
+- [x] Replace filter-object assertion in [list-query.ts](/home/fikrilal/devs/core/backend-core-kit/libs/shared/list-query/list-query.ts)
+- [x] Replace decorator/filter config assertions in [api-list-query.decorator.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/list-query/api-list-query.decorator.ts)
+- [x] Replace decorator cast in [list-query.decorator.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/list-query/list-query.decorator.ts)
 
 ## 7. Tests and Test Harnesses
 
@@ -137,10 +137,10 @@ Why last:
 
 TODO:
 
-- [ ] Convert simple response-body assertions to typed helper functions in `test/auth/*.e2e-spec.ts`
-- [ ] Replace mocked service double-casts in `libs/platform/**/*.spec.ts`
-- [ ] Replace worker/job double-casts in `apps/worker/**/*.spec.ts` and `test/*.int-spec.ts`
-- [ ] Introduce reusable typed test factories/helpers where repeated cast patterns exist
+- [x] Convert simple response-body assertions to typed helper functions in `test/auth/*.e2e-spec.ts`
+- [x] Replace mocked service double-casts in `libs/platform/**/*.spec.ts`
+- [x] Replace worker/job double-casts in `apps/worker/**/*.spec.ts` and `test/*.int-spec.ts`
+- [x] Introduce reusable typed test factories/helpers where repeated cast patterns exist
 
 ## Suggested Execution Pattern
 
@@ -158,10 +158,10 @@ For each file touched:
 
 ## Done Criteria
 
-- [ ] `npm run lint` passes
-- [ ] No production code uses `as` to silence TypeScript
-- [ ] Remaining `as` usage, if any, is limited to allowed `as const`
-- [ ] Boundary parsing/mapping logic is explicit and test-covered
+- [x] `npm run lint` passes
+- [x] No production code uses `as` to silence TypeScript
+- [x] Remaining assertion-style `as` usage is eliminated; only allowed forms like `as const` remain
+- [x] Boundary parsing/mapping logic is explicit and test-covered
 
 ## Notes
 

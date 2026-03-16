@@ -50,7 +50,7 @@ function getActiveJobOtelMeta(): JobOtelMeta | undefined {
 
 @Injectable()
 export class QueueProducer implements OnModuleDestroy {
-  private readonly queues = new Map<QueueName, Queue>();
+  private readonly queues = new Map<QueueName, Queue<JsonObject, JsonObject, string>>();
   private readonly redis?: RedisConnectionOptions;
 
   constructor(private readonly config: ConfigService) {
@@ -64,7 +64,7 @@ export class QueueProducer implements OnModuleDestroy {
     return this.redis !== undefined;
   }
 
-  getQueue(name: QueueName): Queue {
+  getQueue(name: QueueName): Queue<JsonObject, JsonObject, string> {
     if (!this.redis) {
       throw new Error('REDIS_URL is not configured');
     }
@@ -72,7 +72,7 @@ export class QueueProducer implements OnModuleDestroy {
     const existing = this.queues.get(name);
     if (existing) return existing;
 
-    const queue = new Queue(name, {
+    const queue = new Queue<JsonObject, JsonObject, string>(name, {
       connection: this.redis,
       defaultJobOptions: DEFAULT_JOB_OPTIONS,
     });
@@ -86,7 +86,7 @@ export class QueueProducer implements OnModuleDestroy {
     name: JobName,
     data: TData,
     options: JobsOptions = {},
-  ): Promise<Job<TData>> {
+  ): Promise<Job<JsonObject, JsonObject, string>> {
     const queue = this.getQueue(queueName);
 
     const span = tracer.startSpan('queue.enqueue', {
@@ -102,7 +102,7 @@ export class QueueProducer implements OnModuleDestroy {
     try {
       const job = await otelContext.with(ctx, async () => {
         const otelMeta = getActiveJobOtelMeta();
-        const payload = otelMeta ? (withJobOtelMeta(data, otelMeta) as TData) : data;
+        const payload: JsonObject = otelMeta ? withJobOtelMeta(data, otelMeta) : data;
         return queue.add(name, payload, options);
       });
 
@@ -110,7 +110,7 @@ export class QueueProducer implements OnModuleDestroy {
         span.setAttribute('app.job.id', job.id);
       }
 
-      return job as Job<TData>;
+      return job;
     } catch (err) {
       span.recordException(toOtelException(err));
       span.setStatus({ code: SpanStatusCode.ERROR });

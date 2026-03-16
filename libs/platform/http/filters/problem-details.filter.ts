@@ -82,20 +82,20 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         if (!r) {
           title = this.statusTitle(status);
         } else {
-        title = r.title ?? this.statusTitle(status);
+          title = r.title ?? this.statusTitle(status);
 
-        if (Array.isArray(r.message)) {
-          // Nest validation can return message arrays; map to a single detail string.
-          detail = r.message.join('; ');
-        } else {
-          detail = r.detail ?? (typeof r.message === 'string' ? r.message : undefined);
-        }
+          if (Array.isArray(r.message)) {
+            // Nest validation can return message arrays; map to a single detail string.
+            detail = r.message.join('; ');
+          } else {
+            detail = r.detail ?? (typeof r.message === 'string' ? r.message : undefined);
+          }
 
-        if (isAppErrorCode(r.code)) {
-          code = r.code;
-        }
-        type = r.type ?? type;
-        errors = r.errors ?? errors;
+          if (isAppErrorCode(r.code)) {
+            code = r.code;
+          }
+          type = r.type ?? type;
+          errors = r.errors ?? errors;
         }
       } else {
         title = this.statusTitle(status);

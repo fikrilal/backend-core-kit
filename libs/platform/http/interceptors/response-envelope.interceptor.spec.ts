@@ -1,17 +1,21 @@
-import type { CallHandler, ExecutionContext } from '@nestjs/common';
-import type { Reflector } from '@nestjs/core';
-import type { FastifyReply } from 'fastify';
+import type { CallHandler } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { lastValueFrom, of } from 'rxjs';
+import { createHttpExecutionContext } from '../../../../test/support/http';
+import { createPrototypeStub } from '../../../../test/support/stubs';
 import { ResponseEnvelopeInterceptor } from './response-envelope.interceptor';
 
-function createContext(reply: FastifyReply): ExecutionContext {
-  return {
-    switchToHttp: () => ({
-      getResponse: () => reply,
-    }),
-    getHandler: () => ({}),
-    getClass: () => ({}),
-  } as unknown as ExecutionContext;
+function createContext(reply: object) {
+  class Controller {
+    handler(): void {}
+  }
+
+  return createHttpExecutionContext({
+    handler: Controller.prototype.handler,
+    cls: Controller,
+    request: {},
+    response: reply,
+  });
 }
 
 function createCallHandler(value: unknown): CallHandler {
@@ -22,22 +26,22 @@ function createCallHandler(value: unknown): CallHandler {
 
 describe('ResponseEnvelopeInterceptor', () => {
   it('wraps list results as { data, meta } and merges extra fields into meta (no top-level extra)', async () => {
-    const reflector = {
+    const reflector = createPrototypeStub(Reflector, {
       getAllAndOverride: () => false,
-    } as unknown as Reflector;
+    });
 
-    const reply = { statusCode: 200 } as unknown as FastifyReply;
+    const reply = { statusCode: 200 };
     const interceptor = new ResponseEnvelopeInterceptor(reflector);
 
     // JSON.parse ensures `__proto__` is an own data property (not a prototype mutation),
     // so we can validate the interceptor doesn't accidentally mutate `meta`'s prototype.
     const input = JSON.parse(
       '{"items":[{"id":1}],"limit":25,"hasMore":true,"nextCursor":"cursor-1","totalCount":123,"__proto__":{"polluted":true}}',
-    ) as unknown as Record<string, unknown>;
+    );
 
-    const result = (await lastValueFrom(
+    const result = await lastValueFrom(
       interceptor.intercept(createContext(reply), createCallHandler(input)),
-    )) as { data: unknown; meta?: Record<string, unknown> };
+    );
 
     expect(result).toMatchObject({
       data: [{ id: 1 }],
@@ -49,10 +53,11 @@ describe('ResponseEnvelopeInterceptor', () => {
       },
     });
     expect(result).not.toHaveProperty('extra');
-    const meta = result.meta;
+    const meta =
+      typeof result === 'object' && result !== null ? Reflect.get(result, 'meta') : undefined;
     expect(meta).toBeDefined();
-    if (!meta) throw new Error('Expected result.meta to be defined');
+    if (!meta || typeof meta !== 'object') throw new Error('Expected result.meta to be defined');
     expect(Object.getPrototypeOf(meta)).toBe(Object.prototype);
-    expect(meta.polluted).toBeUndefined();
+    expect(Reflect.get(meta, 'polluted')).toBeUndefined();
   });
 });

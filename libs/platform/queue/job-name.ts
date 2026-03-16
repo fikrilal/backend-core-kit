@@ -1,4 +1,5 @@
-export type JobName = string & { readonly __brand: unique symbol };
+// Runtime validation is the source of truth here; a nominal brand would require assertions.
+export type JobName = string;
 
 const JOB_NAME_PATTERN = /^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)+$/;
 
@@ -9,5 +10,5 @@ export function jobName(value: string): JobName {
       `Invalid job name "${value}". Expected: dot-separated segments using lowerCamelCase (e.g., "user.sendVerificationEmail").`,
     );
   }
-  return normalized as JobName;
+  return normalized;
 }

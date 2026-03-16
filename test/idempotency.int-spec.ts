@@ -1,20 +1,31 @@
 import { randomUUID } from 'crypto';
-import type { ConfigService } from '@nestjs/config';
-import type { FastifyRequest } from 'fastify';
 import type { AuthPrincipal } from '../libs/platform/auth/auth.types';
 import { ErrorCode } from '../libs/platform/http/errors/error-codes';
 import { ProblemException } from '../libs/platform/http/errors/problem.exception';
 import { IdempotencyService } from '../libs/platform/http/idempotency/idempotency.service';
 import { RedisService } from '../libs/platform/redis/redis.service';
+import { createConfigService } from './support/stubs';
 
 const redisUrl = process.env.REDIS_URL?.trim();
 const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 const shouldSkip = skipDepsTests || !redisUrl;
 
-function stubConfig(values: Record<string, string | undefined>): ConfigService {
-  return {
-    get: <T = unknown>(key: string): T | undefined => values[key] as unknown as T,
-  } as unknown as ConfigService;
+type RequestLike = {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  query: Record<string, unknown>;
+  body: Record<string, unknown>;
+  principal: AuthPrincipal;
+};
+
+async function beginWithRequest(
+  service: IdempotencyService,
+  req: RequestLike,
+  options: Record<string, unknown>,
+  routeName: string,
+) {
+  return await Reflect.apply(service.begin, service, [req, options, routeName]);
 }
 
 function expectProblem(err: unknown, status: number, code: string): void {
@@ -34,7 +45,7 @@ function expectProblem(err: unknown, status: number, code: string): void {
   beforeAll(async () => {
     if (!redisUrl) throw new Error('REDIS_URL must be set when IdempotencyService (int) runs');
 
-    redis = new RedisService(stubConfig({ NODE_ENV: 'test', REDIS_URL: redisUrl }));
+    redis = new RedisService(createConfigService({ NODE_ENV: 'test', REDIS_URL: redisUrl }));
     await redis.ping();
     idempotency = new IdempotencyService(redis);
   });
@@ -67,16 +78,16 @@ function expectProblem(err: unknown, status: number, code: string): void {
       query: { a: '1' },
       body: { hello: 'world' },
       principal,
-    } as unknown as FastifyRequest;
+    };
 
-    const first = await idempotency.begin(req, {}, 'Users.MePatch');
+    const first = await beginWithRequest(idempotency, req, {}, 'Users.MePatch');
     expect(first.kind).toBe('acquired');
     if (first.kind !== 'acquired') return;
     keysToCleanup.push(first.redisKey);
 
     await idempotency.complete(first.redisKey, first.requestHash, 200, { ok: true }, {}, 60);
 
-    const second = await idempotency.begin(req, {}, 'Users.MePatch');
+    const second = await beginWithRequest(idempotency, req, {}, 'Users.MePatch');
     expect(second.kind).toBe('replay');
     if (second.kind !== 'replay') return;
 
@@ -101,7 +112,7 @@ function expectProblem(err: unknown, status: number, code: string): void {
       query: {},
       body: { a: 1 },
       principal,
-    } as unknown as FastifyRequest;
+    };
 
     const reqB = {
       method: 'POST',
@@ -110,16 +121,16 @@ function expectProblem(err: unknown, status: number, code: string): void {
       query: {},
       body: { a: 2 },
       principal,
-    } as unknown as FastifyRequest;
+    };
 
-    const first = await idempotency.begin(reqA, {}, 'Users.MePatch');
+    const first = await beginWithRequest(idempotency, reqA, {}, 'Users.MePatch');
     expect(first.kind).toBe('acquired');
     if (first.kind !== 'acquired') return;
     keysToCleanup.push(first.redisKey);
 
     let err: unknown;
     try {
-      await idempotency.begin(reqB, {}, 'Users.MePatch');
+      await beginWithRequest(idempotency, reqB, {}, 'Users.MePatch');
     } catch (caught: unknown) {
       err = caught;
     }
@@ -141,14 +152,14 @@ function expectProblem(err: unknown, status: number, code: string): void {
       query: {},
       body: { hello: 'world' },
       principal,
-    } as unknown as FastifyRequest;
+    };
 
-    const first = await idempotency.begin(req, { waitMs: 500 }, 'Users.MePatch');
+    const first = await beginWithRequest(idempotency, req, { waitMs: 500 }, 'Users.MePatch');
     expect(first.kind).toBe('acquired');
     if (first.kind !== 'acquired') return;
     keysToCleanup.push(first.redisKey);
 
-    const second = await idempotency.begin(req, { waitMs: 500 }, 'Users.MePatch');
+    const second = await beginWithRequest(idempotency, req, { waitMs: 500 }, 'Users.MePatch');
     expect(second.kind).toBe('in_progress');
     if (second.kind !== 'in_progress') return;
 
@@ -183,16 +194,16 @@ function expectProblem(err: unknown, status: number, code: string): void {
       query: {},
       body: { hello: 'world' },
       principal,
-    } as unknown as FastifyRequest;
+    };
 
-    const first = await idempotency.begin(req, {}, 'Users.MePatch');
+    const first = await beginWithRequest(idempotency, req, {}, 'Users.MePatch');
     expect(first.kind).toBe('acquired');
     if (first.kind !== 'acquired') return;
     keysToCleanup.push(first.redisKey);
 
     await idempotency.complete(first.redisKey, first.requestHash, 500, { error: true }, {}, 60);
 
-    const second = await idempotency.begin(req, {}, 'Users.MePatch');
+    const second = await beginWithRequest(idempotency, req, {}, 'Users.MePatch');
     expect(second.kind).toBe('acquired');
     if (second.kind !== 'acquired') return;
 

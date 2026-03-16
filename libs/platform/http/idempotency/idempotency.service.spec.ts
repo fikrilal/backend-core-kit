@@ -1,6 +1,6 @@
-import type Redis from 'ioredis';
 import { IdempotencyService } from './idempotency.service';
-import type { RedisService } from '../../redis/redis.service';
+import { RedisService } from '../../redis/redis.service';
+import { createPrototypeStub } from '../../../../test/support/stubs';
 
 function createRedisMock(initial: Record<string, string> = {}) {
   const store = new Map<string, string>(Object.entries(initial));
@@ -9,18 +9,18 @@ function createRedisMock(initial: Record<string, string> = {}) {
     get: jest.fn(async (key: string) => store.get(key) ?? null),
     set: jest.fn(async (key: string, value: string) => {
       store.set(key, value);
-      return 'OK';
+      return 'OK' as const;
     }),
     del: jest.fn(async (key: string) => {
       store.delete(key);
       return 1;
     }),
-  } as unknown as Redis;
+  };
 
-  const redis = {
+  const redis = createPrototypeStub(RedisService, {
     isEnabled: () => true,
     getClient: () => client,
-  } as unknown as RedisService;
+  });
 
   return { redis, client, store };
 }

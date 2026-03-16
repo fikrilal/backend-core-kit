@@ -7,7 +7,7 @@ import type { LoginRateLimiter } from './ports/login-rate-limiter';
 import type { OidcIdTokenVerifier } from './ports/oidc-id-token-verifier';
 import type { PasswordHasher } from './ports/password-hasher';
 import type { Clock } from './time';
-import type { Email } from '../domain/email';
+import { normalizeEmail } from '../domain/email';
 import type { AuthUserRecord } from './auth.types';
 import { AuthSessionLifecycleService } from './auth-session-lifecycle.service';
 import { AuthPasswordAuthService } from './auth-password-auth.service';
@@ -27,7 +27,7 @@ function fixedClock(now: Date): Clock {
 function makeUser(partial?: Partial<AuthUserRecord>): AuthUserRecord {
   return {
     id: 'user-1',
-    email: 'user@example.com' as Email,
+    email: normalizeEmail('user@example.com'),
     emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
     role: 'USER',
     status: 'ACTIVE',
@@ -181,7 +181,7 @@ describe('AuthService.exchangeOidc', () => {
   });
 
   it('logs in when external identity is already linked', async () => {
-    const user = makeUser({ email: 'linked@example.com' as Email });
+    const user = makeUser({ email: normalizeEmail('linked@example.com') });
     const repo = makeRepo({
       findUserByExternalIdentity: async () => user,
     });
@@ -238,7 +238,7 @@ describe('AuthService.exchangeOidc', () => {
   it('creates a new user + external identity when email is unused', async () => {
     const created = makeUser({
       id: 'created-user-id',
-      email: 'new@example.com' as Email,
+      email: normalizeEmail('new@example.com'),
       emailVerifiedAt: now,
     });
     const repo = makeRepo({
@@ -269,7 +269,7 @@ describe('AuthService.exchangeOidc', () => {
   });
 
   it('recovers when external identity is created concurrently', async () => {
-    const linked = makeUser({ id: 'linked-id', email: 'user@example.com' as Email });
+    const linked = makeUser({ id: 'linked-id', email: normalizeEmail('user@example.com') });
     let attempts = 0;
 
     const repo = makeRepo({

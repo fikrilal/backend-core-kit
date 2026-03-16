@@ -6,7 +6,7 @@ import type { LoginRateLimiter } from './ports/login-rate-limiter';
 import type { OidcIdTokenVerifier } from './ports/oidc-id-token-verifier';
 import type { PasswordHasher } from './ports/password-hasher';
 import type { Clock } from './time';
-import type { Email } from '../domain/email';
+import { normalizeEmail } from '../domain/email';
 import type { AuthUserRecord } from './auth.types';
 import { ErrorCode } from '../../../shared/error-codes';
 import { AuthSessionLifecycleService } from './auth-session-lifecycle.service';
@@ -27,7 +27,7 @@ function fixedClock(now: Date): Clock {
 function makeUser(partial?: Partial<AuthUserRecord>): AuthUserRecord {
   return {
     id: 'user-1',
-    email: 'user@example.com' as Email,
+    email: normalizeEmail('user@example.com'),
     emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
     role: 'USER',
     status: 'ACTIVE',

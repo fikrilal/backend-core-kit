@@ -1,22 +1,35 @@
-import type { FastifyRequest } from 'fastify';
 import {
   getClientContext,
   getRequestTraceId,
   normalizeUserAgent,
 } from './request-context.decorator';
 
-function makeRequest(input: {
+type RequestLike = {
   ip?: string;
   headers?: Record<string, unknown>;
   requestId?: string;
   id?: string;
-}): FastifyRequest {
+};
+
+function makeRequest(input: RequestLike): RequestLike {
   return {
     ip: input.ip ?? '127.0.0.1',
     headers: input.headers ?? {},
     requestId: input.requestId,
     id: input.id,
-  } as unknown as FastifyRequest;
+  };
+}
+
+function readClientContext(req: RequestLike) {
+  return Reflect.apply(getClientContext, undefined, [req]);
+}
+
+function readRequestTraceId(req: RequestLike): string {
+  const traceId = Reflect.apply(getRequestTraceId, undefined, [req]);
+  if (typeof traceId !== 'string') {
+    throw new Error('Expected string trace id');
+  }
+  return traceId;
 }
 
 describe('request-context.decorator helpers', () => {
@@ -45,7 +58,7 @@ describe('request-context.decorator helpers', () => {
         headers: { 'user-agent': '  my-agent  ' },
       });
 
-      expect(getClientContext(req)).toEqual({
+      expect(readClientContext(req)).toEqual({
         ip: '10.0.0.5',
         userAgent: 'my-agent',
       });
@@ -53,7 +66,7 @@ describe('request-context.decorator helpers', () => {
 
     it('returns only ip when user-agent is missing', () => {
       const req = makeRequest({ ip: '10.0.0.6', headers: {} });
-      expect(getClientContext(req)).toEqual({ ip: '10.0.0.6' });
+      expect(readClientContext(req)).toEqual({ ip: '10.0.0.6' });
     });
   });
 
@@ -61,7 +74,7 @@ describe('request-context.decorator helpers', () => {
     it('prefers existing requestId and keeps request/id in sync', () => {
       const req = makeRequest({ requestId: 'req_existing' });
 
-      expect(getRequestTraceId(req)).toBe('req_existing');
+      expect(readRequestTraceId(req)).toBe('req_existing');
       expect(req.requestId).toBe('req_existing');
       expect(req.id).toBe('req_existing');
     });
@@ -69,7 +82,7 @@ describe('request-context.decorator helpers', () => {
     it('uses x-request-id header when requestId is absent', () => {
       const req = makeRequest({ headers: { 'x-request-id': 'req_from_header' } });
 
-      expect(getRequestTraceId(req)).toBe('req_from_header');
+      expect(readRequestTraceId(req)).toBe('req_from_header');
       expect(req.requestId).toBe('req_from_header');
       expect(req.id).toBe('req_from_header');
     });
@@ -77,7 +90,7 @@ describe('request-context.decorator helpers', () => {
     it('falls back to existing id when requestId/header are absent', () => {
       const req = makeRequest({ id: 'req_from_id' });
 
-      expect(getRequestTraceId(req)).toBe('req_from_id');
+      expect(readRequestTraceId(req)).toBe('req_from_id');
       expect(req.requestId).toBe('req_from_id');
       expect(req.id).toBe('req_from_id');
     });

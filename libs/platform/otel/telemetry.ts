@@ -51,6 +51,12 @@ function isTelemetryEnabled(nodeEnv: NodeEnv): boolean {
   return isTelemetryEnabledForEnv(nodeEnv, process.env.OTEL_EXPORTER_OTLP_ENDPOINT);
 }
 
+function getRequestPath(req: object): string | undefined {
+  const url = Reflect.get(req, 'url');
+  if (typeof url !== 'string' || url.trim() === '') return undefined;
+  return url.split('?')[0];
+}
+
 export async function initTelemetry(role: TelemetryRole): Promise<TelemetryController> {
   const nodeEnv = getNodeEnv();
   if (!isTelemetryEnabled(nodeEnv)) {
@@ -90,9 +96,8 @@ export async function initTelemetry(role: TelemetryRole): Promise<TelemetryContr
       getNodeAutoInstrumentations({
         '@opentelemetry/instrumentation-http': {
           ignoreIncomingRequestHook: (req) => {
-            const url = (req as { url?: unknown }).url;
-            if (typeof url !== 'string' || url.trim() === '') return false;
-            const path = url.split('?')[0];
+            const path = getRequestPath(req);
+            if (!path) return false;
             return path === '/health' || path === '/ready';
           },
         },

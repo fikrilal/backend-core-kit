@@ -1,13 +1,10 @@
-import type { ObjectStorageService } from '../../../../platform/storage/object-storage.service';
+import { ObjectStorageService } from '../../../../platform/storage/object-storage.service';
 import { UsersProfileImageStorageAdapter } from './users-profile-image-storage.adapter';
-
-function asObjectStorageService(storage: Partial<ObjectStorageService>): ObjectStorageService {
-  return storage as ObjectStorageService;
-}
+import { createPrototypeStub } from '../../../../../test/support/stubs';
 
 describe('UsersProfileImageStorageAdapter', () => {
   it('delegates isEnabled and getBucketName', () => {
-    const storage = asObjectStorageService({
+    const storage = createPrototypeStub(ObjectStorageService, {
       isEnabled: () => true,
       getBucketName: () => 'bucket-1',
     });
@@ -18,7 +15,7 @@ describe('UsersProfileImageStorageAdapter', () => {
   });
 
   it('delegates presign and object operations', async () => {
-    const storage = asObjectStorageService({
+    const storage = createPrototypeStub(ObjectStorageService, {
       presignPutObject: async () => ({
         method: 'PUT',
         url: 'https://example.com/upload',

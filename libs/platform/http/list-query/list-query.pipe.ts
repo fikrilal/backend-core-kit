@@ -21,6 +21,14 @@ export type ListQueryPipeOptions<SortField extends string, FilterField extends s
   filters?: FilterAllowlist<FilterField>;
 }>;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function asRecordOrEmpty(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
+
 @Injectable()
 export class ListQueryPipe<
   SortField extends string,
@@ -29,7 +37,7 @@ export class ListQueryPipe<
   constructor(private readonly options: ListQueryPipeOptions<SortField, FilterField>) {}
 
   transform(value: unknown): ListQuery<SortField, FilterField> {
-    const dto = plainToInstance(CursorPaginationQueryDto, (value ?? {}) as Record<string, unknown>);
+    const dto = plainToInstance(CursorPaginationQueryDto, asRecordOrEmpty(value));
     const errors = validateSync(dto, {
       whitelist: true,
       forbidNonWhitelisted: true,

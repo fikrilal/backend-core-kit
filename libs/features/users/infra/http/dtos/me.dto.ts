@@ -19,6 +19,16 @@ import { AUTH_METHOD_VALUES } from '../../../../../shared/auth/auth-method';
 
 const MAX_PROFILE_FIELD_LENGTH = 100;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getConstraintFields(args: ValidationArguments): ReadonlyArray<string> {
+  const [fields] = args.constraints;
+  if (!Array.isArray(fields)) return [];
+  return fields.filter((field): field is string => typeof field === 'string');
+}
+
 function AtLeastOneDefined(fields: ReadonlyArray<string>, validationOptions?: ValidationOptions) {
   return (target: object, propertyName: string) => {
     registerDecorator({
@@ -29,13 +39,13 @@ function AtLeastOneDefined(fields: ReadonlyArray<string>, validationOptions?: Va
       options: validationOptions,
       validator: {
         validate(value: unknown, args: ValidationArguments): boolean {
-          const keys = args.constraints[0] as ReadonlyArray<string>;
+          const keys = getConstraintFields(args);
           if (value === null || typeof value !== 'object') return false;
-          const obj = value as Record<string, unknown>;
+          const obj = isRecord(value) ? value : {};
           return keys.some((k) => obj[k] !== undefined);
         },
         defaultMessage(args: ValidationArguments): string {
-          const keys = args.constraints[0] as ReadonlyArray<string>;
+          const keys = getConstraintFields(args);
           return `At least one of ${keys.join(', ')} must be provided`;
         },
       },

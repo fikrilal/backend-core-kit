@@ -1,20 +1,17 @@
 import { FilePurpose, FileStatus } from '@prisma/client';
-import type { Job } from 'bullmq';
-import type { PrismaService } from '../../../../libs/platform/db/prisma.service';
-import type { ObjectStorageService } from '../../../../libs/platform/storage/object-storage.service';
-import type {
-  UsersProfileImageDeleteStoredFileJobData,
-  UsersProfileImageExpireUploadJobData,
-} from '../../../../libs/features/users/infra/jobs/profile-image-cleanup.job';
+import { Job } from 'bullmq';
+import { PrismaService } from '../../../../libs/platform/db/prisma.service';
+import { ObjectStorageService } from '../../../../libs/platform/storage/object-storage.service';
 import {
   runDeleteProfileImageStoredFile,
   runExpireProfileImageUpload,
 } from './users-account-deletion.handlers';
+import { createPrototypeStub } from '../../../../test/support/stubs';
 
 describe('users-account-deletion.handlers', () => {
   it('skips stored-file delete when storage is disabled', async () => {
     const updateMany = jest.fn(async () => ({ count: 1 }));
-    const prisma = {
+    const prisma = createPrototypeStub(PrismaService, {
       getClient: () => ({
         storedFile: {
           findFirst: async () => ({
@@ -26,16 +23,16 @@ describe('users-account-deletion.handlers', () => {
           updateMany,
         },
       }),
-    } as unknown as PrismaService;
+    });
 
-    const storage = {
+    const storage = createPrototypeStub(ObjectStorageService, {
       isEnabled: () => false,
       deleteObject: jest.fn(async () => undefined),
-    } as unknown as ObjectStorageService;
+    });
 
-    const job = {
+    const job = createPrototypeStub(Job, {
       data: { fileId: 'file-1', ownerUserId: 'user-1', enqueuedAt: '2026-01-01T00:00:00.000Z' },
-    } as Job<UsersProfileImageDeleteStoredFileJobData>;
+    });
 
     const result = await runDeleteProfileImageStoredFile(prisma, storage, job, new Date());
     expect(result).toEqual({
@@ -49,7 +46,7 @@ describe('users-account-deletion.handlers', () => {
 
   it('expires uploading file and reports storage_not_configured when storage is disabled', async () => {
     const updateMany = jest.fn(async () => ({ count: 1 }));
-    const prisma = {
+    const prisma = createPrototypeStub(PrismaService, {
       getClient: () => ({
         storedFile: {
           findFirst: async () => ({
@@ -61,21 +58,21 @@ describe('users-account-deletion.handlers', () => {
           updateMany,
         },
       }),
-    } as unknown as PrismaService;
+    });
 
-    const storage = {
+    const storage = createPrototypeStub(ObjectStorageService, {
       isEnabled: () => false,
       deleteObject: jest.fn(async () => undefined),
-    } as unknown as ObjectStorageService;
+    });
 
-    const job = {
+    const job = createPrototypeStub(Job, {
       data: {
         fileId: 'file-2',
         ownerUserId: 'user-2',
         enqueuedAt: '2026-01-01T00:00:00.000Z',
         expiresAt: '2026-01-01T01:00:00.000Z',
       },
-    } as Job<UsersProfileImageExpireUploadJobData>;
+    });
 
     const result = await runExpireProfileImageUpload(prisma, storage, job, new Date());
     expect(result).toEqual({

@@ -3,10 +3,33 @@ import request from 'supertest';
 import { UserRole, UserStatus } from '@prisma/client';
 import {
   describeAuthE2eSuite,
+  getBodyData,
+  getBodyDataArray,
+  getObjectField,
+  isObject,
   getSessionIdFromAccessToken,
+  getStringField,
   type AuthE2eHarness,
   uniqueEmail,
 } from './auth-e2e.harness';
+
+function getAuthResponse(body: unknown) {
+  const data = getBodyData(body);
+  return {
+    data,
+    user: getObjectField(data, 'user'),
+    accessToken: getStringField(data, 'accessToken'),
+    refreshToken: getStringField(data, 'refreshToken'),
+  };
+}
+
+function getBodyMeta(body: unknown) {
+  if (!isObject(body)) {
+    throw new Error('Expected response body object');
+  }
+
+  return getObjectField(body, 'meta');
+}
 
 describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
   let baseUrl = '';
@@ -25,11 +48,7 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
       .send({ email, password })
       .expect(200);
 
-    const reg = registerRes.body.data as {
-      user: { id: string; email: string; emailVerified: boolean };
-      accessToken: string;
-      refreshToken: string;
-    };
+    const reg = getAuthResponse(registerRes.body);
 
     const forbidden = await request(baseUrl)
       .get('/v1/admin/whoami')
@@ -39,7 +58,10 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
     expect(forbidden.headers['content-type']).toContain('application/problem+json');
     expect(forbidden.body).toMatchObject({ code: 'FORBIDDEN', status: 403 });
 
-    await prisma.user.update({ where: { id: reg.user.id }, data: { role: UserRole.ADMIN } });
+    await prisma.user.update({
+      where: { id: getStringField(reg.user, 'id') },
+      data: { role: UserRole.ADMIN },
+    });
 
     const whoami = await request(baseUrl)
       .get('/v1/admin/whoami')
@@ -47,7 +69,7 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
       .expect(200);
 
     expect(whoami.body.data).toMatchObject({
-      userId: reg.user.id,
+      userId: getStringField(reg.user, 'id'),
       emailVerified: false,
       roles: ['ADMIN'],
     });
@@ -63,20 +85,22 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
       .send({ email, password })
       .expect(200);
 
-    const reg = registerRes.body.data as {
-      user: { id: string; email: string; emailVerified: boolean };
-      accessToken: string;
-      refreshToken: string;
-    };
+    const reg = getAuthResponse(registerRes.body);
 
-    await prisma.user.update({ where: { id: reg.user.id }, data: { role: UserRole.ADMIN } });
+    await prisma.user.update({
+      where: { id: getStringField(reg.user, 'id') },
+      data: { role: UserRole.ADMIN },
+    });
 
     await request(baseUrl)
       .get('/v1/admin/whoami')
       .set('Authorization', `Bearer ${reg.accessToken}`)
       .expect(200);
 
-    await prisma.user.update({ where: { id: reg.user.id }, data: { role: UserRole.USER } });
+    await prisma.user.update({
+      where: { id: getStringField(reg.user, 'id') },
+      data: { role: UserRole.USER },
+    });
 
     const forbidden = await request(baseUrl)
       .get('/v1/admin/whoami')
@@ -96,11 +120,7 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
       .send({ email: `admin-users+${runId}@example.com`, password })
       .expect(200);
 
-    const adminReg = adminRegisterRes.body.data as {
-      user: { id: string; email: string; emailVerified: boolean };
-      accessToken: string;
-      refreshToken: string;
-    };
+    const adminReg = getAuthResponse(adminRegisterRes.body);
 
     const forbidden = await request(baseUrl)
       .get('/v1/admin/users')
@@ -124,17 +144,18 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
         .expect(200);
     }
 
-    await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
+    await prisma.user.update({
+      where: { id: getStringField(adminReg.user, 'id') },
+      data: { role: UserRole.ADMIN },
+    });
 
     const refreshRes = await request(baseUrl)
       .post('/v1/auth/refresh')
       .send({ refreshToken: adminReg.refreshToken })
       .expect(200);
 
-    const refreshed = refreshRes.body.data as {
-      accessToken: string;
-      refreshToken: string;
-    };
+    const refreshed = getBodyData(refreshRes.body);
+    const refreshedAccessToken = getStringField(refreshed, 'accessToken');
 
     const listUrlPage1 = `/v1/admin/users?limit=2&sort=email&q=${encodeURIComponent(
       prefix,
@@ -142,7 +163,7 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
 
     const page1 = await request(baseUrl)
       .get(listUrlPage1)
-      .set('Authorization', `Bearer ${refreshed.accessToken}`)
+      .set('Authorization', `Bearer ${refreshedAccessToken}`)
       .expect(200);
 
     expect(Array.isArray(page1.body.data)).toBe(true);
@@ -150,25 +171,19 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
     expect(page1.body.meta).toMatchObject({ limit: 2, hasMore: true });
     expect(typeof page1.body.meta.nextCursor).toBe('string');
 
-    for (const u of page1.body.data as Array<{
-      id: string;
-      email: string;
-      emailVerified: boolean;
-      roles: string[];
-      createdAt: string;
-    }>) {
-      expect(u.email).toContain(prefix);
-      expect(u.emailVerified).toBe(false);
-      expect(u.roles).toEqual(['USER']);
-      expect(typeof u.createdAt).toBe('string');
+    for (const user of getBodyDataArray(page1.body)) {
+      expect(getStringField(user, 'email')).toContain(prefix);
+      expect(user.emailVerified).toBe(false);
+      expect(user.roles).toEqual(['USER']);
+      expect(typeof user.createdAt).toBe('string');
     }
 
-    const nextCursor = page1.body.meta.nextCursor as string;
+    const nextCursor = getStringField(getBodyMeta(page1.body), 'nextCursor');
     const listUrlPage2 = `${listUrlPage1}&cursor=${encodeURIComponent(nextCursor)}`;
 
     const page2 = await request(baseUrl)
       .get(listUrlPage2)
-      .set('Authorization', `Bearer ${refreshed.accessToken}`)
+      .set('Authorization', `Bearer ${refreshedAccessToken}`)
       .expect(200);
 
     expect(Array.isArray(page2.body.data)).toBe(true);
@@ -176,9 +191,15 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
     expect(page2.body.meta).toMatchObject({ limit: 2, hasMore: false });
     expect(page2.body.meta.nextCursor).toBeUndefined();
 
-    const emails = (page1.body.data as Array<{ email: string }>).map((u) => u.email);
+    const emails = getBodyDataArray(page1.body).map((user) => getStringField(user, 'email'));
     expect(emails).toEqual([userEmails[0], userEmails[1]]);
-    expect((page2.body.data as Array<{ email: string }>)[0].email).toBe(userEmails[2]);
+    const page2Users = getBodyDataArray(page2.body);
+    const firstPage2User = page2Users[0];
+    expect(firstPage2User).toBeDefined();
+    if (!firstPage2User) {
+      throw new Error('Expected page2 user');
+    }
+    expect(getStringField(firstPage2User, 'email')).toBe(userEmails[2]);
   });
 
   it('PATCH /v1/admin/users/:userId/role updates roles and blocks last-admin demotion', async () => {
@@ -190,34 +211,32 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
       .send({ email: `admin-role+${runId}@example.com`, password })
       .expect(200);
 
-    const adminReg = adminRegisterRes.body.data as {
-      user: { id: string; email: string; emailVerified: boolean };
-      accessToken: string;
-      refreshToken: string;
-    };
+    const adminReg = getAuthResponse(adminRegisterRes.body);
 
     const userRegisterRes = await request(baseUrl)
       .post('/v1/auth/password/register')
       .send({ email: `user-role+${runId}@example.com`, password })
       .expect(200);
 
-    const userReg = userRegisterRes.body.data as {
-      user: { id: string; email: string; emailVerified: boolean };
-      accessToken: string;
-      refreshToken: string;
-    };
+    const userReg = getAuthResponse(userRegisterRes.body);
 
-    await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
+    await prisma.user.update({
+      where: { id: getStringField(adminReg.user, 'id') },
+      data: { role: UserRole.ADMIN },
+    });
 
     const promoteTraceId = randomUUID();
     const promoted = await request(baseUrl)
-      .patch(`/v1/admin/users/${userReg.user.id}/role`)
+      .patch(`/v1/admin/users/${getStringField(userReg.user, 'id')}/role`)
       .set('Authorization', `Bearer ${adminReg.accessToken}`)
       .set('X-Request-Id', promoteTraceId)
       .send({ role: 'ADMIN' })
       .expect(200);
 
-    expect(promoted.body.data).toMatchObject({ id: userReg.user.id, roles: ['ADMIN'] });
+    expect(promoted.body.data).toMatchObject({
+      id: getStringField(userReg.user, 'id'),
+      roles: ['ADMIN'],
+    });
 
     expect(promoted.headers['x-request-id']).toBe(promoteTraceId);
 
@@ -226,9 +245,9 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
     });
 
     expect(promoteAudit).toMatchObject({
-      actorUserId: adminReg.user.id,
+      actorUserId: getStringField(adminReg.user, 'id'),
       actorSessionId: expect.any(String),
-      targetUserId: userReg.user.id,
+      targetUserId: getStringField(userReg.user, 'id'),
       oldRole: UserRole.USER,
       newRole: UserRole.ADMIN,
       traceId: promoteTraceId,
@@ -241,13 +260,16 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
 
     const selfDemoteTraceId = randomUUID();
     const selfDemoted = await request(baseUrl)
-      .patch(`/v1/admin/users/${adminReg.user.id}/role`)
+      .patch(`/v1/admin/users/${getStringField(adminReg.user, 'id')}/role`)
       .set('Authorization', `Bearer ${adminReg.accessToken}`)
       .set('X-Request-Id', selfDemoteTraceId)
       .send({ role: 'USER' })
       .expect(200);
 
-    expect(selfDemoted.body.data).toMatchObject({ id: adminReg.user.id, roles: ['USER'] });
+    expect(selfDemoted.body.data).toMatchObject({
+      id: getStringField(adminReg.user, 'id'),
+      roles: ['USER'],
+    });
 
     expect(selfDemoted.headers['x-request-id']).toBe(selfDemoteTraceId);
 
@@ -256,9 +278,9 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
     });
 
     expect(selfDemoteAudit).toMatchObject({
-      actorUserId: adminReg.user.id,
+      actorUserId: getStringField(adminReg.user, 'id'),
       actorSessionId: expect.any(String),
-      targetUserId: adminReg.user.id,
+      targetUserId: getStringField(adminReg.user, 'id'),
       oldRole: UserRole.ADMIN,
       newRole: UserRole.USER,
       traceId: selfDemoteTraceId,
@@ -278,13 +300,13 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
       .expect(200);
 
     await prisma.user.updateMany({
-      where: { role: UserRole.ADMIN, id: { not: userReg.user.id } },
+      where: { role: UserRole.ADMIN, id: { not: getStringField(userReg.user, 'id') } },
       data: { role: UserRole.USER },
     });
 
     const lastAdminTraceId = randomUUID();
     const lastAdminBlocked = await request(baseUrl)
-      .patch(`/v1/admin/users/${userReg.user.id}/role`)
+      .patch(`/v1/admin/users/${getStringField(userReg.user, 'id')}/role`)
       .set('Authorization', `Bearer ${userReg.accessToken}`)
       .set('X-Request-Id', lastAdminTraceId)
       .send({ role: 'USER' })
@@ -313,27 +335,22 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
       .send({ email: `admin-status+${runId}@example.com`, password })
       .expect(200);
 
-    const adminReg = adminRegisterRes.body.data as {
-      user: { id: string; email: string; emailVerified: boolean };
-      accessToken: string;
-      refreshToken: string;
-    };
+    const adminReg = getAuthResponse(adminRegisterRes.body);
 
     const userRegisterRes = await request(baseUrl)
       .post('/v1/auth/password/register')
       .send({ email: `user-status+${runId}@example.com`, password })
       .expect(200);
 
-    const userReg = userRegisterRes.body.data as {
-      user: { id: string; email: string; emailVerified: boolean };
-      accessToken: string;
-      refreshToken: string;
-    };
+    const userReg = getAuthResponse(userRegisterRes.body);
 
-    await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
+    await prisma.user.update({
+      where: { id: getStringField(adminReg.user, 'id') },
+      data: { role: UserRole.ADMIN },
+    });
 
     await request(baseUrl)
-      .patch(`/v1/admin/users/${userReg.user.id}/role`)
+      .patch(`/v1/admin/users/${getStringField(userReg.user, 'id')}/role`)
       .set('Authorization', `Bearer ${adminReg.accessToken}`)
       .send({ role: 'ADMIN' })
       .expect(200);
@@ -345,14 +362,14 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
 
     const suspendTraceId = randomUUID();
     const suspended = await request(baseUrl)
-      .patch(`/v1/admin/users/${userReg.user.id}/status`)
+      .patch(`/v1/admin/users/${getStringField(userReg.user, 'id')}/status`)
       .set('Authorization', `Bearer ${adminReg.accessToken}`)
       .set('X-Request-Id', suspendTraceId)
       .send({ status: 'SUSPENDED', reason: 'Abuse detected' })
       .expect(200);
 
     expect(suspended.body.data).toMatchObject({
-      id: userReg.user.id,
+      id: getStringField(userReg.user, 'id'),
       status: 'SUSPENDED',
       suspendedReason: 'Abuse detected',
     });
@@ -364,9 +381,9 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
     });
 
     expect(suspendAudit).toMatchObject({
-      actorUserId: adminReg.user.id,
+      actorUserId: getStringField(adminReg.user, 'id'),
       actorSessionId: expect.any(String),
-      targetUserId: userReg.user.id,
+      targetUserId: getStringField(userReg.user, 'id'),
       oldStatus: UserStatus.ACTIVE,
       newStatus: UserStatus.SUSPENDED,
       reason: 'Abuse detected',
@@ -383,7 +400,7 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
 
     const loginBlocked = await request(baseUrl)
       .post('/v1/auth/password/login')
-      .send({ email: userReg.user.email, password })
+      .send({ email: getStringField(userReg.user, 'email'), password })
       .expect(403);
 
     expect(loginBlocked.headers['content-type']).toContain('application/problem+json');
@@ -399,29 +416,32 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
 
     const unsuspendTraceId = randomUUID();
     const unsuspended = await request(baseUrl)
-      .patch(`/v1/admin/users/${userReg.user.id}/status`)
+      .patch(`/v1/admin/users/${getStringField(userReg.user, 'id')}/status`)
       .set('Authorization', `Bearer ${adminReg.accessToken}`)
       .set('X-Request-Id', unsuspendTraceId)
       .send({ status: 'ACTIVE' })
       .expect(200);
 
-    expect(unsuspended.body.data).toMatchObject({ id: userReg.user.id, status: 'ACTIVE' });
+    expect(unsuspended.body.data).toMatchObject({
+      id: getStringField(userReg.user, 'id'),
+      status: 'ACTIVE',
+    });
 
     const backToAdmin = await request(baseUrl)
       .get('/v1/admin/whoami')
       .set('Authorization', `Bearer ${userReg.accessToken}`)
       .expect(200);
 
-    expect(backToAdmin.body.data).toMatchObject({ userId: userReg.user.id });
+    expect(backToAdmin.body.data).toMatchObject({ userId: getStringField(userReg.user, 'id') });
 
     await prisma.user.updateMany({
-      where: { role: UserRole.ADMIN, id: { not: adminReg.user.id } },
+      where: { role: UserRole.ADMIN, id: { not: getStringField(adminReg.user, 'id') } },
       data: { role: UserRole.USER },
     });
 
     const lastAdminTraceId = randomUUID();
     const lastAdminBlocked = await request(baseUrl)
-      .patch(`/v1/admin/users/${adminReg.user.id}/status`)
+      .patch(`/v1/admin/users/${getStringField(adminReg.user, 'id')}/status`)
       .set('Authorization', `Bearer ${adminReg.accessToken}`)
       .set('X-Request-Id', lastAdminTraceId)
       .send({ status: 'SUSPENDED' })
@@ -454,11 +474,11 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
       .send({ email, password })
       .expect(200);
 
-    const reg = registerRes.body.data as { accessToken: string };
+    const reg = getBodyData(registerRes.body);
 
     const res = await request(baseUrl)
       .get('/v1/admin/audit/user-role-changes')
-      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Authorization', `Bearer ${getStringField(reg, 'accessToken')}`)
       .expect(403);
 
     expect(res.headers['content-type']).toContain('application/problem+json');
@@ -474,25 +494,24 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
       .send({ email: `admin-audit+${runId}@example.com`, password })
       .expect(200);
 
-    const adminReg = adminRegisterRes.body.data as {
-      user: { id: string };
-      accessToken: string;
-    };
+    const adminReg = getAuthResponse(adminRegisterRes.body);
 
     const userRegisterRes = await request(baseUrl)
       .post('/v1/auth/password/register')
       .send({ email: `user-audit+${runId}@example.com`, password })
       .expect(200);
 
-    const userReg = userRegisterRes.body.data as {
-      user: { id: string };
-    };
+    const userReg = getBodyData(userRegisterRes.body);
+    const userId = getStringField(getObjectField(userReg, 'user'), 'id');
 
-    await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
+    await prisma.user.update({
+      where: { id: getStringField(adminReg.user, 'id') },
+      data: { role: UserRole.ADMIN },
+    });
 
     const traceId = randomUUID();
     await request(baseUrl)
-      .patch(`/v1/admin/users/${userReg.user.id}/role`)
+      .patch(`/v1/admin/users/${userId}/role`)
       .set('Authorization', `Bearer ${adminReg.accessToken}`)
       .set('X-Request-Id', traceId)
       .send({ role: 'ADMIN' })
@@ -508,11 +527,11 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
     expect(listRes.body.meta).toMatchObject({ limit: 25, hasMore: false });
     expect(listRes.body.meta.nextCursor).toBeUndefined();
 
-    const item = (listRes.body.data as Array<Record<string, unknown>>)[0];
+    const item = getBodyDataArray(listRes.body)[0] ?? {};
     expect(item).toMatchObject({
-      actorUserId: adminReg.user.id,
+      actorUserId: getStringField(adminReg.user, 'id'),
       actorSessionId: getSessionIdFromAccessToken(adminReg.accessToken),
-      targetUserId: userReg.user.id,
+      targetUserId: userId,
       oldRole: 'USER',
       newRole: 'ADMIN',
       traceId,
@@ -530,22 +549,19 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
       .send({ email: `admin-audit-del+${runId}@example.com`, password })
       .expect(200);
 
-    const adminReg = adminRegisterRes.body.data as {
-      user: { id: string };
-      accessToken: string;
-    };
+    const adminReg = getAuthResponse(adminRegisterRes.body);
 
     const userRegisterRes = await request(baseUrl)
       .post('/v1/auth/password/register')
       .send({ email: `user-audit-del+${runId}@example.com`, password })
       .expect(200);
 
-    const userReg = userRegisterRes.body.data as {
-      user: { id: string };
-      accessToken: string;
-    };
+    const userReg = getAuthResponse(userRegisterRes.body);
 
-    await prisma.user.update({ where: { id: adminReg.user.id }, data: { role: UserRole.ADMIN } });
+    await prisma.user.update({
+      where: { id: getStringField(adminReg.user, 'id') },
+      data: { role: UserRole.ADMIN },
+    });
 
     const traceId = randomUUID();
     await request(baseUrl)
@@ -566,11 +582,11 @@ describeAuthE2eSuite('Auth Admin (e2e)', (harness) => {
     expect(listRes.body.meta).toMatchObject({ limit: 25, hasMore: false });
     expect(listRes.body.meta.nextCursor).toBeUndefined();
 
-    const item = (listRes.body.data as Array<Record<string, unknown>>)[0];
+    const item = getBodyDataArray(listRes.body)[0] ?? {};
     expect(item).toMatchObject({
-      actorUserId: userReg.user.id,
+      actorUserId: getStringField(userReg.user, 'id'),
       actorSessionId: getSessionIdFromAccessToken(userReg.accessToken),
-      targetUserId: userReg.user.id,
+      targetUserId: getStringField(userReg.user, 'id'),
       action: 'REQUESTED',
       traceId,
     });

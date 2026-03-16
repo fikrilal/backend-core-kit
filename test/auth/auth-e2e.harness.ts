@@ -48,6 +48,55 @@ export function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+export function getBodyData(body: unknown): Record<string, unknown> {
+  if (!isObject(body)) {
+    throw new Error('Expected response body object');
+  }
+  const data = body.data;
+  if (!isObject(data)) {
+    throw new Error('Expected response body.data object');
+  }
+  return data;
+}
+
+export function getBodyDataArray(body: unknown): ReadonlyArray<Record<string, unknown>> {
+  if (!isObject(body)) {
+    throw new Error('Expected response body object');
+  }
+  const data = body.data;
+  if (!Array.isArray(data)) {
+    throw new Error('Expected response body.data array');
+  }
+  return data.filter(isObject);
+}
+
+export function getObjectField(
+  value: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> {
+  const field = value[key];
+  if (!isObject(field)) {
+    throw new Error(`Expected object field "${key}"`);
+  }
+  return field;
+}
+
+export function getStringField(value: Record<string, unknown>, key: string): string {
+  const field = value[key];
+  if (typeof field !== 'string' || field.trim() === '') {
+    throw new Error(`Expected string field "${key}"`);
+  }
+  return field;
+}
+
+export function getStringArrayField(value: Record<string, unknown>, key: string): string[] {
+  const field = value[key];
+  if (!Array.isArray(field) || field.some((item) => typeof item !== 'string')) {
+    throw new Error(`Expected string[] field "${key}"`);
+  }
+  return [...field];
+}
+
 function isNotFoundError(err: unknown): boolean {
   if (!isObject(err)) return false;
 
@@ -88,7 +137,7 @@ export function getSessionIdFromAccessToken(token: string): string {
   }
 
   const payloadJson = Buffer.from(payloadSegment, 'base64url').toString('utf8');
-  const parsed: unknown = JSON.parse(payloadJson) as unknown;
+  const parsed: unknown = JSON.parse(payloadJson);
   if (!isObject(parsed)) {
     throw new Error('Access token payload is not an object');
   }

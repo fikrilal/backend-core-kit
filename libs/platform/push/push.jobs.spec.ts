@@ -1,20 +1,21 @@
-import type { QueueProducer } from '../queue/queue.producer';
+import { QueueProducer } from '../queue/queue.producer';
 import type { PushService } from './push.service';
 import { PUSH_QUEUE, PUSH_SEND_JOB } from './push.job';
 import { PushJobs } from './push.jobs';
+import { createPrototypeStub } from '../../../test/support/stubs';
 
 describe('PushJobs', () => {
   it('is disabled when queue is disabled', () => {
-    const queue = { isEnabled: () => false } as unknown as QueueProducer;
-    const push = { isEnabled: () => true } as unknown as PushService;
+    const queue = createPrototypeStub(QueueProducer, { isEnabled: () => false });
+    const push: PushService = { isEnabled: () => true, sendToToken: jest.fn() };
 
     const jobs = new PushJobs(queue, push);
     expect(jobs.isEnabled()).toBe(false);
   });
 
   it('is disabled when push provider is disabled', () => {
-    const queue = { isEnabled: () => true } as unknown as QueueProducer;
-    const push = { isEnabled: () => false } as unknown as PushService;
+    const queue = createPrototypeStub(QueueProducer, { isEnabled: () => true });
+    const push: PushService = { isEnabled: () => false, sendToToken: jest.fn() };
 
     const jobs = new PushJobs(queue, push);
     expect(jobs.isEnabled()).toBe(false);
@@ -22,12 +23,12 @@ describe('PushJobs', () => {
 
   it('enqueues push.send when enabled', async () => {
     const enqueueMock = jest.fn().mockResolvedValue({ id: 'job-1' });
-    const queue = {
+    const queue = createPrototypeStub(QueueProducer, {
       isEnabled: () => true,
       enqueue: (...args: unknown[]) => enqueueMock(...args),
-    } as unknown as QueueProducer;
+    });
 
-    const push = { isEnabled: () => true } as unknown as PushService;
+    const push: PushService = { isEnabled: () => true, sendToToken: jest.fn() };
 
     const jobs = new PushJobs(queue, push);
 
@@ -52,12 +53,12 @@ describe('PushJobs', () => {
 
   it('does not enqueue when disabled', async () => {
     const enqueueMock = jest.fn();
-    const queue = {
+    const queue = createPrototypeStub(QueueProducer, {
       isEnabled: () => false,
       enqueue: (...args: unknown[]) => enqueueMock(...args),
-    } as unknown as QueueProducer;
+    });
 
-    const push = { isEnabled: () => true } as unknown as PushService;
+    const push: PushService = { isEnabled: () => true, sendToToken: jest.fn() };
 
     const jobs = new PushJobs(queue, push);
     const ok = await jobs.enqueueSendToSession({ sessionId: 'session-1' });

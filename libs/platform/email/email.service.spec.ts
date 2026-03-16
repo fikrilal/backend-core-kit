@@ -1,7 +1,7 @@
-import type { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import { EmailService } from './email.service';
 import { EmailSendError } from './email.types';
+import { createConfigService } from '../../../test/support/stubs';
 
 const sendMock = jest.fn();
 
@@ -15,26 +15,20 @@ jest.mock('resend', () => {
   };
 });
 
-function stubConfig(values: Record<string, string | undefined>): ConfigService {
-  return {
-    get: <T = unknown>(key: string): T | undefined => values[key] as unknown as T,
-  } as unknown as ConfigService;
-}
-
 describe('EmailService (Resend)', () => {
   beforeEach(() => {
     sendMock.mockReset();
     sendMock.mockResolvedValue({ data: { id: 'email-id' }, error: null });
-    (Resend as unknown as jest.Mock).mockClear();
+    jest.mocked(Resend).mockClear();
   });
 
   it('is disabled when RESEND_API_KEY/EMAIL_FROM are missing', () => {
-    const svc = new EmailService(stubConfig({}));
+    const svc = new EmailService(createConfigService({}));
     expect(svc.isEnabled()).toBe(false);
   });
 
   it('throws when sending without config', async () => {
-    const svc = new EmailService(stubConfig({}));
+    const svc = new EmailService(createConfigService({}));
     await expect(
       svc.send({ to: 'user@example.com', subject: 'Hello', text: 'Hi' }),
     ).rejects.toBeInstanceOf(EmailSendError);
@@ -42,15 +36,14 @@ describe('EmailService (Resend)', () => {
 
   it('sends via Resend when configured', async () => {
     const svc = new EmailService(
-      stubConfig({ RESEND_API_KEY: 're_test', EMAIL_FROM: 'onboarding@example.com' }),
+      createConfigService({ RESEND_API_KEY: 're_test', EMAIL_FROM: 'onboarding@example.com' }),
     );
     expect(svc.isEnabled()).toBe(true);
 
     const result = await svc.send({ to: 'user@example.com', subject: 'Hello', text: 'Hi' });
     expect(result).toEqual({ id: 'email-id' });
 
-    const ResendMock = Resend as unknown as jest.Mock;
-    expect(ResendMock).toHaveBeenCalledWith('re_test');
+    expect(jest.mocked(Resend)).toHaveBeenCalledWith('re_test');
 
     expect(sendMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -64,7 +57,7 @@ describe('EmailService (Resend)', () => {
 
   it('throws when subject is empty', async () => {
     const svc = new EmailService(
-      stubConfig({ RESEND_API_KEY: 're_test', EMAIL_FROM: 'onboarding@example.com' }),
+      createConfigService({ RESEND_API_KEY: 're_test', EMAIL_FROM: 'onboarding@example.com' }),
     );
     await expect(
       svc.send({ to: 'user@example.com', subject: '   ', text: 'Hi' }),
@@ -73,7 +66,7 @@ describe('EmailService (Resend)', () => {
 
   it('supports html-only emails', async () => {
     const svc = new EmailService(
-      stubConfig({ RESEND_API_KEY: 're_test', EMAIL_FROM: 'onboarding@example.com' }),
+      createConfigService({ RESEND_API_KEY: 're_test', EMAIL_FROM: 'onboarding@example.com' }),
     );
     const result = await svc.send({
       to: 'user@example.com',
@@ -82,7 +75,10 @@ describe('EmailService (Resend)', () => {
     });
     expect(result).toEqual({ id: 'email-id' });
 
-    const sent = sendMock.mock.calls[0]?.[0] as unknown;
+    const sent = sendMock.mock.calls[0]?.[0];
+    if (!sent || typeof sent !== 'object') {
+      throw new Error('Expected sent email payload');
+    }
     expect(sent).toMatchObject({
       to: 'user@example.com',
       subject: 'Hello',
@@ -98,7 +94,7 @@ describe('EmailService (Resend)', () => {
     });
 
     const svc = new EmailService(
-      stubConfig({ RESEND_API_KEY: 're_test', EMAIL_FROM: 'onboarding@example.com' }),
+      createConfigService({ RESEND_API_KEY: 're_test', EMAIL_FROM: 'onboarding@example.com' }),
     );
     await expect(
       svc.send({ to: 'user@example.com', subject: 'Hello', text: 'Hi' }),

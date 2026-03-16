@@ -1,16 +1,10 @@
 import { HttpException } from '@nestjs/common';
-import type { ArgumentsHost } from '@nestjs/common';
-import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ErrorCode } from '../errors/error-codes';
+import { createHttpArgumentsHost } from '../../../../test/support/http';
 import { ProblemDetailsFilter } from './problem-details.filter';
 
-function hostFor(req: FastifyRequest, reply: FastifyReply): ArgumentsHost {
-  return {
-    switchToHttp: () => ({
-      getRequest: () => req,
-      getResponse: () => reply,
-    }),
-  } as unknown as ArgumentsHost;
+function hostFor(req: object, reply: object) {
+  return createHttpArgumentsHost(req, reply);
 }
 
 function createReply() {
@@ -18,19 +12,23 @@ function createReply() {
   const state: { status?: number; body?: unknown } = {};
 
   const reply = {
-    header: jest.fn((key: string, value: string) => {
-      headers[key.toLowerCase()] = value;
-      return reply as unknown as FastifyReply;
-    }),
-    status: jest.fn((status: number) => {
-      state.status = status;
-      return reply as unknown as FastifyReply;
-    }),
-    send: jest.fn((body: unknown) => {
-      state.body = body;
-      return reply as unknown as FastifyReply;
-    }),
-  } as unknown as FastifyReply;
+    header: jest.fn(),
+    status: jest.fn(),
+    send: jest.fn(),
+  };
+
+  reply.header.mockImplementation((key: string, value: string) => {
+    headers[key.toLowerCase()] = value;
+    return reply;
+  });
+  reply.status.mockImplementation((status: number) => {
+    state.status = status;
+    return reply;
+  });
+  reply.send.mockImplementation((body: unknown) => {
+    state.body = body;
+    return reply;
+  });
 
   return { reply, headers, state };
 }
@@ -39,7 +37,7 @@ describe('ProblemDetailsFilter', () => {
   it('maps HttpException object response into problem details and preserves code', () => {
     const filter = new ProblemDetailsFilter();
     const { reply, headers, state } = createReply();
-    const req = { requestId: 'req-1', headers: {} } as unknown as FastifyRequest;
+    const req = { requestId: 'req-1', headers: {} };
 
     const ex = new HttpException(
       {
@@ -70,7 +68,7 @@ describe('ProblemDetailsFilter', () => {
   it('uses default code mapping when HttpException omits code', () => {
     const filter = new ProblemDetailsFilter();
     const { reply, state } = createReply();
-    const req = { requestId: 'req-2', headers: {} } as unknown as FastifyRequest;
+    const req = { requestId: 'req-2', headers: {} };
 
     const ex = new HttpException('Bad Request', 400);
     filter.catch(ex, hostFor(req, reply));
@@ -87,7 +85,7 @@ describe('ProblemDetailsFilter', () => {
   it('uses default code mapping when HttpException contains an unknown code', () => {
     const filter = new ProblemDetailsFilter();
     const { reply, state } = createReply();
-    const req = { requestId: 'req-bad-code', headers: {} } as unknown as FastifyRequest;
+    const req = { requestId: 'req-bad-code', headers: {} };
 
     const ex = new HttpException(
       {
@@ -112,7 +110,7 @@ describe('ProblemDetailsFilter', () => {
   it('joins message arrays into a single detail string', () => {
     const filter = new ProblemDetailsFilter();
     const { reply, state } = createReply();
-    const req = { requestId: 'req-3', headers: {} } as unknown as FastifyRequest;
+    const req = { requestId: 'req-3', headers: {} };
 
     const ex = new HttpException({ message: ['a', 'b'] }, 400);
     filter.catch(ex, hostFor(req, reply));
@@ -130,7 +128,7 @@ describe('ProblemDetailsFilter', () => {
   it('maps not found to NOT_FOUND code', () => {
     const filter = new ProblemDetailsFilter();
     const { reply, state } = createReply();
-    const req = { requestId: 'req-404', headers: {} } as unknown as FastifyRequest;
+    const req = { requestId: 'req-404', headers: {} };
 
     const ex = new HttpException('Not Found', 404);
     filter.catch(ex, hostFor(req, reply));
@@ -147,7 +145,7 @@ describe('ProblemDetailsFilter', () => {
   it('maps unknown errors to 500 and uses request.id fallback without leaking internal detail', () => {
     const filter = new ProblemDetailsFilter();
     const { reply, headers, state } = createReply();
-    const req = { id: 'req-4', headers: {} } as unknown as FastifyRequest;
+    const req = { id: 'req-4', headers: {} };
 
     filter.catch(new Error('boom'), hostFor(req, reply));
 

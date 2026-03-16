@@ -10,7 +10,14 @@ import {
 } from '../../libs/features/auth/app/password-reset-token';
 import { AUTH_SEND_VERIFICATION_EMAIL_JOB } from '../../libs/features/auth/infra/jobs/auth-email-verification.job';
 import { AUTH_SEND_PASSWORD_RESET_EMAIL_JOB } from '../../libs/features/auth/infra/jobs/auth-password-reset.job';
-import { describeAuthE2eSuite, type AuthE2eHarness, uniqueEmail } from './auth-e2e.harness';
+import {
+  describeAuthE2eSuite,
+  getBodyData,
+  getObjectField,
+  getStringField,
+  type AuthE2eHarness,
+  uniqueEmail,
+} from './auth-e2e.harness';
 
 describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
   let baseUrl = '';
@@ -37,39 +44,33 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
       .send({ email, password, deviceId: 'device-a', deviceName: 'Device A' })
       .expect(200);
 
-    const reg = registerRes.body.data as {
-      user: { id: string; email: string; emailVerified: boolean };
-      accessToken: string;
-      refreshToken: string;
-    };
+    const reg = getBodyData(registerRes.body);
+    const regUser = getObjectField(reg, 'user');
 
-    expect(reg.user.email).toBe(email.toLowerCase());
-    expect(reg.user.emailVerified).toBe(false);
+    expect(getStringField(regUser, 'email')).toBe(email.toLowerCase());
+    expect(regUser.emailVerified).toBe(false);
     expect(typeof reg.accessToken).toBe('string');
     expect(typeof reg.refreshToken).toBe('string');
 
     const refreshRes = await request(baseUrl)
       .post('/v1/auth/refresh')
-      .send({ refreshToken: reg.refreshToken })
+      .send({ refreshToken: getStringField(reg, 'refreshToken') })
       .expect(200);
 
-    const refreshed = refreshRes.body.data as {
-      accessToken: string;
-      refreshToken: string;
-    };
+    const refreshed = getBodyData(refreshRes.body);
 
     expect(typeof refreshed.accessToken).toBe('string');
     expect(typeof refreshed.refreshToken).toBe('string');
-    expect(refreshed.refreshToken).not.toBe(reg.refreshToken);
+    expect(getStringField(refreshed, 'refreshToken')).not.toBe(getStringField(reg, 'refreshToken'));
 
     await request(baseUrl)
       .post('/v1/auth/logout')
-      .send({ refreshToken: refreshed.refreshToken })
+      .send({ refreshToken: getStringField(refreshed, 'refreshToken') })
       .expect(204);
 
     const afterLogout = await request(baseUrl)
       .post('/v1/auth/refresh')
-      .send({ refreshToken: refreshed.refreshToken })
+      .send({ refreshToken: getStringField(refreshed, 'refreshToken') })
       .expect(401);
 
     expect(afterLogout.headers['content-type']).toContain('application/problem+json');
@@ -85,20 +86,20 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
       .send({ email, password, deviceId: 'device-a', deviceName: 'Device A' })
       .expect(200);
 
-    const reg = registerRes.body.data as { refreshToken: string };
+    const reg = getBodyData(registerRes.body);
 
     const firstRefreshRes = await request(baseUrl)
       .post('/v1/auth/refresh')
-      .send({ refreshToken: reg.refreshToken })
+      .send({ refreshToken: getStringField(reg, 'refreshToken') })
       .expect(200);
 
-    const first = firstRefreshRes.body.data as { refreshToken: string };
+    const first = getBodyData(firstRefreshRes.body);
     expect(typeof first.refreshToken).toBe('string');
-    expect(first.refreshToken).not.toBe(reg.refreshToken);
+    expect(getStringField(first, 'refreshToken')).not.toBe(getStringField(reg, 'refreshToken'));
 
     const reuse = await request(baseUrl)
       .post('/v1/auth/refresh')
-      .send({ refreshToken: reg.refreshToken })
+      .send({ refreshToken: getStringField(reg, 'refreshToken') })
       .expect(401);
 
     expect(reuse.headers['content-type']).toContain('application/problem+json');
@@ -106,7 +107,7 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
 
     const afterReuse = await request(baseUrl)
       .post('/v1/auth/refresh')
-      .send({ refreshToken: first.refreshToken })
+      .send({ refreshToken: getStringField(first, 'refreshToken') })
       .expect(401);
 
     expect(afterReuse.headers['content-type']).toContain('application/problem+json');
@@ -122,13 +123,14 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
       .send({ email, password })
       .expect(200);
 
-    const reg = registerRes.body.data as {
-      user: { id: string };
-    };
+    const reg = getBodyData(registerRes.body);
+    const regUser = getObjectField(reg, 'user');
 
     const jobs = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
     const jobForUser = jobs.find(
-      (job) => job.name === AUTH_SEND_VERIFICATION_EMAIL_JOB && job.data.userId === reg.user.id,
+      (job) =>
+        job.name === AUTH_SEND_VERIFICATION_EMAIL_JOB &&
+        job.data.userId === getStringField(regUser, 'id'),
     );
 
     expect(jobForUser).toBeDefined();
@@ -143,17 +145,15 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
       .send({ email, password })
       .expect(200);
 
-    const reg = registerRes.body.data as {
-      user: { id: string };
-      accessToken: string;
-    };
+    const reg = getBodyData(registerRes.body);
+    const regUser = getObjectField(reg, 'user');
 
     const token = generateEmailVerificationToken();
     const tokenHash = hashEmailVerificationToken(token);
     const expiresAt = new Date(Date.now() + 60_000);
 
     await prisma.emailVerificationToken.create({
-      data: { userId: reg.user.id, tokenHash, expiresAt },
+      data: { userId: getStringField(regUser, 'id'), tokenHash, expiresAt },
       select: { id: true },
     });
 
@@ -161,10 +161,13 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
 
     const meRes = await request(baseUrl)
       .get('/v1/me')
-      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Authorization', `Bearer ${getStringField(reg, 'accessToken')}`)
       .expect(200);
 
-    expect(meRes.body.data).toMatchObject({ id: reg.user.id, emailVerified: true });
+    expect(meRes.body.data).toMatchObject({
+      id: getStringField(regUser, 'id'),
+      emailVerified: true,
+    });
 
     // Replay should be safe.
     await request(baseUrl).post('/v1/auth/email/verify').send({ token }).expect(204);
@@ -188,13 +191,18 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
       .send({ email, password })
       .expect(200);
 
-    const reg = registerRes.body.data as { user: { id: string } };
+    const reg = getBodyData(registerRes.body);
+    const regUser = getObjectField(reg, 'user');
 
     const token = generateEmailVerificationToken();
     const tokenHash = hashEmailVerificationToken(token);
 
     await prisma.emailVerificationToken.create({
-      data: { userId: reg.user.id, tokenHash, expiresAt: new Date(Date.now() - 60_000) },
+      data: {
+        userId: getStringField(regUser, 'id'),
+        tokenHash,
+        expiresAt: new Date(Date.now() - 60_000),
+      },
       select: { id: true },
     });
 
@@ -212,25 +220,28 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
       .send({ email, password })
       .expect(200);
 
-    const reg = registerRes.body.data as { user: { id: string }; accessToken: string };
+    const reg = getBodyData(registerRes.body);
+    const regUser = getObjectField(reg, 'user');
 
     // Drop the register enqueue so the test only sees the resend enqueue.
     await emailQueue.drain(true);
 
     await request(baseUrl)
       .post('/v1/auth/email/verification/resend')
-      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Authorization', `Bearer ${getStringField(reg, 'accessToken')}`)
       .expect(204);
 
     const jobs = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
     const jobForUser = jobs.find(
-      (job) => job.name === AUTH_SEND_VERIFICATION_EMAIL_JOB && job.data.userId === reg.user.id,
+      (job) =>
+        job.name === AUTH_SEND_VERIFICATION_EMAIL_JOB &&
+        job.data.userId === getStringField(regUser, 'id'),
     );
     expect(jobForUser).toBeDefined();
 
     const rateLimited = await request(baseUrl)
       .post('/v1/auth/email/verification/resend')
-      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Authorization', `Bearer ${getStringField(reg, 'accessToken')}`)
       .expect(429);
 
     expect(rateLimited.headers['content-type']).toContain('application/problem+json');
@@ -260,7 +271,8 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
       .send({ email, password })
       .expect(200);
 
-    const reg = registerRes.body.data as { user: { id: string } };
+    const reg = getBodyData(registerRes.body);
+    const regUser = getObjectField(reg, 'user');
 
     // Drop the register enqueue so the test only sees the reset enqueue.
     await emailQueue.drain(true);
@@ -272,7 +284,9 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
 
     const jobs = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
     const jobForUser = jobs.find(
-      (job) => job.name === AUTH_SEND_PASSWORD_RESET_EMAIL_JOB && job.data.userId === reg.user.id,
+      (job) =>
+        job.name === AUTH_SEND_PASSWORD_RESET_EMAIL_JOB &&
+        job.data.userId === getStringField(regUser, 'id'),
     );
 
     expect(jobForUser).toBeDefined();
@@ -301,17 +315,15 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
       .send({ email, password })
       .expect(200);
 
-    const reg = registerRes.body.data as {
-      user: { id: string };
-      refreshToken: string;
-    };
+    const reg = getBodyData(registerRes.body);
+    const regUser = getObjectField(reg, 'user');
 
     const token = generatePasswordResetToken();
     const tokenHash = hashPasswordResetToken(token);
     const expiresAt = new Date(Date.now() + 60_000);
 
     await prisma.passwordResetToken.create({
-      data: { userId: reg.user.id, tokenHash, expiresAt },
+      data: { userId: getStringField(regUser, 'id'), tokenHash, expiresAt },
       select: { id: true },
     });
 
@@ -322,7 +334,7 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
 
     const oldRefresh = await request(baseUrl)
       .post('/v1/auth/refresh')
-      .send({ refreshToken: reg.refreshToken })
+      .send({ refreshToken: getStringField(reg, 'refreshToken') })
       .expect(401);
 
     expect(oldRefresh.headers['content-type']).toContain('application/problem+json');
@@ -362,13 +374,18 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
       .send({ email, password })
       .expect(200);
 
-    const reg = registerRes.body.data as { user: { id: string } };
+    const reg = getBodyData(registerRes.body);
+    const regUser = getObjectField(reg, 'user');
 
     const token = generatePasswordResetToken();
     const tokenHash = hashPasswordResetToken(token);
 
     await prisma.passwordResetToken.create({
-      data: { userId: reg.user.id, tokenHash, expiresAt: new Date(Date.now() - 60_000) },
+      data: {
+        userId: getStringField(regUser, 'id'),
+        tokenHash,
+        expiresAt: new Date(Date.now() - 60_000),
+      },
       select: { id: true },
     });
 
@@ -418,41 +435,33 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
       .send({ email, password, deviceId: 'device-a' })
       .expect(200);
 
-    const reg = registerRes.body.data as {
-      user: { id: string; email: string; emailVerified: boolean };
-      accessToken: string;
-      refreshToken: string;
-    };
+    const reg = getBodyData(registerRes.body);
 
     const loginRes = await request(baseUrl)
       .post('/v1/auth/password/login')
       .send({ email, password, deviceId: 'device-b' })
       .expect(200);
 
-    const loggedIn = loginRes.body.data as {
-      user: { id: string; email: string; emailVerified: boolean };
-      accessToken: string;
-      refreshToken: string;
-    };
+    const loggedIn = getBodyData(loginRes.body);
 
     const idemKey = randomUUID();
     await request(baseUrl)
       .post('/v1/auth/password/change')
-      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Authorization', `Bearer ${getStringField(reg, 'accessToken')}`)
       .set('Idempotency-Key', idemKey)
       .send({ currentPassword: password, newPassword })
       .expect(204);
 
     const currentSessionRefresh = await request(baseUrl)
       .post('/v1/auth/refresh')
-      .send({ refreshToken: reg.refreshToken })
+      .send({ refreshToken: getStringField(reg, 'refreshToken') })
       .expect(200);
 
     expect(typeof currentSessionRefresh.body.data.refreshToken).toBe('string');
 
     const replayed = await request(baseUrl)
       .post('/v1/auth/password/change')
-      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Authorization', `Bearer ${getStringField(reg, 'accessToken')}`)
       .set('Idempotency-Key', idemKey)
       .send({ currentPassword: password, newPassword })
       .expect(204);
@@ -461,7 +470,7 @@ describeAuthE2eSuite('Auth Core (e2e)', (harness) => {
 
     const otherSessionRefresh = await request(baseUrl)
       .post('/v1/auth/refresh')
-      .send({ refreshToken: loggedIn.refreshToken })
+      .send({ refreshToken: getStringField(loggedIn, 'refreshToken') })
       .expect(401);
 
     expect(otherSessionRefresh.body).toMatchObject({ code: 'AUTH_SESSION_REVOKED', status: 401 });

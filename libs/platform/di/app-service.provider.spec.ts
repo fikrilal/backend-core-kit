@@ -28,8 +28,12 @@ describe('app-service.provider', () => {
 
     expect(provider.provide).toBe(PlainService);
     expect(provider.inject).toEqual(['REPO']);
-    const useFactory = provider.useFactory as (repo: string) => PlainService;
-    const service = useFactory('repo-a');
+    const useFactory = provider.useFactory;
+    expect(useFactory).toBeDefined();
+    if (!useFactory) {
+      throw new Error('Expected useFactory');
+    }
+    const service = await useFactory('repo-a');
     expect(service.repo).toBe('repo-a');
   });
 
@@ -40,8 +44,12 @@ describe('app-service.provider', () => {
       factory: (repo, clock) => new ClockedService(repo, clock),
     });
 
-    const useFactory = provider.useFactory as (repo: string) => ClockedService;
-    const service = useFactory('repo-a');
+    const useFactory = provider.useFactory;
+    expect(useFactory).toBeDefined();
+    if (!useFactory) {
+      throw new Error('Expected useFactory');
+    }
+    const service = await useFactory('repo-a');
     expect(service.repo).toBe('repo-a');
     expect(service.clock).toBeInstanceOf(SystemClock);
   });
@@ -53,8 +61,12 @@ describe('app-service.provider', () => {
       useClass: PlainService,
     });
 
-    const useFactory = provider.useFactory as (repo: string) => PlainService;
-    const service = useFactory('repo-b');
+    const useFactory = provider.useFactory;
+    expect(useFactory).toBeDefined();
+    if (!useFactory) {
+      throw new Error('Expected useFactory');
+    }
+    const service = await useFactory('repo-b');
     expect(service).toBeInstanceOf(PlainService);
     expect(service.repo).toBe('repo-b');
   });
@@ -66,8 +78,12 @@ describe('app-service.provider', () => {
       useClass: ClockedService,
     });
 
-    const useFactory = provider.useFactory as (repo: string) => ClockedService;
-    const service = useFactory('repo-c');
+    const useFactory = provider.useFactory;
+    expect(useFactory).toBeDefined();
+    if (!useFactory) {
+      throw new Error('Expected useFactory');
+    }
+    const service = await useFactory('repo-c');
     expect(service).toBeInstanceOf(ClockedService);
     expect(service.repo).toBe('repo-c');
     expect(service.clock).toBeInstanceOf(SystemClock);

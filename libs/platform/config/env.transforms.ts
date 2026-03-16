@@ -15,7 +15,9 @@ export function parseEnvBoolean(value: unknown): boolean | undefined | string {
 
 export function TransformEnvBoolean(): PropertyDecorator {
   return Transform(({ obj, key }: TransformFnParams) => {
-    const source = obj as Record<string, unknown>;
-    return parseEnvBoolean(source[key]);
+    if (typeof obj !== 'object' || obj === null) {
+      return parseEnvBoolean(undefined);
+    }
+    return parseEnvBoolean(Reflect.get(obj, key));
   });
 }

@@ -1,28 +1,21 @@
 import { randomUUID } from 'crypto';
-import type { ConfigService } from '@nestjs/config';
-import type { Job } from 'bullmq';
 import { UserStatus } from '@prisma/client';
-import type { PushService } from '../libs/platform/push/push.service';
-import type { PushSendJobData } from '../libs/platform/push/push.job';
+import { PinoLogger } from 'nestjs-pino';
+import { QueueWorkerFactory } from '../libs/platform/queue/queue.worker';
 import { PUSH_SEND_JOB } from '../libs/platform/push/push.job';
 import { PushErrorCode, PushSendError } from '../libs/platform/push/push.types';
 import { PrismaService } from '../libs/platform/db/prisma.service';
 import { PushWorker } from '../apps/worker/src/jobs/push.worker';
+import { bindInstanceMethod, createConfigService, createPrototypeStub } from './support/stubs';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 const shouldSkip = skipDepsTests || !databaseUrl;
 
-function stubConfig(values: Record<string, string | undefined>): ConfigService {
-  return {
-    get: <T = unknown>(key: string): T | undefined => values[key] as unknown as T,
-  } as unknown as ConfigService;
-}
+type PushJobLike = Readonly<{ name: string; data: { sessionId: string; requestedAt: string } }>;
 
-type ProcessFn = (job: Job<PushSendJobData, unknown>) => Promise<unknown>;
-
-function getProcess(worker: PushWorker): ProcessFn {
-  return (worker as unknown as { process: ProcessFn }).process.bind(worker as unknown as object);
+function getProcess(worker: PushWorker) {
+  return bindInstanceMethod(worker, 'process');
 }
 
 (shouldSkip ? describe.skip : describe)('PushWorker (int)', () => {
@@ -30,7 +23,9 @@ function getProcess(worker: PushWorker): ProcessFn {
   const createdUserIds: string[] = [];
 
   beforeAll(async () => {
-    prisma = new PrismaService(stubConfig({ NODE_ENV: 'test', DATABASE_URL: databaseUrl }));
+    prisma = new PrismaService(
+      createConfigService({ NODE_ENV: 'test', DATABASE_URL: databaseUrl }),
+    );
     await prisma.ping();
   });
 
@@ -65,20 +60,25 @@ function getProcess(worker: PushWorker): ProcessFn {
       select: { id: true },
     });
 
-    const push: PushService = {
+    const push = {
       isEnabled: () => true,
       sendToToken: jest.fn(),
     };
 
-    const worker = new PushWorker({ isEnabled: () => true } as unknown as never, push, prisma, {
-      setContext: () => undefined,
-      info: () => undefined,
-    } as unknown as never);
+    const worker = new PushWorker(
+      createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
+      push,
+      prisma,
+      createPrototypeStub(PinoLogger, {
+        setContext: () => undefined,
+        info: () => undefined,
+      }),
+    );
 
-    const job = {
+    const job: PushJobLike = {
       name: PUSH_SEND_JOB,
       data: { sessionId: session.id, requestedAt: new Date().toISOString() },
-    } as unknown as Job<PushSendJobData, unknown>;
+    };
 
     await expect(getProcess(worker)(job)).resolves.toMatchObject({
       ok: true,
@@ -107,20 +107,25 @@ function getProcess(worker: PushWorker): ProcessFn {
       select: { id: true },
     });
 
-    const push: PushService = {
+    const push = {
       isEnabled: () => true,
       sendToToken: jest.fn(),
     };
 
-    const worker = new PushWorker({ isEnabled: () => true } as unknown as never, push, prisma, {
-      setContext: () => undefined,
-      info: () => undefined,
-    } as unknown as never);
+    const worker = new PushWorker(
+      createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
+      push,
+      prisma,
+      createPrototypeStub(PinoLogger, {
+        setContext: () => undefined,
+        info: () => undefined,
+      }),
+    );
 
-    const job = {
+    const job: PushJobLike = {
       name: PUSH_SEND_JOB,
       data: { sessionId: session.id, requestedAt: new Date().toISOString() },
-    } as unknown as Job<PushSendJobData, unknown>;
+    };
 
     await expect(getProcess(worker)(job)).resolves.toMatchObject({
       ok: true,
@@ -149,20 +154,25 @@ function getProcess(worker: PushWorker): ProcessFn {
       select: { id: true },
     });
 
-    const push: PushService = {
+    const push = {
       isEnabled: () => true,
       sendToToken: jest.fn(),
     };
 
-    const worker = new PushWorker({ isEnabled: () => true } as unknown as never, push, prisma, {
-      setContext: () => undefined,
-      info: () => undefined,
-    } as unknown as never);
+    const worker = new PushWorker(
+      createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
+      push,
+      prisma,
+      createPrototypeStub(PinoLogger, {
+        setContext: () => undefined,
+        info: () => undefined,
+      }),
+    );
 
-    const job = {
+    const job: PushJobLike = {
       name: PUSH_SEND_JOB,
       data: { sessionId: session.id, requestedAt: new Date().toISOString() },
-    } as unknown as Job<PushSendJobData, unknown>;
+    };
 
     await expect(getProcess(worker)(job)).resolves.toMatchObject({
       ok: true,
@@ -190,20 +200,25 @@ function getProcess(worker: PushWorker): ProcessFn {
       select: { id: true },
     });
 
-    const push: PushService = {
+    const push = {
       isEnabled: () => true,
       sendToToken: jest.fn(),
     };
 
-    const worker = new PushWorker({ isEnabled: () => true } as unknown as never, push, prisma, {
-      setContext: () => undefined,
-      info: () => undefined,
-    } as unknown as never);
+    const worker = new PushWorker(
+      createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
+      push,
+      prisma,
+      createPrototypeStub(PinoLogger, {
+        setContext: () => undefined,
+        info: () => undefined,
+      }),
+    );
 
-    const job = {
+    const job: PushJobLike = {
       name: PUSH_SEND_JOB,
       data: { sessionId: session.id, requestedAt: new Date().toISOString() },
-    } as unknown as Job<PushSendJobData, unknown>;
+    };
 
     await expect(getProcess(worker)(job)).resolves.toMatchObject({
       ok: true,
@@ -233,7 +248,7 @@ function getProcess(worker: PushWorker): ProcessFn {
       select: { id: true },
     });
 
-    const push: PushService = {
+    const push = {
       isEnabled: () => true,
       sendToToken: jest.fn(async () => {
         throw new PushSendError({
@@ -245,15 +260,20 @@ function getProcess(worker: PushWorker): ProcessFn {
       }),
     };
 
-    const worker = new PushWorker({ isEnabled: () => true } as unknown as never, push, prisma, {
-      setContext: () => undefined,
-      info: () => undefined,
-    } as unknown as never);
+    const worker = new PushWorker(
+      createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
+      push,
+      prisma,
+      createPrototypeStub(PinoLogger, {
+        setContext: () => undefined,
+        info: () => undefined,
+      }),
+    );
 
-    const job = {
+    const job: PushJobLike = {
       name: PUSH_SEND_JOB,
       data: { sessionId: session.id, requestedAt: new Date().toISOString() },
-    } as unknown as Job<PushSendJobData, unknown>;
+    };
 
     await expect(getProcess(worker)(job)).resolves.toMatchObject({
       ok: true,
@@ -293,7 +313,7 @@ function getProcess(worker: PushWorker): ProcessFn {
 
     const nextToken = `fcm-${randomUUID()}`;
 
-    const push: PushService = {
+    const push = {
       isEnabled: () => true,
       sendToToken: jest.fn(async () => {
         await client.session.update({
@@ -311,15 +331,20 @@ function getProcess(worker: PushWorker): ProcessFn {
       }),
     };
 
-    const worker = new PushWorker({ isEnabled: () => true } as unknown as never, push, prisma, {
-      setContext: () => undefined,
-      info: () => undefined,
-    } as unknown as never);
+    const worker = new PushWorker(
+      createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
+      push,
+      prisma,
+      createPrototypeStub(PinoLogger, {
+        setContext: () => undefined,
+        info: () => undefined,
+      }),
+    );
 
-    const job = {
+    const job: PushJobLike = {
       name: PUSH_SEND_JOB,
       data: { sessionId: session.id, requestedAt: new Date().toISOString() },
-    } as unknown as Job<PushSendJobData, unknown>;
+    };
 
     await expect(getProcess(worker)(job)).resolves.toMatchObject({
       ok: true,

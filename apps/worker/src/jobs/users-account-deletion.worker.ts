@@ -58,26 +58,19 @@ export class UsersAccountDeletionWorker implements OnModuleInit {
       throw new Error('Missing job lock token');
     }
 
-    switch (job.name) {
-      case USERS_FINALIZE_ACCOUNT_DELETION_JOB:
-        return await this.finalize(
-          job as Job<UsersFinalizeAccountDeletionJobData, UsersFinalizeAccountDeletionJobResult>,
-          token,
-        );
-      case USERS_PROFILE_IMAGE_DELETE_STORED_FILE_JOB:
-        return await this.deleteProfileImageStoredFile(
-          job as Job<
-            UsersProfileImageDeleteStoredFileJobData,
-            UsersProfileImageDeleteStoredFileJobResult
-          >,
-        );
-      case USERS_PROFILE_IMAGE_EXPIRE_UPLOAD_JOB:
-        return await this.expireProfileImageUpload(
-          job as Job<UsersProfileImageExpireUploadJobData, UsersProfileImageExpireUploadJobResult>,
-        );
-      default:
-        throw new Error(`Unknown job name "${job.name}" on queue "${USERS_QUEUE}"`);
+    if (isFinalizeAccountDeletionJob(job)) {
+      return await this.finalize(job, token);
     }
+
+    if (isDeleteProfileImageStoredFileJob(job)) {
+      return await this.deleteProfileImageStoredFile(job);
+    }
+
+    if (isExpireProfileImageUploadJob(job)) {
+      return await this.expireProfileImageUpload(job);
+    }
+
+    throw new Error(`Unknown job name "${job.name}" on queue "${USERS_QUEUE}"`);
   }
 
   private async finalize(
@@ -140,4 +133,25 @@ export class UsersAccountDeletionWorker implements OnModuleInit {
     const now = new Date();
     return await runExpireProfileImageUpload(this.prisma, this.storage, job, now);
   }
+}
+
+function isFinalizeAccountDeletionJob(
+  job: Job<UsersQueueJobData, UsersQueueJobResult>,
+): job is Job<UsersFinalizeAccountDeletionJobData, UsersFinalizeAccountDeletionJobResult> {
+  return job.name === USERS_FINALIZE_ACCOUNT_DELETION_JOB;
+}
+
+function isDeleteProfileImageStoredFileJob(
+  job: Job<UsersQueueJobData, UsersQueueJobResult>,
+): job is Job<
+  UsersProfileImageDeleteStoredFileJobData,
+  UsersProfileImageDeleteStoredFileJobResult
+> {
+  return job.name === USERS_PROFILE_IMAGE_DELETE_STORED_FILE_JOB;
+}
+
+function isExpireProfileImageUploadJob(
+  job: Job<UsersQueueJobData, UsersQueueJobResult>,
+): job is Job<UsersProfileImageExpireUploadJobData, UsersProfileImageExpireUploadJobResult> {
+  return job.name === USERS_PROFILE_IMAGE_EXPIRE_UPLOAD_JOB;
 }

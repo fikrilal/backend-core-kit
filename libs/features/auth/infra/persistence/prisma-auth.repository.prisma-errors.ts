@@ -1,14 +1,20 @@
 import { Prisma } from '@prisma/client';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getTarget(meta: unknown): unknown {
+  return isRecord(meta) ? Reflect.get(meta, 'target') : undefined;
+}
+
 export function isUniqueConstraintError(err: unknown, field?: string): boolean {
   if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
   if (err.code !== 'P2002') return false;
   if (!field) return true;
 
   const meta: unknown = err.meta;
-  if (!meta || typeof meta !== 'object') return true;
-
-  const target: unknown = (meta as { target?: unknown }).target;
+  const target = getTarget(meta);
   if (Array.isArray(target)) {
     return target.some((t) => typeof t === 'string' && t === field);
   }
@@ -26,9 +32,7 @@ export function isUniqueConstraintErrorOnFields(
   if (err.code !== 'P2002') return false;
 
   const meta: unknown = err.meta;
-  if (!meta || typeof meta !== 'object') return false;
-
-  const target: unknown = (meta as { target?: unknown }).target;
+  const target = getTarget(meta);
   if (Array.isArray(target)) {
     const t = target.filter((v): v is string => typeof v === 'string');
     return fields.every((f) => t.includes(f));

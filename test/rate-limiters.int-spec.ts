@@ -1,5 +1,4 @@
 import { createHash, randomUUID } from 'crypto';
-import type { ConfigService } from '@nestjs/config';
 import { AuthError } from '../libs/features/auth/app/auth.errors';
 import { RedisEmailVerificationRateLimiter } from '../libs/features/auth/infra/rate-limit/redis-email-verification-rate-limiter';
 import { RedisLoginRateLimiter } from '../libs/features/auth/infra/rate-limit/redis-login-rate-limiter';
@@ -7,16 +6,11 @@ import { RedisPasswordResetRateLimiter } from '../libs/features/auth/infra/rate-
 import { RedisProfileImageUploadRateLimiter } from '../libs/features/users/infra/rate-limit/redis-profile-image-upload-rate-limiter';
 import { UsersError } from '../libs/features/users/app/users.errors';
 import { RedisService } from '../libs/platform/redis/redis.service';
+import { createConfigService } from './support/stubs';
 
 const redisUrl = process.env.REDIS_URL?.trim();
 const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 const shouldSkip = skipDepsTests || !redisUrl;
-
-function stubConfig(values: Record<string, string | undefined>): ConfigService {
-  return {
-    get: <T = unknown>(key: string): T | undefined => values[key] as unknown as T,
-  } as unknown as ConfigService;
-}
 
 function hashKey(value: string): string {
   return createHash('sha256').update(value).digest('base64url');
@@ -48,7 +42,7 @@ function expectUsersRateLimited(err: unknown): void {
   const keysToCleanup: string[] = [];
 
   beforeAll(async () => {
-    redis = new RedisService(stubConfig({ NODE_ENV: 'test', REDIS_URL: redisUrl }));
+    redis = new RedisService(createConfigService({ NODE_ENV: 'test', REDIS_URL: redisUrl }));
     await redis.ping();
   });
 
@@ -79,7 +73,7 @@ function expectUsersRateLimited(err: unknown): void {
     keysToCleanup.push(emailCountKey, emailBlockKey, ipCountKey, ipBlockKey);
 
     const limiter = new RedisLoginRateLimiter(
-      stubConfig({
+      createConfigService({
         AUTH_LOGIN_MAX_ATTEMPTS: '1',
         AUTH_LOGIN_WINDOW_SECONDS: '60',
         AUTH_LOGIN_BLOCK_SECONDS: '120',
@@ -118,7 +112,7 @@ function expectUsersRateLimited(err: unknown): void {
     keysToCleanup.push(emailKey, ipCountKey, ipBlockKey);
 
     const limiter = new RedisPasswordResetRateLimiter(
-      stubConfig({
+      createConfigService({
         AUTH_PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS: '60',
         AUTH_PASSWORD_RESET_REQUEST_IP_MAX_ATTEMPTS: '1',
         AUTH_PASSWORD_RESET_REQUEST_IP_WINDOW_SECONDS: '60',
@@ -155,7 +149,7 @@ function expectUsersRateLimited(err: unknown): void {
     keysToCleanup.push(userKey, ipCountKey, ipBlockKey);
 
     const limiter = new RedisEmailVerificationRateLimiter(
-      stubConfig({
+      createConfigService({
         AUTH_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS: '60',
         AUTH_EMAIL_VERIFICATION_RESEND_IP_MAX_ATTEMPTS: '1',
         AUTH_EMAIL_VERIFICATION_RESEND_IP_WINDOW_SECONDS: '60',
@@ -193,7 +187,7 @@ function expectUsersRateLimited(err: unknown): void {
     keysToCleanup.push(userCountKey, userBlockKey, ipCountKey, ipBlockKey);
 
     const limiter = new RedisProfileImageUploadRateLimiter(
-      stubConfig({
+      createConfigService({
         USERS_PROFILE_IMAGE_UPLOAD_USER_MAX_ATTEMPTS: '1',
         USERS_PROFILE_IMAGE_UPLOAD_USER_WINDOW_SECONDS: '60',
         USERS_PROFILE_IMAGE_UPLOAD_USER_BLOCK_SECONDS: '120',
