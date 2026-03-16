@@ -16,6 +16,7 @@ If you are changing behavior, standards, or architecture, update docs + add an A
 ## Non-Negotiables (Hard Rules)
 
 - **TypeScript strict** and **no `any`** (`any`, `as any`, implicit `any` are forbidden). Use `unknown` + validation/narrowing.
+- Never use `as` to silence TypeScript; fix the types with inference, narrowing, generics, or runtime validation instead.
 - **Architecture boundaries are enforced** (dependency-cruiser): do not “just import” across layers.
 - **API contract discipline**:
   - success envelope `{ data, meta? }`
