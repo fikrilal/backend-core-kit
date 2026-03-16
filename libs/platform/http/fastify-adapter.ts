@@ -19,6 +19,10 @@ const DEFAULT_HTTP_SERVER_POLICY: HttpServerPolicy = Object.freeze({
   pluginTimeoutMs: 10_000,
 });
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 function getNodeEnv(): NodeEnv {
   const raw = typeof process.env.NODE_ENV === 'string' ? process.env.NODE_ENV : undefined;
   const env = raw?.trim().toLowerCase();
@@ -49,6 +53,17 @@ function parsePositiveIntOrThrow(name: string, value: unknown, fallback: number)
     throw new Error(`Invalid ${name}: expected positive integer, got "${String(value)}"`);
   }
   return n;
+}
+
+function parseQueryString(str: string): Record<string, unknown> {
+  const parsed = qs.parse(str, {
+    allowPrototypes: false,
+    plainObjects: true,
+    depth: 5,
+    parameterLimit: 1000,
+  });
+
+  return isRecord(parsed) ? parsed : {};
 }
 
 export function createFastifyAdapter(): FastifyAdapter {
@@ -94,13 +109,7 @@ export function createFastifyAdapter(): FastifyAdapter {
     bodyLimit,
     pluginTimeout,
     routerOptions: {
-      querystringParser: (str) =>
-        qs.parse(str, {
-          allowPrototypes: false,
-          plainObjects: true,
-          depth: 5,
-          parameterLimit: 1000,
-        }) as unknown as Record<string, unknown>,
+      querystringParser: parseQueryString,
     },
   });
 }

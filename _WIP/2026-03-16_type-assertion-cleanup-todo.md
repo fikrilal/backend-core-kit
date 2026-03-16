@@ -14,6 +14,13 @@ Remove `as`-based type assertions that silence TypeScript and replace them with:
 - runtime validation
 - explicit mapping functions
 
+Cleanup standard for each batch:
+
+- safer types
+- less repetition
+- improved readability
+- improved simplicity
+
 This work is now enforced by lint:
 
 - `@typescript-eslint/no-unnecessary-type-assertion: error`
@@ -45,10 +52,10 @@ Why first:
 
 TODO:
 
-- [ ] Replace object-shape assertions in [response-envelope.interceptor.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/interceptors/response-envelope.interceptor.ts)
-- [ ] Replace `HttpException#getResponse()` assertions with guarded parsing in [problem-details.filter.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/filters/problem-details.filter.ts)
-- [ ] Replace Fastify raw request mutation assertions with typed wrapper/interface extension in [fastify-hooks.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/fastify-hooks.ts)
-- [ ] Remove adapter response-object assertions in [fastify-adapter.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/fastify-adapter.ts)
+- [x] Replace object-shape assertions in [response-envelope.interceptor.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/interceptors/response-envelope.interceptor.ts)
+- [x] Replace `HttpException#getResponse()` assertions with guarded parsing in [problem-details.filter.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/filters/problem-details.filter.ts)
+- [x] Replace Fastify raw request mutation assertions with typed wrapper/interface extension in [fastify-hooks.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/fastify-hooks.ts)
+- [x] Remove adapter response-object assertions in [fastify-adapter.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/fastify-adapter.ts)
 - [ ] Remove request/response serializer assertions in [logging.module.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/logging/logging.module.ts)
 
 ## 2. Prisma to Domain Mapping
@@ -75,8 +82,8 @@ Why third:
 
 TODO:
 
-- [ ] Add guarded cursor payload parsing in [cursor.ts](/home/fikrilal/devs/core/backend-core-kit/libs/shared/list-query/cursor.ts)
-- [ ] Replace token payload assertions in [access-token-verifier.service.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/auth/access-token-verifier.service.ts)
+- [x] Add guarded cursor payload parsing in [cursor.ts](/home/fikrilal/devs/core/backend-core-kit/libs/shared/list-query/cursor.ts)
+- [x] Replace token payload assertions in [access-token-verifier.service.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/auth/access-token-verifier.service.ts)
 - [ ] Replace signing-key JSON assertions in [auth-keyring.service.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/auth/auth-keyring.service.ts)
 - [ ] Replace push config JSON assertions in [fcm-push.service.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/push/fcm-push.service.ts)
 - [ ] Replace idempotency payload assertions in [idempotency.core.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/http/idempotency/idempotency.core.ts)
@@ -90,8 +97,8 @@ Why fourth:
 
 TODO:
 
-- [ ] Replace dynamic module import assertions with guarded module validation in [google-oidc-id-token-verifier.ts](/home/fikrilal/devs/core/backend-core-kit/libs/features/auth/infra/security/google-oidc-id-token-verifier.ts)
-- [ ] Replace JWK assertions and double-casts in [auth-keyring.service.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/auth/auth-keyring.service.ts)
+- [x] Replace dynamic module import assertions with guarded module validation in [google-oidc-id-token-verifier.ts](/home/fikrilal/devs/core/backend-core-kit/libs/features/auth/infra/security/google-oidc-id-token-verifier.ts)
+- [x] Replace JWK assertions and double-casts in [auth-keyring.service.ts](/home/fikrilal/devs/core/backend-core-kit/libs/platform/auth/auth-keyring.service.ts)
 
 ## 5. Queue and Worker Generics
 
@@ -161,3 +168,4 @@ For each file touched:
 - Do not weaken the new lint rules.
 - Do not replace `as` with `@ts-ignore` or equivalent suppression.
 - Prefer small batches by boundary area instead of broad refactors.
+- Apply DRY when the repeated knowledge is real and local; do not introduce abstractions that reduce clarity.

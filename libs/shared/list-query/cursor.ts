@@ -23,6 +23,13 @@ export type DecodeCursorV1Options<Field extends string> = Readonly<{
   allowed: SortAllowlist<Field>;
 }>;
 
+function hasOwnField<T extends object>(
+  value: T,
+  field: PropertyKey,
+): field is Extract<keyof T, string> {
+  return Object.prototype.hasOwnProperty.call(value, field);
+}
+
 export function decodeCursorV1<Field extends string>(
   cursor: string,
   options: DecodeCursorV1Options<Field>,
@@ -42,7 +49,7 @@ export function decodeCursorV1<Field extends string>(
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(decoded) as unknown;
+    parsed = JSON.parse(decoded);
   } catch {
     throw new ListQueryValidationError([{ field: 'cursor', message: 'Invalid cursor JSON' }]);
   }
@@ -65,35 +72,34 @@ export function decodeCursorV1<Field extends string>(
     issues.push({ field: 'cursor', message: 'Cursor does not match the current sort' });
   }
 
-  if (!isPlainObject(after)) {
+  const afterObj = isPlainObject(after) ? after : undefined;
+  if (!afterObj) {
     issues.push({ field: 'cursor', message: 'Cursor "after" is missing' });
   }
 
   if (issues.length > 0) {
     throw new ListQueryValidationError(issues);
   }
+  if (!afterObj) {
+    throw new ListQueryValidationError([{ field: 'cursor', message: 'Cursor "after" is missing' }]);
+  }
 
-  const allowedFields = Object.keys(options.allowed) as Field[];
-  const allowedSet = new Set<string>(allowedFields);
-
-  const afterObj = after as Record<string, unknown>;
   const outAfter: Partial<Record<Field, Scalar>> = {};
 
   for (const [fieldRaw, value] of Object.entries(afterObj)) {
-    if (!allowedSet.has(fieldRaw)) {
+    if (!hasOwnField(options.allowed, fieldRaw)) {
       issues.push({ field: 'cursor', message: 'Cursor contains unsupported fields' });
       continue;
     }
 
-    const field = fieldRaw as Field;
-    const type = options.allowed[field].type;
+    const type = options.allowed[fieldRaw].type;
     const parsedValue = parseScalar(type, value);
     if (parsedValue === undefined) {
       issues.push({ field: 'cursor', message: `Invalid cursor value for "${fieldRaw}"` });
       continue;
     }
 
-    outAfter[field] = parsedValue;
+    outAfter[fieldRaw] = parsedValue;
   }
 
   for (const field of options.sortFields) {

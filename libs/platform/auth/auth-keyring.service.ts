@@ -20,6 +20,10 @@ type SigningKey = Readonly<{
   privateKey: KeyObject;
 }>;
 
+function isJsonWebKey(value: unknown): value is JsonWebKey {
+  return isObject(value) && typeof value.kty === 'string' && value.kty.trim() !== '';
+}
+
 function inferAlgFromJwk(jwk: JsonWebKey): JwtAlg | undefined {
   if (jwk.kty === 'OKP') return 'EdDSA';
   if (jwk.kty === 'RSA') return 'RS256';
@@ -37,6 +41,14 @@ function parseSigningKeysJson(raw: string): unknown[] {
 
 function decodeBase64Utf8(value: string): string {
   return Buffer.from(value, 'base64').toString('utf8');
+}
+
+function exportPublicJwk(publicKey: KeyObject): JsonWebKey {
+  const exported = publicKey.export({ format: 'jwk' });
+  if (!isJsonWebKey(exported)) {
+    throw new Error('Failed to export public JWK');
+  }
+  return exported;
 }
 
 @Injectable()
@@ -104,29 +116,28 @@ export class AuthKeyRing implements OnModuleInit {
     let signingKey: SigningKey | undefined;
 
     for (const item of items) {
-      if (!isObject(item)) continue;
+      if (!isObject(item) || !isJsonWebKey(item)) continue;
 
       const kid = asNonEmptyString(item.kid);
       if (!kid) continue;
 
-      const jwk = item as unknown as JsonWebKey;
-      const alg = inferAlgFromJwk(jwk) ?? normalizeJwtAlg(item.alg) ?? algConfig;
+      const alg = inferAlgFromJwk(item) ?? normalizeJwtAlg(item.alg) ?? algConfig;
 
       let publicKey: KeyObject;
       try {
-        publicKey = createPublicKey({ key: jwk, format: 'jwk' });
+        publicKey = createPublicKey({ key: item, format: 'jwk' });
       } catch {
         continue;
       }
 
       publicKeys.set(kid, { alg, key: publicKey });
 
-      const publicJwk = publicKey.export({ format: 'jwk' }) as JsonWebKey;
+      const publicJwk = exportPublicJwk(publicKey);
       jwks.push({ ...publicJwk, kid, use: 'sig', alg });
 
       if (!signingKey) {
         try {
-          const privateKey = createPrivateKey({ key: jwk, format: 'jwk' });
+          const privateKey = createPrivateKey({ key: item, format: 'jwk' });
           signingKey = { kid, alg, privateKey };
         } catch {
           // public-only keys are still published via JWKS, but cannot be used to sign.
@@ -164,7 +175,7 @@ export class AuthKeyRing implements OnModuleInit {
     }
 
     const kid = randomUUID();
-    const publicJwk = publicKey.export({ format: 'jwk' }) as JsonWebKey;
+    const publicJwk = exportPublicJwk(publicKey);
 
     this.signingKey = { kid, alg: resolvedAlg, privateKey };
     this.jwks = [{ ...publicJwk, kid, use: 'sig', alg: resolvedAlg }];
