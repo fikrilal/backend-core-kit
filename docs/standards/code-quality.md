@@ -183,6 +183,7 @@ Rules:
 - App services must not call `new Date()` / `Date.now()` directly (except inside a `SystemClock` implementation).
 - Prefer injecting `Clock` (`libs/shared/time.ts`) into app services and deriving `now` from it.
 - Prefer passing `now` explicitly across ports/repositories when persistence must be deterministic.
+- Worker handlers should avoid hidden wall-clock reads when the timestamp affects persistence, retries, idempotency, or externally visible behavior. Prefer an explicit `now` parameter or injected `Clock`; direct worker clock reads are reported by the architecture smell scanner for review.
 - In unit tests, prefer a fixed clock over Jest fake timers.
 
 ## Logging Discipline

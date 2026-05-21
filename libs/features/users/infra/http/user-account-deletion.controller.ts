@@ -1,4 +1,4 @@
-import { Controller, HttpCode, Post, UseFilters, UseGuards } from '@nestjs/common';
+import { Controller, HttpCode, HttpStatus, Post, UseFilters, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PinoLogger } from 'nestjs-pino';
 import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
@@ -30,7 +30,7 @@ export class UserAccountDeletionController {
   @Post('me/account-deletion/request')
   @UseGuards(AccessTokenGuard)
   @ApiBearerAuth('access-token')
-  @HttpCode(204)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'users.me.accountDeletion.request',
     summary: 'Request account deletion (30-day grace)',
@@ -82,7 +82,7 @@ export class UserAccountDeletionController {
   @Post('me/account-deletion/cancel')
   @UseGuards(AccessTokenGuard)
   @ApiBearerAuth('access-token')
-  @HttpCode(204)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'users.me.accountDeletion.cancel',
     summary: 'Cancel account deletion',

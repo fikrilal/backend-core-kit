@@ -93,7 +93,8 @@ Also searched backend source for raw Nest HTTP exceptions and raw numeric status
 - Done: scoped semantic commit-message harness (`commitlint.config.cjs`, `.githooks/commit-msg`, `npm run setup:hooks`; commit `ccfce72`).
 - Done: canonical non-Docker CI mirror (`scripts/verify-ci-local.ts`, `npm run verify:ci-local`).
 - Done: backend duplication report harness (`jscpd`, two profiles, categorized filter, allowlists, docs).
-- Not started: HTTP/error/time policy guard expansion, guardrails/agent PR loop docs, PR template upgrade, project-map drift, coverage, Prisma drift checks, backend runtime evidence guide.
+- Done: HTTP/error/time policy guard expansion (`scripts/architecture-smells.ts`) and raw `@HttpCode` cleanup.
+- Not started: guardrails/agent PR loop docs, PR template upgrade, project-map drift, coverage, Prisma drift checks, backend runtime evidence guide.
 
 ## Verified Gaps And Recommendations
 
@@ -266,6 +267,17 @@ Why:
 - Raw clone output will be noisy. A categorized filter plus allowlist is the important part to port.
 
 ### P1: Extend backend policy guards for HTTP/error/time hygiene
+
+Status: Done.
+
+Implemented:
+
+- Added `raw_http_code_decorator` high-severity guard.
+- Added `native_http_exception_in_feature` high-severity guard.
+- Added `feature_controller_missing_api_error_codes` medium-severity guard.
+- Added `worker_wall_clock_usage` medium-severity review guard for worker handlers.
+- Replaced existing raw `@HttpCode(200|204)` usages with `HttpStatus.OK` / `HttpStatus.NO_CONTENT`.
+- Current architecture smell report has no high findings and 7 medium worker clock review findings.
 
 Backend already has ESLint rules for no `any`, no type assertions, no console, and no app-layer `new Date()` / `Date.now()`. The current architecture smell scanner also catches raw error code literals in production source.
 

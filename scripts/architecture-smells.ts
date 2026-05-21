@@ -49,6 +49,20 @@ const DEFAULT_MAX_LOC = 350;
 const TS_FILE_EXT = '.ts';
 
 const TEST_FILE_RE = /(?:\.spec|\.test|\.int-spec|\.e2e-spec)\.ts$/;
+const ROUTE_DECORATOR_RE = /^\s*@(Get|Post|Put|Patch|Delete)\b/;
+const METHOD_SIGNATURE_RE = /^\s*(?:async\s+)?[A-Za-z_$][A-Za-z0-9_$]*\s*\(/;
+
+const NATIVE_HTTP_EXCEPTION_NAMES: ReadonlyArray<string> = [
+  'BadRequestException',
+  'UnauthorizedException',
+  'NotFoundException',
+  'ForbiddenException',
+  'ConflictException',
+  'UnprocessableEntityException',
+  'TooManyRequestsException',
+  'InternalServerErrorException',
+  'ServiceUnavailableException',
+];
 
 const SEVERITY_ORDER: Readonly<Record<Severity, number>> = {
   low: 1,
@@ -311,6 +325,162 @@ function findRawErrorCodeLiterals(files: ReadonlyArray<FileData>): ReadonlyArray
           message: `Raw error code literal "${literal}" used instead of typed enum`,
           snippet: lineSnippet(file.lines, line),
           docsLink: 'docs/standards/error-codes.md',
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function findRawHttpCodeDecorators(files: ReadonlyArray<FileData>): ReadonlyArray<Finding> {
+  const findings: Finding[] = [];
+  const re = /@HttpCode\(\s*(\d{3})\s*\)/g;
+
+  for (const file of files) {
+    if (isTestLike(file.path)) continue;
+    if (!file.path.endsWith('.controller.ts')) continue;
+    if (!isAppOrLibPath(file.path)) continue;
+
+    for (const match of file.content.matchAll(re)) {
+      const statusCode = match[1];
+      const index = match.index ?? 0;
+      const line = lineNumberAt(file.content, index);
+      findings.push(
+        makeFinding({
+          id: 'raw_http_code_decorator',
+          severity: 'high',
+          file: file.path,
+          line,
+          message: `Raw @HttpCode(${statusCode}) decorator; use HttpStatus.* for named status semantics`,
+          snippet: lineSnippet(file.lines, line),
+          docsLink: 'docs/standards/api-response-standard.md',
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function findNativeHttpExceptions(files: ReadonlyArray<FileData>): ReadonlyArray<Finding> {
+  const findings: Finding[] = [];
+  const importedNames = NATIVE_HTTP_EXCEPTION_NAMES.join('|');
+  const importRe = new RegExp(
+    `import\\s*\\{[^}]*\\b(${importedNames})\\b[^}]*\\}\\s*from\\s*['"]@nestjs/common['"]`,
+    'g',
+  );
+  const throwRe = new RegExp(`\\bnew\\s+(${importedNames})\\s*\\(`, 'g');
+
+  for (const file of files) {
+    if (isTestLike(file.path)) continue;
+    if (!isAppOrLibPath(file.path)) continue;
+
+    for (const match of file.content.matchAll(importRe)) {
+      const name = match[1];
+      const index = match.index ?? 0;
+      const line = lineNumberAt(file.content, index);
+      findings.push(
+        makeFinding({
+          id: 'native_http_exception_in_feature',
+          severity: 'high',
+          file: file.path,
+          line,
+          message: `Native Nest ${name} import; use ProblemException or feature errors mapped to problem details`,
+          snippet: lineSnippet(file.lines, line),
+          docsLink: 'docs/standards/api-response-standard.md',
+        }),
+      );
+    }
+
+    for (const match of file.content.matchAll(throwRe)) {
+      const name = match[1];
+      const index = match.index ?? 0;
+      const line = lineNumberAt(file.content, index);
+      findings.push(
+        makeFinding({
+          id: 'native_http_exception_in_feature',
+          severity: 'high',
+          file: file.path,
+          line,
+          message: `Native Nest ${name} construction; use ProblemException or feature errors mapped to problem details`,
+          snippet: lineSnippet(file.lines, line),
+          docsLink: 'docs/standards/api-response-standard.md',
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function findFeatureControllerRoutesMissingApiErrorCodes(
+  files: ReadonlyArray<FileData>,
+): ReadonlyArray<Finding> {
+  const findings: Finding[] = [];
+
+  for (const file of files) {
+    if (isTestLike(file.path)) continue;
+    if (!file.path.endsWith('.controller.ts')) continue;
+    if (!file.path.startsWith('libs/features/') && !file.path.startsWith('libs/platform/')) {
+      continue;
+    }
+
+    for (let i = 0; i < file.lines.length; i += 1) {
+      const line = file.lines[i] ?? '';
+      if (!ROUTE_DECORATOR_RE.test(line)) continue;
+
+      const decoratorLines: string[] = [];
+      for (let j = i; j < file.lines.length; j += 1) {
+        const candidate = file.lines[j] ?? '';
+        decoratorLines.push(candidate);
+        if (j > i && ROUTE_DECORATOR_RE.test(candidate)) break;
+        if (METHOD_SIGNATURE_RE.test(candidate)) break;
+      }
+
+      const block = decoratorLines.join('\n');
+      if (block.includes('@ApiErrorCodes(')) continue;
+
+      const routeLine = i + 1;
+      findings.push(
+        makeFinding({
+          id: 'feature_controller_missing_api_error_codes',
+          severity: 'medium',
+          file: file.path,
+          line: routeLine,
+          message:
+            'Controller route is missing @ApiErrorCodes; declare expected problem codes near the route',
+          snippet: lineSnippet(file.lines, routeLine),
+          docsLink: 'docs/openapi/README.md',
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function findWorkerWallClockUsage(files: ReadonlyArray<FileData>): ReadonlyArray<Finding> {
+  const findings: Finding[] = [];
+  const re = /\bnew\s+Date\s*\(\s*\)|\bDate\.now\s*\(/g;
+
+  for (const file of files) {
+    if (isTestLike(file.path)) continue;
+    if (!file.path.startsWith('apps/worker/src/jobs/')) continue;
+
+    for (const match of file.content.matchAll(re)) {
+      const index = match.index ?? 0;
+      const line = lineNumberAt(file.content, index);
+      findings.push(
+        makeFinding({
+          id: 'worker_wall_clock_usage',
+          severity: 'medium',
+          file: file.path,
+          line,
+          message:
+            'Worker/job code uses wall-clock time; review whether Clock injection or explicit now parameter is needed',
+          snippet: lineSnippet(file.lines, line),
+          docsLink: 'docs/standards/code-quality.md',
         }),
       );
     }
@@ -676,6 +846,10 @@ async function scan(options: CliOptions): Promise<ScanResult> {
   const findings = [
     ...findBoundaryAppImportsPlatformImpl(files),
     ...findRawErrorCodeLiterals(files),
+    ...findRawHttpCodeDecorators(files),
+    ...findNativeHttpExceptions(files),
+    ...findFeatureControllerRoutesMissingApiErrorCodes(files),
+    ...findWorkerWallClockUsage(files),
     ...findDuplicateTxRetryClassifier(files),
     ...findDuplicateCursorWhereBuilder(files),
     ...findRepeatedRequestTraceFallback(files),
