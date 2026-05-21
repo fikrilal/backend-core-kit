@@ -38,10 +38,10 @@ jobs:
       - name: Runtime dependency vulnerability audit (high+)
         run: npm run audit:prod
 
-      - name: Prisma generate (client types)
+      - name: Prisma schema and generation drift
         env:
           DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
-        run: npm run prisma:generate
+        run: npm run verify:prisma
 
       - name: Format check
         run: npm run format:check
@@ -128,6 +128,11 @@ jobs:
           echo "MinIO did not become ready in time"
           docker compose logs minio
           exit 1
+
+      - name: Prisma migration status
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
+        run: npm run prisma:migrate:status
 
       - name: Apply Prisma migrations
         env:

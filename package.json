@@ -27,6 +27,7 @@
     "verify:ci-local": "ts-node --files scripts/verify-ci-local.ts",
     "verify:env": "ts-node --files scripts/verify-env-example.ts",
     "verify:project-map": "ts-node --files scripts/verify-project-map-drift.ts",
+    "verify:prisma": "ts-node --files scripts/verify-prisma-drift.ts",
     "duplication:core": "jscpd --config .jscpd.json libs/features libs/platform libs/shared apps/worker/src/jobs && ts-node --files scripts/filter-duplication-report.ts --profile core && prettier --write _WIP/duplication-report.md",
     "duplication:small-helpers": "jscpd --config .jscpd.small-helpers.json libs/features libs/platform libs/shared apps/worker/src/jobs && ts-node --files scripts/filter-duplication-report.ts --profile small-helpers && prettier --write _WIP/small-helper-duplication-report.md",
     "duplication:report": "npm run duplication:core && npm run duplication:small-helpers",
@@ -43,8 +44,10 @@
     "openapi:check": "ts-node --files scripts/openapi-check.ts",
     "deps:up": "docker compose up -d postgres redis minio",
     "deps:down": "docker compose down",
+    "prisma:validate": "prisma validate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:status": "prisma migrate status",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "scaffold:feature": "ts-node --files tools/scaffold-feature.ts"

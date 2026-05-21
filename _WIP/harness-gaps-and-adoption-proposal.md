@@ -98,7 +98,8 @@ Also searched backend source for raw Nest HTTP exceptions and raw numeric status
 - Done: PR template risk/evidence upgrade.
 - Done: project-map drift verification (`scripts/verify-project-map-drift.ts`, `npm run verify:project-map`).
 - Done: unit coverage visibility (`npm run test:coverage`, CI coverage artifact; no threshold yet).
-- Not started: Prisma drift checks, backend runtime evidence guide.
+- Done: Prisma schema/generation and migration-status drift checks.
+- Not started: backend runtime evidence guide.
 
 ## Verified Gaps And Recommendations
 
@@ -461,6 +462,19 @@ Why:
 - Backend already has behavior-heavy e2e coverage; line coverage alone will be incomplete.
 
 ### P2: Add Prisma schema/migration drift checks
+
+Status: Done.
+
+Implemented:
+
+- Added `scripts/verify-prisma-drift.ts`.
+- Added `npm run verify:prisma`.
+- Added `npm run prisma:validate`.
+- Added `npm run prisma:migrate:status`.
+- Wired `verify:prisma` into `npm run verify:ci-local`.
+- Replaced CI's standalone Prisma generate step with `npm run verify:prisma`.
+- Added `prisma:migrate:status` before `prisma:migrate:deploy` in CI and `npm run verify:e2e`.
+- Documented Prisma drift policy in database/CI/guardrail docs.
 
 The previous draft correctly identified this as a gap, but `prisma migrate status` alone is not enough for every local/CI mode.
 

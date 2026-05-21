@@ -6,7 +6,7 @@ type VerifyStep = Readonly<{
 }>;
 
 const STEPS: ReadonlyArray<VerifyStep> = [
-  { title: 'Prisma generate', npmArgs: ['run', 'prisma:generate'] },
+  { title: 'Prisma schema and generation drift', npmArgs: ['run', 'verify:prisma'] },
   { title: 'Format check', npmArgs: ['run', 'format:check'] },
   { title: 'Lint', npmArgs: ['run', 'lint'] },
   { title: 'Typecheck', npmArgs: ['run', 'typecheck'] },

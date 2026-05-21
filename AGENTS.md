@@ -127,6 +127,7 @@ Projects built from this kit should provide stable scripts (names may be finaliz
 - `npm run deps:check` (boundary rules + cycle detection)
 - `npm test` / `npm run test:e2e`
 - `npm run test:coverage` (unit coverage report; no threshold during baseline phase)
+- `npm run verify:prisma` (Prisma schema/generation drift)
 - `npm run openapi:generate` / `npm run openapi:lint`
 - `npm run verify:ci-local` (non-Docker CI mirror)
 - `npm run verify:project-map` (docs/project-map drift)
@@ -164,6 +165,7 @@ When applicable:
 
 - If you changed HTTP routes/controllers/DTOs/OpenAPI decorators: run `npm run openapi:generate`, then re-run `npm run openapi:check`.
 - If you changed Prisma schema/migrations: run `npm run prisma:generate` **before** `npm run typecheck` or `npm run openapi:generate` (keeps Prisma Client types in sync).
+- If you changed Prisma schema/migrations: run `npm run verify:prisma` to validate schema and generation drift.
 - If you changed Prisma schema/migrations or request flows touching Postgres/Redis: run `npm run verify:e2e` (always stops local deps).
 
 WSL note (agent-only): run these via `bash tools/agent/npmw ...` (and `bash tools/agent/dockw ...` for Docker) to avoid OS-specific artifacts.
