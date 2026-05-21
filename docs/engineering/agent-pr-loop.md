@@ -176,6 +176,8 @@ Before opening or updating a PR, verify:
 
 ### 7. PR Description
 
+Use `.github/pull_request_template.md`.
+
 Include:
 
 - risk class

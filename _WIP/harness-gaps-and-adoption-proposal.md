@@ -95,7 +95,8 @@ Also searched backend source for raw Nest HTTP exceptions and raw numeric status
 - Done: backend duplication report harness (`jscpd`, two profiles, categorized filter, allowlists, docs).
 - Done: HTTP/error/time policy guard expansion (`scripts/architecture-smells.ts`) and raw `@HttpCode` cleanup.
 - Done: guardrails, agent PR loop, parallel-agent workflow, and execution-plan docs.
-- Not started: PR template upgrade, project-map drift, coverage, Prisma drift checks, backend runtime evidence guide.
+- Done: PR template risk/evidence upgrade.
+- Not started: project-map drift, coverage, Prisma drift checks, backend runtime evidence guide.
 
 ## Verified Gaps And Recommendations
 
@@ -355,6 +356,18 @@ Why:
 - Backend changes often touch auth, persistence, queues, or API contracts; risk classification should be explicit.
 
 ### P1: Upgrade PR template risk/evidence expectations
+
+Status: Done.
+
+Implemented:
+
+- Added risk class checkboxes.
+- Added acceptance criteria.
+- Added backend impact areas.
+- Added exact command outcome expectations.
+- Added evidence fields for API contract diffs, migrations, integration/e2e, logs/traces, queue/jobs, and config/env.
+- Preserved backend-specific architecture smell, duplication, OpenAPI, and error-code sections.
+- Added reviewer focus and no-speculative-refactor expectations.
 
 Backend PR template currently asks for summary, phase task IDs, architecture smell impact, OpenAPI/error-code impact, verification, and rollback.
 
