@@ -99,7 +99,7 @@ Also searched backend source for raw Nest HTTP exceptions and raw numeric status
 - Done: project-map drift verification (`scripts/verify-project-map-drift.ts`, `npm run verify:project-map`).
 - Done: unit coverage visibility (`npm run test:coverage`, CI coverage artifact; no threshold yet).
 - Done: Prisma schema/generation and migration-status drift checks.
-- Not started: backend runtime evidence guide.
+- Done: backend runtime evidence guide.
 
 ## Verified Gaps And Recommendations
 
@@ -494,6 +494,16 @@ Why:
 - Drift should be caught before a deploy lane.
 
 ### P3: Add backend runtime evidence guidance
+
+Status: Done.
+
+Implemented:
+
+- Added `docs/engineering/backend-runtime-evidence.md`.
+- Defined when runtime evidence is expected.
+- Defined acceptable evidence types for full e2e gates, targeted integration/e2e commands, HTTP transcripts, queue/worker state, migrations, observability, and API contract diffs.
+- Added risk-class evidence expectations and redaction rules.
+- Linked the guide from `AGENTS.md`, `docs/README.md`, `docs/engineering/README.md`, `docs/engineering/agent-pr-loop.md`, and the PR template.
 
 Mobile has a runtime harness because device behavior is hard to prove statically. Backend has e2e tests and local dependency scripts, but lacks a comparable evidence guide for runtime-sensitive backend changes.
 

@@ -36,6 +36,7 @@ The docs are the source of truth for architecture, standards, and workflows. Cod
 - Engineering (implementation notes)
   - `docs/engineering/README.md`
   - `docs/engineering/agent-pr-loop.md`
+  - `docs/engineering/backend-runtime-evidence.md`
   - `docs/engineering/guardrails.md`
   - `docs/engineering/parallel-agent-workflow.md`
   - `docs/engineering/duplication-harness.md`

@@ -28,6 +28,7 @@ Use these documents together:
 - standards: `docs/standards/README.md`
 - mechanical guardrails: `docs/engineering/guardrails.md`
 - duplication review: `docs/engineering/duplication-harness.md`
+- runtime evidence: `docs/engineering/backend-runtime-evidence.md`
 - parallel-agent coordination: `docs/engineering/parallel-agent-workflow.md`
 - OpenAPI contract: `docs/openapi/README.md`
 
@@ -135,6 +136,9 @@ or repeated workflow tails.
 
 Static checks are not always enough. Add runtime evidence when behavior depends
 on real services, network effects, queues, migrations, or deployment settings.
+
+Use `docs/engineering/backend-runtime-evidence.md` for evidence expectations
+and acceptable artifact types.
 
 Runtime evidence is expected for:
 
