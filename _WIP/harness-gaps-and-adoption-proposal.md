@@ -94,7 +94,8 @@ Also searched backend source for raw Nest HTTP exceptions and raw numeric status
 - Done: canonical non-Docker CI mirror (`scripts/verify-ci-local.ts`, `npm run verify:ci-local`).
 - Done: backend duplication report harness (`jscpd`, two profiles, categorized filter, allowlists, docs).
 - Done: HTTP/error/time policy guard expansion (`scripts/architecture-smells.ts`) and raw `@HttpCode` cleanup.
-- Not started: guardrails/agent PR loop docs, PR template upgrade, project-map drift, coverage, Prisma drift checks, backend runtime evidence guide.
+- Done: guardrails, agent PR loop, parallel-agent workflow, and execution-plan docs.
+- Not started: PR template upgrade, project-map drift, coverage, Prisma drift checks, backend runtime evidence guide.
 
 ## Verified Gaps And Recommendations
 
@@ -302,6 +303,21 @@ Why:
 - Backend agents should get remediation instructions directly from failing gates, not reviewer memory.
 
 ### P1: Add guardrails and agent PR loop docs
+
+Status: Done.
+
+Implemented:
+
+- Added `docs/engineering/guardrails.md`.
+- Added `docs/engineering/agent-pr-loop.md`.
+- Added `docs/engineering/parallel-agent-workflow.md`.
+- Added execution plan structure:
+  - `docs/exec-plans/README.md`
+  - `docs/exec-plans/_template.md`
+  - `docs/exec-plans/active/.gitkeep`
+  - `docs/exec-plans/completed/.gitkeep`
+  - `docs/exec-plans/tech-debt-tracker.md`
+- Updated `AGENTS.md`, `docs/README.md`, and `docs/engineering/README.md` to point at the workflow docs.
 
 Mobile has explicit docs for:
 

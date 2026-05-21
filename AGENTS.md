@@ -12,6 +12,10 @@ If you are changing behavior, standards, or architecture, update docs + add an A
 - Standards (normative): `docs/standards/README.md`
 - Decision log (ADRs): `docs/adr/README.md`
 - OpenAPI contract: `docs/openapi/README.md`
+- Agent PR loop: `docs/engineering/agent-pr-loop.md`
+- Guardrails: `docs/engineering/guardrails.md`
+- Parallel-agent workflow: `docs/engineering/parallel-agent-workflow.md`
+- Execution plans: `docs/exec-plans/README.md`
 
 ## Non-Negotiables (Hard Rules)
 
@@ -143,9 +147,10 @@ Use `docs/adr/template.md` and keep ADRs short and specific.
 Before coding:
 
 1. Read `docs/README.md` and the relevant standards.
-2. Confirm the change fits the architecture; if not, propose/write an ADR.
-3. Implement minimally; when adding/changing reusable platform/core infra, update the relevant docs/guides/standards; update OpenAPI snapshot if API changes.
-4. Ensure boundary rules aren’t violated (no “shortcut imports”).
+2. For non-trivial work, follow `docs/engineering/agent-pr-loop.md` and create an execution plan under `docs/exec-plans/active/` when risk or coordination warrants it.
+3. Confirm the change fits the architecture; if not, propose/write an ADR.
+4. Implement minimally; when adding/changing reusable platform/core infra, update the relevant docs/guides/standards; update OpenAPI snapshot if API changes.
+5. Ensure boundary rules aren’t violated (no “shortcut imports”).
 
 ### Local Validation Checklist (Agent + Contributor)
 

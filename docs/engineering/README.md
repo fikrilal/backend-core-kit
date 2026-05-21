@@ -28,3 +28,8 @@ These documents are not “standards”. Standards live under `docs/standards/`.
 - Push
   - `docs/engineering/push/README.md`
   - `docs/engineering/push/fcm.md`
+- Agent workflow and harness
+  - `docs/engineering/agent-pr-loop.md`
+  - `docs/engineering/guardrails.md`
+  - `docs/engineering/parallel-agent-workflow.md`
+  - `docs/engineering/duplication-harness.md`
