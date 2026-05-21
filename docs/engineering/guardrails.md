@@ -52,6 +52,7 @@ npm run format:check
 npm run lint
 npm run typecheck
 npm run verify:env
+npm run verify:project-map
 npm run deps:check
 npm run smells:arch:ci
 npm run duplication:report

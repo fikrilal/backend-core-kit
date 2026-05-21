@@ -96,7 +96,8 @@ Also searched backend source for raw Nest HTTP exceptions and raw numeric status
 - Done: HTTP/error/time policy guard expansion (`scripts/architecture-smells.ts`) and raw `@HttpCode` cleanup.
 - Done: guardrails, agent PR loop, parallel-agent workflow, and execution-plan docs.
 - Done: PR template risk/evidence upgrade.
-- Not started: project-map drift, coverage, Prisma drift checks, backend runtime evidence guide.
+- Done: project-map drift verification (`scripts/verify-project-map-drift.ts`, `npm run verify:project-map`).
+- Not started: coverage, Prisma drift checks, backend runtime evidence guide.
 
 ## Verified Gaps And Recommendations
 
@@ -396,6 +397,18 @@ Why:
 - Backend’s current template is good for phase work but weaker for standalone PR review and agent-delivered evidence.
 
 ### P2: Add project-map drift verification
+
+Status: Done.
+
+Implemented:
+
+- Added `scripts/verify-project-map-drift.ts`.
+- Added `npm run verify:project-map`.
+- Wired project-map drift verification into `npm run verify:ci-local`.
+- Checks required AGENTS layout paths exist and are documented.
+- Checks `docs/README.md`, `docs/adr/README.md`, and `docs/standards/README.md` linked doc paths exist.
+- Checks ADR and standards indexes enumerate committed markdown files in their directories.
+- Expanded ADR and standards indexes so the check has a complete source of truth.
 
 Mobile has `tool/verify_project_map_drift.dart`, which checks that `AGENTS.md` project map does not drift from actual source layout.
 

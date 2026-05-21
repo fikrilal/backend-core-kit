@@ -11,6 +11,7 @@ const STEPS: ReadonlyArray<VerifyStep> = [
   { title: 'Lint', npmArgs: ['run', 'lint'] },
   { title: 'Typecheck', npmArgs: ['run', 'typecheck'] },
   { title: 'Environment example schema', npmArgs: ['run', 'verify:env'] },
+  { title: 'Project map drift', npmArgs: ['run', 'verify:project-map'] },
   { title: 'Dependency boundaries', npmArgs: ['run', 'deps:check'] },
   { title: 'Scaffold smoke', npmArgs: ['run', 'scaffold:smoke'] },
   { title: 'Architecture smell scan', npmArgs: ['run', 'smells:arch:ci'] },

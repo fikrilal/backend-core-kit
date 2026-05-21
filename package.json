@@ -25,6 +25,7 @@
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run verify:env && npm run deps:check && npm test && npm run openapi:check && npm run openapi:lint",
     "verify:ci-local": "ts-node --files scripts/verify-ci-local.ts",
     "verify:env": "ts-node --files scripts/verify-env-example.ts",
+    "verify:project-map": "ts-node --files scripts/verify-project-map-drift.ts",
     "duplication:core": "jscpd --config .jscpd.json libs/features libs/platform libs/shared apps/worker/src/jobs && ts-node --files scripts/filter-duplication-report.ts --profile core && prettier --write _WIP/duplication-report.md",
     "duplication:small-helpers": "jscpd --config .jscpd.small-helpers.json libs/features libs/platform libs/shared apps/worker/src/jobs && ts-node --files scripts/filter-duplication-report.ts --profile small-helpers && prettier --write _WIP/small-helper-duplication-report.md",
     "duplication:report": "npm run duplication:core && npm run duplication:small-helpers",
