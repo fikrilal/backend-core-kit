@@ -18,6 +18,7 @@ On every PR:
 2. Test gates
 
 - unit tests
+- unit coverage report artifact (`npm run test:coverage`; no threshold during initial baseline phase)
 - integration tests (real Postgres/Redis via Docker Compose or Testcontainers)
 - e2e tests for critical flows (as the project grows)
 

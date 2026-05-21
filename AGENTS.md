@@ -126,6 +126,7 @@ Projects built from this kit should provide stable scripts (names may be finaliz
 - `npm run lint` / `npm run format` / `npm run typecheck`
 - `npm run deps:check` (boundary rules + cycle detection)
 - `npm test` / `npm run test:e2e`
+- `npm run test:coverage` (unit coverage report; no threshold during baseline phase)
 - `npm run openapi:generate` / `npm run openapi:lint`
 - `npm run verify:ci-local` (non-Docker CI mirror)
 - `npm run verify:project-map` (docs/project-map drift)

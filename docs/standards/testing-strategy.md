@@ -23,6 +23,13 @@ Command:
 
 - `npm test`
 
+Coverage visibility:
+
+- `npm run test:coverage`
+- Generates text summary, `coverage/lcov.info`, and `coverage/coverage-summary.json`.
+- DTOs, generated declarations, module wiring, token/type-only files, test files, and generated folders are excluded from line coverage.
+- No coverage threshold is enforced yet. Add a conservative floor only after measuring baseline signal and avoiding low-value test incentives.
+
 ## Integration Tests
 
 Scope:

@@ -97,7 +97,8 @@ Also searched backend source for raw Nest HTTP exceptions and raw numeric status
 - Done: guardrails, agent PR loop, parallel-agent workflow, and execution-plan docs.
 - Done: PR template risk/evidence upgrade.
 - Done: project-map drift verification (`scripts/verify-project-map-drift.ts`, `npm run verify:project-map`).
-- Not started: coverage, Prisma drift checks, backend runtime evidence guide.
+- Done: unit coverage visibility (`npm run test:coverage`, CI coverage artifact; no threshold yet).
+- Not started: Prisma drift checks, backend runtime evidence guide.
 
 ## Verified Gaps And Recommendations
 
@@ -430,6 +431,18 @@ Why:
 - Stale maps harm agent legibility.
 
 ### P2: Add coverage visibility, then a conservative floor
+
+Status: Done for visibility; threshold intentionally deferred.
+
+Implemented:
+
+- Added `npm run test:coverage`.
+- Configured Jest coverage reporters: text summary, lcov, and json summary.
+- Excluded tests, DTOs, generated declarations, module wiring, token/type-only files, and generated folders from unit coverage collection.
+- Changed `npm run verify:ci-local` unit-test step to run coverage once instead of running tests twice.
+- Changed CI unit-test step to `npm run test:coverage`.
+- Added CI upload for the `coverage/` artifact.
+- Documented that no threshold is enforced until baseline signal is measured.
 
 Mobile governance includes a coverage gate with a floor.
 

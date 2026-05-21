@@ -54,6 +54,7 @@ npm run typecheck
 npm run verify:env
 npm run verify:project-map
 npm run deps:check
+npm run test:coverage
 npm run smells:arch:ci
 npm run duplication:report
 npm run openapi:check
