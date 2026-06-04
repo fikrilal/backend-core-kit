@@ -21,6 +21,7 @@ These are the typical commands a project should provide:
 - `npm run openapi:lint` (Spectral)
 - `npm run start:dev` (API)
 - `npm run start:worker:dev` (worker)
+- `npm run verify:ci-local` (non-Docker CI mirror)
 
 When code is scaffolded, keep these commands stable; they form the project’s “golden path”.
 

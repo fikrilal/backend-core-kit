@@ -123,6 +123,7 @@ Projects built from this kit should provide stable scripts (names may be finaliz
 - `npm run deps:check` (boundary rules + cycle detection)
 - `npm test` / `npm run test:e2e`
 - `npm run openapi:generate` / `npm run openapi:lint`
+- `npm run verify:ci-local` (non-Docker CI mirror)
 - `npm run setup:hooks` installs local Git hooks; commits must follow `type(scope): message` (`docs/contributing/commit-conventions.md`)
 
 ## When to Add an ADR

@@ -30,6 +30,11 @@ Meta gate (recommended):
 
 - prove the gates are effective (OpenAPI drift and boundary violations are caught): `npm run verify:gates`
 
+Local CI mirror:
+
+- `npm run verify:ci-local` runs the non-Docker CI sequence, including Prisma client generation, quality gates, scaffold smoke, architecture smell scan, contract gates, gate honesty, and runtime dependency audit.
+- `npm run verify:e2e` remains the explicit Docker-backed lane for Postgres/Redis/MinIO, migrations, integration tests, and e2e tests.
+
 4. Security gates (baseline)
 
 - secret scanning (pre-merge)

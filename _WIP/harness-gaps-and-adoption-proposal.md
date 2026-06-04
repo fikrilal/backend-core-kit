@@ -4,6 +4,7 @@ Date: 2026-06-04
 Scope: `backend-core-kit` developer harness, CI gates, agent workflow
 Comparison target: `/home/fikrilal/devs/core/mobile-core-kit`
 Status: Verified proposal
+Last updated: 2026-06-04
 
 ## Executive Summary
 
@@ -85,9 +86,26 @@ Also searched backend source for raw Nest HTTP exceptions and raw numeric status
 - Backend has real Postgres/Redis/MinIO integration and e2e gates in CI.
 - Backend already has an architecture smell baseline governance model.
 
+## Current Completion Status
+
+- Done: secret scanning CI gate (`.github/workflows/governance.yml`; commit `e7b05cd`).
+- Done: static `env.example` schema validation (`scripts/verify-env-example.ts`, `npm run verify:env`, CI wiring; commit `fb4a114`).
+- Done: scoped semantic commit-message harness (`commitlint.config.cjs`, `.githooks/commit-msg`, `npm run setup:hooks`; commit `ccfce72`).
+- Done: canonical non-Docker CI mirror (`scripts/verify-ci-local.ts`, `npm run verify:ci-local`).
+- Not started: duplication harness, HTTP/error/time policy guard expansion, guardrails/agent PR loop docs, PR template upgrade, project-map drift, coverage, Prisma drift checks, backend runtime evidence guide.
+
 ## Verified Gaps And Recommendations
 
 ### P0: Add a canonical verify orchestrator
+
+Status: Done.
+
+Implemented:
+
+- Added `scripts/verify-ci-local.ts`.
+- Added `npm run verify:ci-local`.
+- Kept `npm run verify` as the fast local gate.
+- Kept `npm run verify:e2e` as the explicit Docker-backed lane.
 
 Mobile has `dart run tool/verify.dart --env dev`, which is the single command agents and CI can reason about. Backend has several scripts and `npm run verify`, but `verify` does not include some CI-only gates:
 
@@ -122,6 +140,15 @@ Why:
 
 ### P0: Add secret scanning to actual CI
 
+Status: Done.
+
+Implemented:
+
+- Added `.github/workflows/governance.yml`.
+- Uses `gitleaks/gitleaks-action@v2`.
+- Runs on `pull_request`, `push` to `main`, and `workflow_dispatch`.
+- Uses least-privilege `contents: read` and full checkout history.
+
 Backend docs already list pre-merge secret scanning as a baseline security gate in `docs/standards/ci-cd.md`, but `.github/workflows/ci.yml` does not include gitleaks or an equivalent.
 
 Mobile has a dedicated gitleaks job in `.github/workflows/governance.yml`.
@@ -138,6 +165,17 @@ Why:
 - Backend has many high-risk env surfaces: JWT signing keys, OTLP auth headers, Resend, FCM, S3 credentials, DB/Redis URLs.
 
 ### P0: Add static env example/schema validation
+
+Status: Done.
+
+Implemented:
+
+- Added `scripts/verify-env-example.ts`.
+- Added `npm run verify:env`.
+- Wired `verify:env` into `npm run verify`.
+- Added CI step after typecheck.
+- Updated configuration/CI/development docs.
+- Cleaned optional push/storage examples in `env.example` so the example passes the runtime schema.
 
 Backend validates env at startup through `libs/platform/config/env.validation.ts`, but it does not statically verify `env.example` during the normal harness.
 
@@ -388,14 +426,15 @@ Why:
 
 1. Add secret scanning to CI.
 2. Add static `env.example` validation.
-3. Add `verify:ci-local` or `scripts/verify.ts` as the canonical non-Docker harness.
-4. Extend architecture smell policy guards for raw `@HttpCode`, native HTTP exceptions, and selected worker time usage.
-5. Add backend duplication harness profiles, filters, allowlists, and docs.
-6. Upgrade PR template with risk, acceptance criteria, exact checks, evidence, and reviewer focus.
-7. Add guardrails / agent PR loop / parallel-agent workflow docs.
-8. Add project-map drift verification.
-9. Add coverage reporting and eventually a conservative floor.
-10. Add Prisma schema/migration drift checks beyond current migrate deploy usage.
+3. Add scoped semantic commit-message harness.
+4. Add `verify:ci-local` or `scripts/verify.ts` as the canonical non-Docker harness.
+5. Extend architecture smell policy guards for raw `@HttpCode`, native HTTP exceptions, and selected worker time usage.
+6. Add backend duplication harness profiles, filters, allowlists, and docs.
+7. Upgrade PR template with risk, acceptance criteria, exact checks, evidence, and reviewer focus.
+8. Add guardrails / agent PR loop / parallel-agent workflow docs.
+9. Add project-map drift verification.
+10. Add coverage reporting and eventually a conservative floor.
+11. Add Prisma schema/migration drift checks beyond current migrate deploy usage.
 
 ## Notes On What Not To Port Directly
 
