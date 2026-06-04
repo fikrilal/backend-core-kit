@@ -22,6 +22,7 @@ These are the typical commands a project should provide:
 - `npm run start:dev` (API)
 - `npm run start:worker:dev` (worker)
 - `npm run verify:ci-local` (non-Docker CI mirror)
+- `npm run duplication:report` (categorized duplication self-review reports)
 
 When code is scaffolded, keep these commands stable; they form the project’s “golden path”.
 

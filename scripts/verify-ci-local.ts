@@ -14,6 +14,7 @@ const STEPS: ReadonlyArray<VerifyStep> = [
   { title: 'Dependency boundaries', npmArgs: ['run', 'deps:check'] },
   { title: 'Scaffold smoke', npmArgs: ['run', 'scaffold:smoke'] },
   { title: 'Architecture smell scan', npmArgs: ['run', 'smells:arch:ci'] },
+  { title: 'Duplication self-review report', npmArgs: ['run', 'duplication:report'] },
   { title: 'Unit tests', npmArgs: ['test'] },
   { title: 'OpenAPI snapshot gate', npmArgs: ['run', 'openapi:check'] },
   { title: 'OpenAPI Spectral lint', npmArgs: ['run', 'openapi:lint'] },

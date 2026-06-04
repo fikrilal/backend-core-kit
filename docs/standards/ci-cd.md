@@ -33,6 +33,7 @@ Meta gate (recommended):
 Local CI mirror:
 
 - `npm run verify:ci-local` runs the non-Docker CI sequence, including Prisma client generation, quality gates, scaffold smoke, architecture smell scan, contract gates, gate honesty, and runtime dependency audit.
+- The local CI mirror also generates the duplication self-review reports (`npm run duplication:report`). Findings are non-fatal during the initial tuning phase.
 - `npm run verify:e2e` remains the explicit Docker-backed lane for Postgres/Redis/MinIO, migrations, integration tests, and e2e tests.
 
 4. Security gates (baseline)

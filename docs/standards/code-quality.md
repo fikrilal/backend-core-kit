@@ -133,6 +133,20 @@ Baseline expectation:
 
 See ADR: boundary enforcement tool + config will be codified and versioned with the repo.
 
+## Duplication Detection
+
+Token-based clone detection is a self-review harness, not a replacement for
+architecture smell rules.
+
+Baseline expectation:
+
+- run `npm run duplication:report` when changes introduce or reshape shared logic
+- keep raw jscpd output out of git
+- review categorized findings in `_WIP/duplication-report.md` and `_WIP/small-helper-duplication-report.md`
+- record reviewed acceptable duplicates in the relevant allowlist with rationale
+
+See: `docs/engineering/duplication-harness.md`.
+
 ## Dependency Injection & Instantiation
 
 Rules:

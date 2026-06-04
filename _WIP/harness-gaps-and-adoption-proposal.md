@@ -92,7 +92,8 @@ Also searched backend source for raw Nest HTTP exceptions and raw numeric status
 - Done: static `env.example` schema validation (`scripts/verify-env-example.ts`, `npm run verify:env`, CI wiring; commit `fb4a114`).
 - Done: scoped semantic commit-message harness (`commitlint.config.cjs`, `.githooks/commit-msg`, `npm run setup:hooks`; commit `ccfce72`).
 - Done: canonical non-Docker CI mirror (`scripts/verify-ci-local.ts`, `npm run verify:ci-local`).
-- Not started: duplication harness, HTTP/error/time policy guard expansion, guardrails/agent PR loop docs, PR template upgrade, project-map drift, coverage, Prisma drift checks, backend runtime evidence guide.
+- Done: backend duplication report harness (`jscpd`, two profiles, categorized filter, allowlists, docs).
+- Not started: HTTP/error/time policy guard expansion, guardrails/agent PR loop docs, PR template upgrade, project-map drift, coverage, Prisma drift checks, backend runtime evidence guide.
 
 ## Verified Gaps And Recommendations
 
@@ -200,6 +201,20 @@ Why:
 - This is cheap and deterministic.
 
 ### P1: Add backend duplication harness with profiles and allowlists
+
+Status: Done.
+
+Implemented:
+
+- Added `jscpd` as a dev dependency.
+- Added core and small-helper profiles (`.jscpd.json`, `.jscpd.small-helpers.json`).
+- Added `scripts/filter-duplication-report.ts`.
+- Added reviewed-acceptable allowlists:
+  - `tools/duplication-allowlist.json`
+  - `tools/small-helper-duplication-allowlist.json`
+- Added `npm run duplication:core`, `npm run duplication:small-helpers`, and `npm run duplication:report`.
+- Wired `duplication:report` into `npm run verify:ci-local` as a non-fatal self-review report gate.
+- Added `docs/engineering/duplication-harness.md`.
 
 The previous draft was directionally right but too shallow. Mobile does not just “run jscpd.” It has:
 
