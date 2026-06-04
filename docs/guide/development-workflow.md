@@ -10,6 +10,7 @@ These are the typical commands a project should provide:
 - `npm run lint`
 - `npm run format`
 - `npm run typecheck`
+- `npm run verify:env` (env example/schema drift)
 - `npm run deps:check` (dependency boundaries + cycles)
 - `npm test`
 - `npm run test:int`

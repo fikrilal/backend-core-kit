@@ -11,6 +11,7 @@ On every PR:
 - lint
 - format check
 - typecheck
+- environment example/schema check (`npm run verify:env`)
 - dependency boundary check (architecture rules + cycle detection)
 - architecture smell scan (`npm run smells:arch:ci`; fail on new findings at/above configured severity)
 

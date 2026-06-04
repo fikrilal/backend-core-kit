@@ -52,6 +52,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Environment example schema
+        run: npm run verify:env
+
       - name: Dependency boundaries
         run: npm run deps:check
 
