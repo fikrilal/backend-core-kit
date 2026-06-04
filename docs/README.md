@@ -26,6 +26,7 @@ The docs are the source of truth for architecture, standards, and workflows. Cod
   - `docs/standards/testing-strategy.md`
   - `docs/standards/ci-cd.md`
 - Guides (how-to)
+  - `docs/contributing/commit-conventions.md`
   - `docs/guide/personalizing-a-project.md`
   - `docs/guide/getting-started.md`
   - `docs/guide/development-workflow.md`

@@ -29,6 +29,8 @@
     "scaffold:smoke": "ts-node --files scripts/scaffold-smoke.ts",
     "verify:gates": "ts-node --files scripts/gates-honesty.ts",
     "verify:e2e": "ts-node --files scripts/verify-e2e.ts",
+    "commitlint": "commitlint",
+    "setup:hooks": "node scripts/install-git-hooks.cjs",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
     "openapi:generate": "ts-node --files scripts/openapi-generate.ts",
     "openapi:lint": "spectral lint --fail-severity warn docs/openapi/openapi.yaml",
@@ -79,6 +81,8 @@
     "lodash": "^4.17.23"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
     "@eslint/js": "^9.13.0",
     "@nestjs/cli": "^11.0.10",
     "@stoplight/spectral-cli": "^6.15.0",
