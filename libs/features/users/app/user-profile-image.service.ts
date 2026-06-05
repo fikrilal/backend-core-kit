@@ -30,7 +30,7 @@ export type ProfileImageUrlView = Readonly<{
 function isAllowedContentType(
   value: string,
 ): value is (typeof PROFILE_IMAGE_ALLOWED_CONTENT_TYPES)[number] {
-  return (PROFILE_IMAGE_ALLOWED_CONTENT_TYPES as readonly string[]).includes(value);
+  return PROFILE_IMAGE_ALLOWED_CONTENT_TYPES.some((allowed) => allowed === value);
 }
 
 export class UserProfileImageService {

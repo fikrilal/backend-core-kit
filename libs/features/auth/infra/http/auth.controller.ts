@@ -1,4 +1,12 @@
-import { Body, Controller, HttpCode, Post, UseFilters, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseFilters,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiNoContentResponse,
@@ -60,7 +68,7 @@ export class AuthController {
   }
 
   @Post('password/register')
-  @HttpCode(200)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'auth.password.register',
     summary: 'Register (password)',
@@ -99,7 +107,7 @@ export class AuthController {
   }
 
   @Post('oidc/exchange')
-  @HttpCode(200)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'auth.oidc.exchange',
     summary: 'Exchange OIDC id_token',
@@ -136,7 +144,7 @@ export class AuthController {
   @Post('oidc/connect')
   @UseGuards(AccessTokenGuard)
   @ApiBearerAuth('access-token')
-  @HttpCode(204)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'auth.oidc.connect',
     summary: 'Connect OIDC identity (current user)',
@@ -170,7 +178,7 @@ export class AuthController {
   }
 
   @Post('email/verify')
-  @HttpCode(204)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'auth.email.verify',
     summary: 'Verify email',
@@ -190,7 +198,7 @@ export class AuthController {
   @Post('email/verification/resend')
   @UseGuards(AccessTokenGuard)
   @ApiBearerAuth('access-token')
-  @HttpCode(204)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'auth.email.verification.resend',
     summary: 'Resend verification email (current user)',
@@ -231,7 +239,7 @@ export class AuthController {
   }
 
   @Post('password/reset/request')
-  @HttpCode(204)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'auth.password.reset.request',
     summary: 'Request password reset',
@@ -271,7 +279,7 @@ export class AuthController {
   }
 
   @Post('password/reset/confirm')
-  @HttpCode(204)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'auth.password.reset.confirm',
     summary: 'Confirm password reset',
@@ -289,7 +297,7 @@ export class AuthController {
   }
 
   @Post('password/login')
-  @HttpCode(200)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'auth.password.login',
     summary: 'Login (password)',
@@ -320,7 +328,7 @@ export class AuthController {
   @Post('password/change')
   @UseGuards(AccessTokenGuard)
   @ApiBearerAuth('access-token')
-  @HttpCode(204)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'auth.password.change',
     summary: 'Change password (current user)',
@@ -352,7 +360,7 @@ export class AuthController {
   }
 
   @Post('refresh')
-  @HttpCode(200)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'auth.refresh',
     summary: 'Refresh tokens',
@@ -377,7 +385,7 @@ export class AuthController {
   }
 
   @Post('logout')
-  @HttpCode(204)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'auth.logout',
     summary: 'Logout',

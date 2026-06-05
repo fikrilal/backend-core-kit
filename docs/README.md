@@ -26,6 +26,7 @@ The docs are the source of truth for architecture, standards, and workflows. Cod
   - `docs/standards/testing-strategy.md`
   - `docs/standards/ci-cd.md`
 - Guides (how-to)
+  - `docs/contributing/commit-conventions.md`
   - `docs/guide/personalizing-a-project.md`
   - `docs/guide/getting-started.md`
   - `docs/guide/development-workflow.md`
@@ -34,6 +35,15 @@ The docs are the source of truth for architecture, standards, and workflows. Cod
   - `docs/guide/adding-a-job.md`
 - Engineering (implementation notes)
   - `docs/engineering/README.md`
+  - `docs/engineering/agent-pr-loop.md`
+  - `docs/engineering/backend-runtime-evidence.md`
+  - `docs/engineering/guardrails.md`
+  - `docs/engineering/parallel-agent-workflow.md`
+  - `docs/engineering/duplication-harness.md`
+- Execution plans
+  - `docs/exec-plans/README.md`
+  - `docs/exec-plans/_template.md`
+  - `docs/exec-plans/tech-debt-tracker.md`
 - ADRs (decision log)
   - `docs/adr/README.md`
   - `docs/adr/template.md`

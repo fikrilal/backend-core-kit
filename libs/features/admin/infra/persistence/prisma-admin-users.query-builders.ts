@@ -8,7 +8,6 @@ import {
 } from '../../../../shared/list-query';
 import type {
   AdminUserListItem,
-  AdminUserRole,
   AdminUsersFilterField,
   AdminUsersSortField,
 } from '../../app/admin-users.types';
@@ -19,6 +18,7 @@ import {
   parseCursorDateValue,
   parseCursorStringValue,
 } from './prisma-list-query.helpers';
+import { toAdminUserRole, toAdminUserStatus } from './prisma-admin.mappers';
 
 export const ADMIN_USER_LIST_SELECT = {
   id: true,
@@ -170,14 +170,14 @@ export function buildUsersAfterCursorWhere(
 }
 
 export function toAdminUserListItem(user: AdminUserListRow): AdminUserListItem {
-  const role = String(user.role) as AdminUserRole;
+  const role = toAdminUserRole(user.role);
 
   return {
     id: user.id,
     email: user.email,
     emailVerified: user.emailVerifiedAt !== null,
     roles: [role],
-    status: String(user.status) as AdminUserListItem['status'],
+    status: toAdminUserStatus(user.status),
     suspendedAt: user.suspendedAt ? user.suspendedAt.toISOString() : null,
     suspendedReason: user.suspendedReason ?? null,
     createdAt: user.createdAt.toISOString(),

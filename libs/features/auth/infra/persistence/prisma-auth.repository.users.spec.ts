@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
-import type { PrismaService } from '../../../../platform/db/prisma.service';
+import { PrismaService } from '../../../../platform/db/prisma.service';
 import { verifyEmailByTokenHash } from './prisma-auth.repository.users';
+import { createPrototypeStub } from '../../../../../test/support/stubs';
 
 function createPrismaStub(params: {
   tokenRow: Readonly<{
@@ -21,7 +22,7 @@ function createPrismaStub(params: {
   const updateManyCalls: Prisma.EmailVerificationTokenUpdateManyArgs[] = [];
   const userUpdateManyCalls: Prisma.UserUpdateManyArgs[] = [];
 
-  const tx = {
+  const txClient = {
     emailVerificationToken: {
       findUnique: async (args: Prisma.EmailVerificationTokenFindUniqueArgs) => {
         findUniqueCalls.push(args);
@@ -42,12 +43,12 @@ function createPrismaStub(params: {
 
   const client = {
     $transaction: async <T>(
-      fn: (tx: Prisma.TransactionClient) => Promise<T>,
+      fn: (tx: typeof txClient) => Promise<T>,
       _options?: unknown,
-    ): Promise<T> => await fn(tx as unknown as Prisma.TransactionClient),
+    ): Promise<T> => await fn(txClient),
   };
 
-  const prisma = { getClient: () => client } as unknown as PrismaService;
+  const prisma = createPrototypeStub(PrismaService, { getClient: () => client });
   return { prisma, findUniqueCalls, updateManyCalls, userUpdateManyCalls };
 }
 

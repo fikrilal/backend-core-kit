@@ -10,6 +10,7 @@ These are the typical commands a project should provide:
 - `npm run lint`
 - `npm run format`
 - `npm run typecheck`
+- `npm run verify:env` (env example/schema drift)
 - `npm run deps:check` (dependency boundaries + cycles)
 - `npm test`
 - `npm run test:int`
@@ -20,6 +21,8 @@ These are the typical commands a project should provide:
 - `npm run openapi:lint` (Spectral)
 - `npm run start:dev` (API)
 - `npm run start:worker:dev` (worker)
+- `npm run verify:ci-local` (non-Docker CI mirror)
+- `npm run duplication:report` (categorized duplication self-review reports)
 
 When code is scaffolded, keep these commands stable; they form the project’s “golden path”.
 

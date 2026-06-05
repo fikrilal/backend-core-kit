@@ -4,17 +4,18 @@ import { normalizeEmail } from '../../domain/email';
 import { AuthError } from '../../app/auth.errors';
 import { RedisService } from '../../../../platform/redis/redis.service';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
-import { asNonEmptyString, asPositiveInt, getRetryAfterSeconds, hashKey } from './rate-limit.utils';
+import {
+  applyIpRateLimit,
+  asNonEmptyString,
+  asPositiveInt,
+  getRetryAfterSeconds,
+  hashKey,
+  type IpRateLimitConfig,
+} from './rate-limit.utils';
 
 type PasswordResetRateLimitContext = Readonly<{
   email: string;
   ip?: string;
-}>;
-
-type IpRateLimitConfig = Readonly<{
-  maxAttempts: number;
-  windowSeconds: number;
-  blockSeconds: number;
 }>;
 
 @Injectable()
@@ -56,21 +57,15 @@ export class RedisPasswordResetRateLimiter {
 
     const ip = asNonEmptyString(ctx.ip);
     if (ip) {
-      const ipHash = hashKey(ip);
-      const ipCountKey = `auth:password-reset:request:ip:${ipHash}:requests`;
-      const ipBlockKey = `auth:password-reset:request:ip:${ipHash}:blocked`;
-
-      const blocked = await client.get(ipBlockKey);
-      if (blocked) {
-        const retryAfterSeconds = await getRetryAfterSeconds(
-          client,
-          ipBlockKey,
-          this.ipConfig.blockSeconds,
-        );
+      const retryAfterSeconds = await applyIpRateLimit({
+        client,
+        ip,
+        keyPrefix: 'auth:password-reset:request:ip',
+        config: this.ipConfig,
+      });
+      if (retryAfterSeconds !== undefined) {
         throw this.rateLimited(retryAfterSeconds);
       }
-
-      await this.bumpIp(client, ipCountKey, ipBlockKey);
     }
 
     const emailOk = await client.set(emailKey, '1', 'EX', this.cooldownSeconds, 'NX');
@@ -78,23 +73,6 @@ export class RedisPasswordResetRateLimiter {
 
     const retryAfterSeconds = await getRetryAfterSeconds(client, emailKey, this.cooldownSeconds);
     throw this.rateLimited(retryAfterSeconds);
-  }
-
-  private async bumpIp(
-    client: ReturnType<RedisService['getClient']>,
-    countKey: string,
-    blockKey: string,
-  ): Promise<void> {
-    const { maxAttempts, windowSeconds, blockSeconds } = this.ipConfig;
-
-    const count = await client.incr(countKey);
-    if (count === 1) {
-      await client.expire(countKey, windowSeconds);
-    }
-
-    if (count >= maxAttempts) {
-      await client.set(blockKey, '1', 'EX', blockSeconds);
-    }
   }
 
   private rateLimited(retryAfterSeconds: number): AuthError {

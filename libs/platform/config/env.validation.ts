@@ -11,26 +11,48 @@ import { EnvVars } from './env.schema';
 
 export { NodeEnv, PushProvider } from './env.enums';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getErrorProperty(error: unknown): string {
+  if (!isRecord(error)) return 'unknown';
+  const property = Reflect.get(error, 'property');
+  return typeof property === 'string' ? property : 'unknown';
+}
+
+function getErrorConstraints(error: unknown): Record<string, string> | undefined {
+  if (!isRecord(error)) return undefined;
+  const constraints = Reflect.get(error, 'constraints');
+  if (!isRecord(constraints)) return undefined;
+
+  const entries = Object.entries(constraints).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string',
+  );
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function getErrorChildren(error: unknown): unknown[] {
+  if (!isRecord(error)) return [];
+  const children = Reflect.get(error, 'children');
+  return Array.isArray(children) ? children : [];
+}
+
 function formatValidationErrors(errors: unknown[]): string {
   const messages: string[] = [];
 
   for (const error of errors) {
-    if (!error || typeof error !== 'object') continue;
-    const e = error as {
-      property?: string;
-      constraints?: Record<string, string>;
-      children?: unknown[];
-    };
-
-    const property = typeof e.property === 'string' ? e.property : 'unknown';
-    if (e.constraints) {
-      for (const msg of Object.values(e.constraints)) {
+    const property = getErrorProperty(error);
+    const constraints = getErrorConstraints(error);
+    if (constraints) {
+      for (const msg of Object.values(constraints)) {
         messages.push(`${property}: ${msg}`);
       }
     }
 
-    if (Array.isArray(e.children) && e.children.length > 0) {
-      messages.push(formatValidationErrors(e.children));
+    const children = getErrorChildren(error);
+    if (children.length > 0) {
+      messages.push(formatValidationErrors(children));
     }
   }
 

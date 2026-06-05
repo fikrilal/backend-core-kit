@@ -1,5 +1,13 @@
 import { buildCursorAfterWhere } from './cursor-after';
 
+function expectString(value: unknown): string {
+  if (typeof value !== 'string') {
+    throw new Error('Expected string cursor value');
+  }
+
+  return value;
+}
+
 describe('buildCursorAfterWhere', () => {
   it('builds lexicographic after-where for admin users sort fields', () => {
     const where = buildCursorAfterWhere({
@@ -14,11 +22,11 @@ describe('buildCursorAfterWhere', () => {
       builders: {
         equals: (field, value) =>
           field === 'createdAt'
-            ? { createdAt: { equals: new Date(value as string) } }
+            ? { createdAt: { equals: new Date(expectString(value)) } }
             : { id: { equals: String(value) } },
         compare: (field, direction, value) => {
           if (field === 'createdAt') {
-            const date = new Date(value as string);
+            const date = new Date(expectString(value));
             return direction === 'asc' ? { createdAt: { gt: date } } : { createdAt: { lt: date } };
           }
           return direction === 'asc'
@@ -57,11 +65,11 @@ describe('buildCursorAfterWhere', () => {
       builders: {
         equals: (field, value) =>
           field === 'createdAt'
-            ? { createdAt: { equals: new Date(value as string) } }
+            ? { createdAt: { equals: new Date(expectString(value)) } }
             : { id: { equals: String(value) } },
         compare: (field, direction, value) => {
           if (field === 'createdAt') {
-            const date = new Date(value as string);
+            const date = new Date(expectString(value));
             return direction === 'asc' ? { createdAt: { gt: date } } : { createdAt: { lt: date } };
           }
           return direction === 'asc'
@@ -100,11 +108,11 @@ describe('buildCursorAfterWhere', () => {
       builders: {
         equals: (field, value) =>
           field === 'createdAt'
-            ? { createdAt: { equals: new Date(value as string) } }
+            ? { createdAt: { equals: new Date(expectString(value)) } }
             : { id: { equals: String(value) } },
         compare: (field, direction, value) => {
           if (field === 'createdAt') {
-            const date = new Date(value as string);
+            const date = new Date(expectString(value));
             return direction === 'asc' ? { createdAt: { gt: date } } : { createdAt: { lt: date } };
           }
           return direction === 'asc'

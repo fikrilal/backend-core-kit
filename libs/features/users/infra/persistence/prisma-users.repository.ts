@@ -85,13 +85,33 @@ function toAuthMethods(user: PrismaUserWithProfile): AuthMethod[] {
   return methods;
 }
 
+function toUserRole(role: PrismaUserRole): UserRole {
+  switch (role) {
+    case PrismaUserRole.USER:
+      return 'USER';
+    case PrismaUserRole.ADMIN:
+      return 'ADMIN';
+  }
+}
+
+function toUserStatus(status: PrismaUserStatus): UserStatus {
+  switch (status) {
+    case PrismaUserStatus.ACTIVE:
+      return 'ACTIVE';
+    case PrismaUserStatus.SUSPENDED:
+      return 'SUSPENDED';
+    case PrismaUserStatus.DELETED:
+      return 'DELETED';
+  }
+}
+
 function toUserRecord(user: PrismaUserWithProfile): UserRecord {
   return {
     id: user.id,
     email: user.email,
     emailVerifiedAt: user.emailVerifiedAt,
-    role: user.role as UserRole,
-    status: user.status as UserStatus,
+    role: toUserRole(user.role),
+    status: toUserStatus(user.status),
     deletionRequestedAt: user.deletionRequestedAt,
     deletionScheduledFor: user.deletionScheduledFor,
     authMethods: toAuthMethods(user),

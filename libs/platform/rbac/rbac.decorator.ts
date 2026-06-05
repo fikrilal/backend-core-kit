@@ -5,7 +5,7 @@ import { normalizePermissions } from './permissions';
 export const REQUIRE_PERMISSIONS_KEY = 'requirePermissions';
 
 function getExistingPermissions(target: object): Permission[] {
-  const existing = Reflect.getMetadata(REQUIRE_PERMISSIONS_KEY, target) as unknown;
+  const existing = Reflect.getMetadata(REQUIRE_PERMISSIONS_KEY, target);
   if (!Array.isArray(existing)) return [];
   return normalizePermissions(existing.filter((v): v is string => typeof v === 'string'));
 }

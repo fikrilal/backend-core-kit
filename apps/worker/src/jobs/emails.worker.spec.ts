@@ -1,10 +1,8 @@
-import type { ConfigService } from '@nestjs/config';
-import type { Job } from 'bullmq';
-import type { PinoLogger } from 'nestjs-pino';
-import type { PrismaService } from '../../../../libs/platform/db/prisma.service';
-import type { EmailService } from '../../../../libs/platform/email/email.service';
+import { PinoLogger } from 'nestjs-pino';
+import { PrismaService } from '../../../../libs/platform/db/prisma.service';
+import { EmailService } from '../../../../libs/platform/email/email.service';
 import type { SendEmailInput } from '../../../../libs/platform/email/email.types';
-import type { QueueWorkerFactory } from '../../../../libs/platform/queue/queue.worker';
+import { QueueWorkerFactory } from '../../../../libs/platform/queue/queue.worker';
 import {
   AUTH_SEND_VERIFICATION_EMAIL_JOB,
   type AuthSendVerificationEmailJobData,
@@ -15,26 +13,53 @@ import {
 } from '../../../../libs/features/auth/infra/jobs/auth-password-reset.job';
 import { hashEmailVerificationToken } from '../../../../libs/features/auth/app/email-verification-token';
 import { hashPasswordResetToken } from '../../../../libs/features/auth/app/password-reset-token';
+import { createConfigService, createPrototypeStub } from '../../../../test/support/stubs';
 import { EmailsWorker } from './emails.worker';
 
-function stubConfig(values: Record<string, unknown>): ConfigService {
-  return {
-    get: <T = unknown>(key: string): T | undefined => values[key] as T | undefined,
-  } as unknown as ConfigService;
-}
-
-type ProcessFn = (job: Job<unknown, unknown>) => Promise<unknown>;
+type ProcessFn = (job: { name: string; data: unknown }) => Promise<unknown>;
 
 function getProcess(worker: EmailsWorker): ProcessFn {
-  return (worker as unknown as { process: ProcessFn }).process.bind(worker as unknown as object);
+  const process = Reflect.get(worker, 'process');
+  if (typeof process !== 'function') {
+    throw new Error('Expected EmailsWorker.process to be a function');
+  }
+  return async (job) => await process.call(worker, job);
 }
 
 function createLoggerStub(): PinoLogger {
-  return {
+  return createPrototypeStub(PinoLogger, {
     setContext: () => undefined,
     info: () => undefined,
     warn: () => undefined,
-  } as unknown as PinoLogger;
+  });
+}
+
+function createPrismaStub(client: object): PrismaService {
+  return createPrototypeStub(PrismaService, {
+    getClient: () => client,
+  });
+}
+
+function createEmailStub(sent: SendEmailInput[], id: string): EmailService {
+  return createPrototypeStub(EmailService, {
+    isEnabled: () => true,
+    send: async (input: SendEmailInput) => {
+      sent.push(input);
+      return { id };
+    },
+  });
+}
+
+function createWorkerFactoryStub(): QueueWorkerFactory {
+  return createPrototypeStub(QueueWorkerFactory, {
+    isEnabled: () => true,
+  });
+}
+
+function getResetLink(result: unknown): string | undefined {
+  if (typeof result !== 'object' || result === null) return undefined;
+  const resetLink = Reflect.get(result, 'resetLink');
+  return typeof resetLink === 'string' ? resetLink : undefined;
 }
 
 describe('EmailsWorker (unit)', () => {
@@ -67,21 +92,15 @@ describe('EmailsWorker (unit)', () => {
       },
     };
 
-    const prisma = { getClient: () => client } as unknown as PrismaService;
-    const email = {
-      isEnabled: () => true,
-      send: async (input: SendEmailInput) => {
-        sent.push(input);
-        return { id: 'email-1' };
-      },
-    } as unknown as EmailService;
+    const prisma = createPrismaStub(client);
+    const email = createEmailStub(sent, 'email-1');
 
     const worker = new EmailsWorker(
-      stubConfig({
+      createConfigService({
         PUBLIC_APP_URL: 'https://app.example',
         AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60,
       }),
-      { isEnabled: () => true } as unknown as QueueWorkerFactory,
+      createWorkerFactoryStub(),
       prisma,
       email,
       createLoggerStub(),
@@ -93,7 +112,7 @@ describe('EmailsWorker (unit)', () => {
         userId: 'user-1',
         requestedAt: new Date().toISOString(),
       } satisfies AuthSendVerificationEmailJobData,
-    } as unknown as Job<unknown, unknown>;
+    };
 
     await getProcess(worker)(job);
 
@@ -114,8 +133,11 @@ describe('EmailsWorker (unit)', () => {
 
     const verifyUrlLine = lines.find((line) => line.startsWith('https://app.example/verify-email'));
     expect(verifyUrlLine).toBeTruthy();
+    if (!verifyUrlLine) {
+      throw new Error('Expected verification URL line');
+    }
 
-    const verifyUrl = new URL(verifyUrlLine as string);
+    const verifyUrl = new URL(verifyUrlLine);
     expect(verifyUrl.origin).toBe('https://app.example');
     expect(verifyUrl.pathname).toBe('/verify-email');
     expect(verifyUrl.searchParams.get('token')).toBe(token);
@@ -150,18 +172,12 @@ describe('EmailsWorker (unit)', () => {
       },
     };
 
-    const prisma = { getClient: () => client } as unknown as PrismaService;
-    const email = {
-      isEnabled: () => true,
-      send: async (input: SendEmailInput) => {
-        sent.push(input);
-        return { id: 'email-deleted-1' };
-      },
-    } as unknown as EmailService;
+    const prisma = createPrismaStub(client);
+    const email = createEmailStub(sent, 'email-deleted-1');
 
     const worker = new EmailsWorker(
-      stubConfig({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
-      { isEnabled: () => true } as unknown as QueueWorkerFactory,
+      createConfigService({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
+      createWorkerFactoryStub(),
       prisma,
       email,
       createLoggerStub(),
@@ -173,7 +189,7 @@ describe('EmailsWorker (unit)', () => {
         userId: 'user-deleted-1',
         requestedAt: new Date().toISOString(),
       } satisfies AuthSendVerificationEmailJobData,
-    } as unknown as Job<unknown, unknown>;
+    };
 
     const res = await getProcess(worker)(job);
 
@@ -206,21 +222,15 @@ describe('EmailsWorker (unit)', () => {
       },
     };
 
-    const prisma = { getClient: () => client } as unknown as PrismaService;
-    const email = {
-      isEnabled: () => true,
-      send: async (input: SendEmailInput) => {
-        sent.push(input);
-        return { id: 'email-2' };
-      },
-    } as unknown as EmailService;
+    const prisma = createPrismaStub(client);
+    const email = createEmailStub(sent, 'email-2');
 
     const worker = new EmailsWorker(
-      stubConfig({
+      createConfigService({
         PUBLIC_APP_URL: 'https://app.example',
         AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: 1800,
       }),
-      { isEnabled: () => true } as unknown as QueueWorkerFactory,
+      createWorkerFactoryStub(),
       prisma,
       email,
       createLoggerStub(),
@@ -232,7 +242,7 @@ describe('EmailsWorker (unit)', () => {
         userId: 'user-2',
         requestedAt: new Date().toISOString(),
       } satisfies AuthSendPasswordResetEmailJobData,
-    } as unknown as Job<unknown, unknown>;
+    };
 
     const res = await getProcess(worker)(job);
 
@@ -251,10 +261,7 @@ describe('EmailsWorker (unit)', () => {
     expect(tokenHash).toBe(hashPasswordResetToken(String(token)));
     expect(String(text)).not.toContain(tokenHash);
 
-    const resetLink =
-      typeof res === 'object' && res !== null && 'resetLink' in res
-        ? (res as { resetLink?: unknown }).resetLink
-        : undefined;
+    const resetLink = getResetLink(res);
     expect(typeof resetLink).toBe('string');
     expect(String(resetLink)).toContain(String(token));
     expect(String(resetLink)).not.toContain(String(tokenHash));
@@ -287,18 +294,12 @@ describe('EmailsWorker (unit)', () => {
       },
     };
 
-    const prisma = { getClient: () => client } as unknown as PrismaService;
-    const email = {
-      isEnabled: () => true,
-      send: async (input: SendEmailInput) => {
-        sent.push(input);
-        return { id: 'email-deleted-2' };
-      },
-    } as unknown as EmailService;
+    const prisma = createPrismaStub(client);
+    const email = createEmailStub(sent, 'email-deleted-2');
 
     const worker = new EmailsWorker(
-      stubConfig({ AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: 1800 }),
-      { isEnabled: () => true } as unknown as QueueWorkerFactory,
+      createConfigService({ AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS: 1800 }),
+      createWorkerFactoryStub(),
       prisma,
       email,
       createLoggerStub(),
@@ -310,7 +311,7 @@ describe('EmailsWorker (unit)', () => {
         userId: 'user-deleted-2',
         requestedAt: new Date().toISOString(),
       } satisfies AuthSendPasswordResetEmailJobData,
-    } as unknown as Job<unknown, unknown>;
+    };
 
     const res = await getProcess(worker)(job);
 

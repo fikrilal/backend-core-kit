@@ -1,30 +1,28 @@
 import { Reflector } from '@nestjs/core';
-import type { ExecutionContext } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
-import type { PinoLogger } from 'nestjs-pino';
+import { PinoLogger } from 'nestjs-pino';
 import { ErrorCode } from '../http/errors/error-codes';
 import { ProblemException } from '../http/errors/problem.exception';
 import type { AuthPrincipal } from './auth.types';
 import { AccessTokenInvalidError } from './access-token-verifier.service';
-import type { AccessTokenVerifier } from './access-token-verifier.service';
+import { AccessTokenVerifier } from './access-token-verifier.service';
 import { AccessTokenGuard } from './access-token.guard';
 import { Public } from './public.decorator';
+import { createHttpExecutionContext } from '../../../test/support/http';
+import { createPrototypeStub } from '../../../test/support/stubs';
 
 type HandlerFn = (...args: unknown[]) => unknown;
 type ClassConstructor = new (...args: unknown[]) => unknown;
+type RequestLike = {
+  headers: Record<string, unknown>;
+  principal?: AuthPrincipal;
+};
 
-function ctxFor(params: {
-  handler: HandlerFn;
-  cls: ClassConstructor;
-  req: FastifyRequest;
-}): ExecutionContext {
-  return {
-    getHandler: () => params.handler,
-    getClass: () => params.cls,
-    switchToHttp: () => ({
-      getRequest: () => params.req,
-    }),
-  } as unknown as ExecutionContext;
+function ctxFor(params: { handler: HandlerFn; cls: ClassConstructor; req: object }) {
+  return createHttpExecutionContext({
+    handler: params.handler,
+    cls: params.cls,
+    request: params.req,
+  });
 }
 
 function expectProblem(err: unknown, status: number, code: ErrorCode): void {
@@ -37,10 +35,16 @@ function expectProblem(err: unknown, status: number, code: ErrorCode): void {
 }
 
 function createLoggerStub(): PinoLogger {
-  return {
-    setContext: jest.fn(),
-    error: jest.fn(),
-  } as unknown as PinoLogger;
+  const logger = new PinoLogger({ pinoHttp: { level: 'silent' } });
+  logger.setContext = jest.fn();
+  logger.error = jest.fn();
+  return logger;
+}
+
+function createVerifier(
+  verifyAccessToken: AccessTokenVerifier['verifyAccessToken'],
+): AccessTokenVerifier & Pick<AccessTokenVerifier, 'verifyAccessToken'> {
+  return createPrototypeStub(AccessTokenVerifier, { verifyAccessToken });
 }
 
 describe('AccessTokenGuard', () => {
@@ -54,13 +58,11 @@ describe('AccessTokenGuard', () => {
     const verifyAccessToken = jest.fn();
     const guard = new AccessTokenGuard(
       reflector,
-      {
-        verifyAccessToken,
-      } as unknown as AccessTokenVerifier,
+      createVerifier(verifyAccessToken),
       createLoggerStub(),
     );
 
-    const req = { headers: {} } as unknown as FastifyRequest;
+    const req: RequestLike = { headers: {} };
     await expect(
       guard.canActivate(
         ctxFor({ handler: PublicController.prototype.handler, cls: PublicController, req }),
@@ -76,15 +78,9 @@ describe('AccessTokenGuard', () => {
     }
 
     const reflector = new Reflector();
-    const guard = new AccessTokenGuard(
-      reflector,
-      {
-        verifyAccessToken: jest.fn(),
-      } as unknown as AccessTokenVerifier,
-      createLoggerStub(),
-    );
+    const guard = new AccessTokenGuard(reflector, createVerifier(jest.fn()), createLoggerStub());
 
-    const req = { headers: {} } as unknown as FastifyRequest;
+    const req: RequestLike = { headers: {} };
 
     let err: unknown;
     try {
@@ -103,15 +99,9 @@ describe('AccessTokenGuard', () => {
     }
 
     const reflector = new Reflector();
-    const guard = new AccessTokenGuard(
-      reflector,
-      {
-        verifyAccessToken: jest.fn(),
-      } as unknown as AccessTokenVerifier,
-      createLoggerStub(),
-    );
+    const guard = new AccessTokenGuard(reflector, createVerifier(jest.fn()), createLoggerStub());
 
-    const req = { headers: { authorization: 'Basic abc' } } as unknown as FastifyRequest;
+    const req: RequestLike = { headers: { authorization: 'Basic abc' } };
 
     let err: unknown;
     try {
@@ -139,13 +129,11 @@ describe('AccessTokenGuard', () => {
     const verifyAccessToken = jest.fn().mockResolvedValue(principal);
     const guard = new AccessTokenGuard(
       reflector,
-      {
-        verifyAccessToken,
-      } as unknown as AccessTokenVerifier,
+      createVerifier(verifyAccessToken),
       createLoggerStub(),
     );
 
-    const req = { headers: { authorization: 'Bearer token' } } as unknown as FastifyRequest;
+    const req: RequestLike = { headers: { authorization: 'Bearer token' } };
     await expect(
       guard.canActivate(ctxFor({ handler: Controller.prototype.handler, cls: Controller, req })),
     ).resolves.toBe(true);
@@ -161,13 +149,11 @@ describe('AccessTokenGuard', () => {
     const reflector = new Reflector();
     const guard = new AccessTokenGuard(
       reflector,
-      {
-        verifyAccessToken: jest.fn().mockRejectedValue(new AccessTokenInvalidError()),
-      } as unknown as AccessTokenVerifier,
+      createVerifier(jest.fn().mockRejectedValue(new AccessTokenInvalidError())),
       createLoggerStub(),
     );
 
-    const req = { headers: { authorization: 'Bearer token' } } as unknown as FastifyRequest;
+    const req: RequestLike = { headers: { authorization: 'Bearer token' } };
 
     let err: unknown;
     try {
@@ -189,13 +175,11 @@ describe('AccessTokenGuard', () => {
     const logger = createLoggerStub();
     const guard = new AccessTokenGuard(
       reflector,
-      {
-        verifyAccessToken: jest.fn().mockRejectedValue(new Error('boom')),
-      } as unknown as AccessTokenVerifier,
+      createVerifier(jest.fn().mockRejectedValue(new Error('boom'))),
       logger,
     );
 
-    const req = { headers: { authorization: 'Bearer token' } } as unknown as FastifyRequest;
+    const req: RequestLike = { headers: { authorization: 'Bearer token' } };
 
     let err: unknown;
     try {

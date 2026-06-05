@@ -1,11 +1,12 @@
-import type { EmailService } from '../../../../platform/email/email.service';
-import type { QueueProducer } from '../../../../platform/queue/queue.producer';
+import { EmailService } from '../../../../platform/email/email.service';
+import { QueueProducer } from '../../../../platform/queue/queue.producer';
 import { UserAccountDeletionEmailJobs } from './user-account-deletion-email.jobs';
 import {
   accountDeletionReminderEmailJobId,
   EMAIL_QUEUE,
   USERS_SEND_ACCOUNT_DELETION_REMINDER_EMAIL_JOB,
 } from './user-account-deletion-email.job';
+import { createPrototypeStub } from '../../../../../test/support/stubs';
 
 type Clock = Readonly<{ now(): Date }>;
 
@@ -22,15 +23,16 @@ describe('UserAccountDeletionEmailJobs', () => {
     const removeJob = jest.fn(async () => true);
     const enqueue = jest.fn(async () => ({ id: 'job-1' }));
 
-    const queue = {
+    const queue = createPrototypeStub(QueueProducer, {
       isEnabled: () => queueEnabled,
       removeJob,
       enqueue,
-    } as unknown as QueueProducer;
+    });
 
-    const email = {
+    const email = createPrototypeStub(EmailService, {
       isEnabled: () => emailEnabled,
-    } as unknown as EmailService;
+      send: jest.fn(),
+    });
 
     const clock: Clock = {
       now: () => new Date(now.getTime()),

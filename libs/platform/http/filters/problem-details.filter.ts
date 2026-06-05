@@ -5,6 +5,54 @@ import { ErrorCode } from '../errors/error-codes';
 import type { AppErrorCode } from '../../../shared/app-error-codes';
 import { isAppErrorCode } from '../../../shared/app-error-codes';
 
+type ProblemValidationError = Readonly<{ field?: string; message: string }>;
+
+type ProblemResponseShape = Readonly<{
+  title?: string;
+  message?: string | string[];
+  detail?: string;
+  code?: unknown;
+  type?: string;
+  errors?: Array<ProblemValidationError>;
+}>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getHeaderValue(value: string | string[] | undefined): string | undefined {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value[0];
+  return undefined;
+}
+
+function isProblemValidationError(value: unknown): value is ProblemValidationError {
+  if (!isRecord(value)) return false;
+  if (typeof value.message !== 'string') return false;
+  return value.field === undefined || typeof value.field === 'string';
+}
+
+function parseProblemResponseShape(value: unknown): ProblemResponseShape | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const title = typeof value.title === 'string' ? value.title : undefined;
+  const detail = typeof value.detail === 'string' ? value.detail : undefined;
+  const type = typeof value.type === 'string' ? value.type : undefined;
+  const code = value.code;
+  const message =
+    typeof value.message === 'string'
+      ? value.message
+      : Array.isArray(value.message) && value.message.every((item) => typeof item === 'string')
+        ? value.message
+        : undefined;
+  const errors =
+    Array.isArray(value.errors) && value.errors.every(isProblemValidationError)
+      ? value.errors
+      : undefined;
+
+  return { title, message, detail, code, type, errors };
+}
+
 @Catch()
 export class ProblemDetailsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
@@ -13,7 +61,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     const reply = ctx.getResponse<FastifyReply>();
 
     const traceId: string | undefined =
-      req.requestId || req.id || (req.headers['x-request-id'] as string | undefined);
+      req.requestId || req.id || getHeaderValue(req.headers['x-request-id']);
     const otelTraceId = otelTrace.getSpan(otelContext.active())?.spanContext().traceId;
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -25,34 +73,30 @@ export class ProblemDetailsFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
-      const resp = exception.getResponse() as unknown;
+      const resp = exception.getResponse();
 
       if (typeof resp === 'string') {
         title = resp;
-      } else if (resp && typeof resp === 'object') {
-        const r = resp as {
-          title?: string;
-          message?: string | string[];
-          detail?: string;
-          code?: unknown;
-          type?: string;
-          errors?: Array<{ field?: string; message: string }>;
-        };
-
-        title = r.title ?? this.statusTitle(status);
-
-        if (Array.isArray(r.message)) {
-          // Nest validation can return message arrays; map to a single detail string.
-          detail = r.message.join('; ');
+      } else if (isRecord(resp)) {
+        const r = parseProblemResponseShape(resp);
+        if (!r) {
+          title = this.statusTitle(status);
         } else {
-          detail = r.detail ?? (typeof r.message === 'string' ? r.message : undefined);
-        }
+          title = r.title ?? this.statusTitle(status);
 
-        if (isAppErrorCode(r.code)) {
-          code = r.code;
+          if (Array.isArray(r.message)) {
+            // Nest validation can return message arrays; map to a single detail string.
+            detail = r.message.join('; ');
+          } else {
+            detail = r.detail ?? (typeof r.message === 'string' ? r.message : undefined);
+          }
+
+          if (isAppErrorCode(r.code)) {
+            code = r.code;
+          }
+          type = r.type ?? type;
+          errors = r.errors ?? errors;
         }
-        type = r.type ?? type;
-        errors = r.errors ?? errors;
       } else {
         title = this.statusTitle(status);
       }

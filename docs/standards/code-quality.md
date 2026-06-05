@@ -133,6 +133,20 @@ Baseline expectation:
 
 See ADR: boundary enforcement tool + config will be codified and versioned with the repo.
 
+## Duplication Detection
+
+Token-based clone detection is a self-review harness, not a replacement for
+architecture smell rules.
+
+Baseline expectation:
+
+- run `npm run duplication:report` when changes introduce or reshape shared logic
+- keep raw jscpd output out of git
+- review categorized findings in `_WIP/duplication-report.md` and `_WIP/small-helper-duplication-report.md`
+- record reviewed acceptable duplicates in the relevant allowlist with rationale
+
+See: `docs/engineering/duplication-harness.md`.
+
 ## Dependency Injection & Instantiation
 
 Rules:
@@ -169,6 +183,7 @@ Rules:
 - App services must not call `new Date()` / `Date.now()` directly (except inside a `SystemClock` implementation).
 - Prefer injecting `Clock` (`libs/shared/time.ts`) into app services and deriving `now` from it.
 - Prefer passing `now` explicitly across ports/repositories when persistence must be deterministic.
+- Worker handlers should avoid hidden wall-clock reads when the timestamp affects persistence, retries, idempotency, or externally visible behavior. Prefer an explicit `now` parameter or injected `Clock`; direct worker clock reads are reported by the architecture smell scanner for review.
 - In unit tests, prefer a fixed clock over Jest fake timers.
 
 ## Logging Discipline

@@ -1,6 +1,6 @@
 import { ObjectStorageService } from './object-storage.service';
 import { ObjectStorageError } from './object-storage.types';
-import type { ConfigService } from '@nestjs/config';
+import { createConfigService } from '../../../test/support/stubs';
 
 type Send = (command: unknown) => Promise<unknown>;
 type GetSignedUrl = (
@@ -51,12 +51,6 @@ jest.mock('@aws-sdk/s3-request-presigner', () => {
   };
 });
 
-function stubConfig(values: Record<string, unknown>): ConfigService {
-  return {
-    get: <T = unknown>(key: string): T | undefined => values[key] as T | undefined,
-  } as unknown as ConfigService;
-}
-
 function configuredStorageConfig(): Record<string, unknown> {
   return {
     STORAGE_S3_ENDPOINT: 'http://localhost:9000',
@@ -76,17 +70,17 @@ describe('ObjectStorageService', () => {
   });
 
   it('reports disabled when not configured', () => {
-    const service = new ObjectStorageService(stubConfig({}));
+    const service = new ObjectStorageService(createConfigService({}));
     expect(service.isEnabled()).toBe(false);
   });
 
   it('throws ObjectStorageError when accessed without configuration', () => {
-    const service = new ObjectStorageService(stubConfig({}));
+    const service = new ObjectStorageService(createConfigService({}));
     expect(() => service.getBucketName()).toThrow(ObjectStorageError);
   });
 
   it('reports enabled when fully configured', () => {
-    const service = new ObjectStorageService(stubConfig(configuredStorageConfig()));
+    const service = new ObjectStorageService(createConfigService(configuredStorageConfig()));
     expect(service.isEnabled()).toBe(true);
     expect(service.getBucketName()).toBe('bucket');
   });
@@ -94,18 +88,20 @@ describe('ObjectStorageService', () => {
   it('configures S3 client to avoid default checksums (required for presigned uploads)', () => {
     // If the SDK injects default CRC32 checksums into presigned PUT URLs, clients will get 400s
     // unless they also send a matching checksum. We avoid that by requiring explicit checksums only.
-    new ObjectStorageService(stubConfig(configuredStorageConfig()));
+    new ObjectStorageService(createConfigService(configuredStorageConfig()));
 
     const config = s3ClientConfigs[0];
     expect(typeof config).toBe('object');
     expect(config).not.toBeNull();
-    expect((config as { requestChecksumCalculation?: unknown }).requestChecksumCalculation).toBe(
-      'WHEN_REQUIRED',
-    );
+    const requestChecksumCalculation =
+      typeof config === 'object' && config !== null
+        ? Reflect.get(config, 'requestChecksumCalculation')
+        : undefined;
+    expect(requestChecksumCalculation).toBe('WHEN_REQUIRED');
   });
 
   it('presigns PUT with content-type signable header', async () => {
-    const service = new ObjectStorageService(stubConfig(configuredStorageConfig()));
+    const service = new ObjectStorageService(createConfigService(configuredStorageConfig()));
     getSignedUrlMock.mockResolvedValueOnce('https://signed');
 
     const res = await service.presignPutObject({
@@ -127,7 +123,7 @@ describe('ObjectStorageService', () => {
   });
 
   it('headObject returns exists=false for NotFound errors', async () => {
-    const service = new ObjectStorageService(stubConfig(configuredStorageConfig()));
+    const service = new ObjectStorageService(createConfigService(configuredStorageConfig()));
     sendMock.mockRejectedValueOnce({ name: 'NotFound' });
 
     await expect(service.headObject('users/u1/profile-images/f1')).resolves.toEqual({
@@ -136,7 +132,7 @@ describe('ObjectStorageService', () => {
   });
 
   it('headObject returns exists=false for 404 errors', async () => {
-    const service = new ObjectStorageService(stubConfig(configuredStorageConfig()));
+    const service = new ObjectStorageService(createConfigService(configuredStorageConfig()));
     sendMock.mockRejectedValueOnce({ $metadata: { httpStatusCode: 404 } });
 
     await expect(service.headObject('users/u1/profile-images/f1')).resolves.toEqual({
@@ -145,7 +141,7 @@ describe('ObjectStorageService', () => {
   });
 
   it('headObject returns selected metadata on success', async () => {
-    const service = new ObjectStorageService(stubConfig(configuredStorageConfig()));
+    const service = new ObjectStorageService(createConfigService(configuredStorageConfig()));
     sendMock.mockResolvedValueOnce({
       ContentType: 'image/png',
       ContentLength: 123,
@@ -161,7 +157,7 @@ describe('ObjectStorageService', () => {
   });
 
   it('deleteObject is idempotent for NoSuchKey/404', async () => {
-    const service = new ObjectStorageService(stubConfig(configuredStorageConfig()));
+    const service = new ObjectStorageService(createConfigService(configuredStorageConfig()));
     sendMock.mockRejectedValueOnce({ name: 'NoSuchKey' });
     await expect(service.deleteObject('users/u1/profile-images/f1')).resolves.toBeUndefined();
 

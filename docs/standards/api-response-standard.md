@@ -89,6 +89,12 @@ Rules:
 - `429 Too Many Requests`: throttling / lockout.
 - `5xx`: unexpected errors; always return a stable `code` and a generic message.
 
+Controller rules:
+
+- Use `HttpStatus.*` constants in `@HttpCode(...)`; do not use raw numeric status literals.
+- Use `@ApiErrorCodes(...)` on controller routes so generated OpenAPI declares expected problem codes.
+- Do not throw native Nest HTTP exceptions such as `BadRequestException` or `NotFoundException` in feature/platform HTTP code. Use `ProblemException` or feature errors mapped by a feature error filter.
+
 ## OpenAPI Requirements
 
 - Success schemas must model the `{ data, meta? }` envelope.

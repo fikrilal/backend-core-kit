@@ -1,6 +1,6 @@
-import type { ConfigService } from '@nestjs/config';
 import { FcmPushService } from './fcm-push.service';
 import { PushErrorCode, PushSendError } from './push.types';
+import { createConfigService } from '../../../test/support/stubs';
 
 const initializeAppMock = jest.fn().mockReturnValue({ name: 'push' });
 const certMock = jest.fn().mockReturnValue({ kind: 'cert' });
@@ -25,12 +25,6 @@ jest.mock('firebase-admin/messaging', () => {
   };
 });
 
-function stubConfig(values: Record<string, string | undefined>): ConfigService {
-  return {
-    get: <T = unknown>(key: string): T | undefined => values[key] as unknown as T,
-  } as unknown as ConfigService;
-}
-
 describe('FcmPushService', () => {
   beforeEach(() => {
     initializeAppMock.mockClear();
@@ -42,13 +36,13 @@ describe('FcmPushService', () => {
   });
 
   it('is disabled when PUSH_PROVIDER is missing', () => {
-    const svc = new FcmPushService(stubConfig({}));
+    const svc = new FcmPushService(createConfigService({}));
     expect(svc.isEnabled()).toBe(false);
   });
 
   it('sends via firebase-admin messaging when configured', async () => {
     const svc = new FcmPushService(
-      stubConfig({
+      createConfigService({
         PUSH_PROVIDER: 'FCM',
         FCM_PROJECT_ID: 'project',
         FCM_SERVICE_ACCOUNT_JSON: JSON.stringify({
@@ -88,7 +82,7 @@ describe('FcmPushService', () => {
     const base64 = Buffer.from(json, 'utf8').toString('base64');
 
     const svc = new FcmPushService(
-      stubConfig({
+      createConfigService({
         PUSH_PROVIDER: 'FCM',
         FCM_PROJECT_ID: 'project',
         FCM_SERVICE_ACCOUNT_JSON_BASE64: base64,
@@ -115,7 +109,7 @@ describe('FcmPushService', () => {
     });
 
     const svc = new FcmPushService(
-      stubConfig({
+      createConfigService({
         PUSH_PROVIDER: 'FCM',
         FCM_PROJECT_ID: 'project',
         FCM_SERVICE_ACCOUNT_JSON: JSON.stringify({

@@ -8,7 +8,6 @@ import {
   type ListQuery,
 } from '../../../../shared/list-query';
 import type {
-  AdminUserAccountDeletionAction,
   AdminUserAccountDeletionAuditListItem,
   AdminUserAccountDeletionAuditsFilterField,
   AdminUserAccountDeletionAuditsSortField,
@@ -23,6 +22,10 @@ import {
   parseCursorDateValue,
   parseCursorStringValue,
 } from './prisma-list-query.helpers';
+import {
+  toAdminRoleChangeAuditRole,
+  toAdminUserAccountDeletionAction,
+} from './prisma-admin.mappers';
 
 export const ROLE_CHANGE_AUDIT_LIST_SELECT = {
   id: true,
@@ -329,8 +332,8 @@ export function toRoleChangeAuditListItem(
     actorUserId: audit.actorUserId,
     actorSessionId: audit.actorSessionId,
     targetUserId: audit.targetUserId,
-    oldRole: String(audit.oldRole) as AdminUserRoleChangeAuditListItem['oldRole'],
-    newRole: String(audit.newRole) as AdminUserRoleChangeAuditListItem['newRole'],
+    oldRole: toAdminRoleChangeAuditRole(audit.oldRole),
+    newRole: toAdminRoleChangeAuditRole(audit.newRole),
     traceId: audit.traceId,
     createdAt: audit.createdAt.toISOString(),
   };
@@ -344,7 +347,7 @@ export function toAccountDeletionAuditListItem(
     actorUserId: audit.actorUserId,
     actorSessionId: audit.actorSessionId,
     targetUserId: audit.targetUserId,
-    action: String(audit.action) as AdminUserAccountDeletionAction,
+    action: toAdminUserAccountDeletionAction(audit.action),
     traceId: audit.traceId,
     createdAt: audit.createdAt.toISOString(),
   };

@@ -12,6 +12,17 @@ const FILTERS = {
 } as const;
 
 describe('parseListQuery', () => {
+  function expectIssues(error: unknown): void {
+    expect(error).toBeInstanceOf(ListQueryValidationError);
+    if (!(error instanceof ListQueryValidationError)) {
+      throw new Error('Expected ListQueryValidationError');
+    }
+    expect(error.issues).toEqual([
+      { field: 'limit', message: 'limit must be at most 250' },
+      { field: 'q', message: 'Search is not supported' },
+    ]);
+  }
+
   it('accumulates issues (q + limit)', () => {
     try {
       parseListQuery(
@@ -27,11 +38,7 @@ describe('parseListQuery', () => {
       );
       throw new Error('expected parseListQuery to throw');
     } catch (err) {
-      expect(err).toBeInstanceOf(ListQueryValidationError);
-      expect((err as ListQueryValidationError).issues).toEqual([
-        { field: 'limit', message: 'limit must be at most 250' },
-        { field: 'q', message: 'Search is not supported' },
-      ]);
+      expectIssues(err);
     }
   });
 

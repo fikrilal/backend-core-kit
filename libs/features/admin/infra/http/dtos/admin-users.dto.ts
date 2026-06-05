@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsBoolean, IsIn, IsOptional, IsString } from 'class-validator';
 import type { AdminUserRole } from '../../../app/admin-users.types';
-import { CursorPaginationMetaDto } from './cursor-pagination-meta.dto';
+import { CursorPaginationMetaDto } from '../../../../../platform/http/list-query/cursor-pagination-meta.dto';
 
 const ADMIN_USER_ROLE_VALUES = ['USER', 'ADMIN'] as const;
 const ADMIN_USER_STATUS_VALUES = ['ACTIVE', 'SUSPENDED', 'DELETED'] as const;

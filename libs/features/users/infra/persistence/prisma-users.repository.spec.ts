@@ -1,8 +1,9 @@
 import type { Prisma } from '@prisma/client';
 import { UserRole as PrismaUserRole, UserStatus as PrismaUserStatus } from '@prisma/client';
-import type { PrismaService } from '../../../../platform/db/prisma.service';
+import { PrismaService } from '../../../../platform/db/prisma.service';
 import type { Clock } from '../../app/time';
 import { PrismaUsersRepository } from './prisma-users.repository';
+import { createPrototypeStub } from '../../../../../test/support/stubs';
 
 function createPrismaStub(params: {
   lockCount: number;
@@ -33,7 +34,7 @@ function createPrismaStub(params: {
   const profileUpsertCalls: Prisma.UserProfileUpsertArgs[] = [];
   const userFindUniqueCalls: Prisma.UserFindUniqueArgs[] = [];
 
-  const tx = {
+  const txClient = {
     user: {
       updateMany: async (args: Prisma.UserUpdateManyArgs) => {
         userUpdateManyCalls.push(args);
@@ -54,12 +55,12 @@ function createPrismaStub(params: {
 
   const client = {
     $transaction: async <T>(
-      fn: (tx: Prisma.TransactionClient) => Promise<T>,
+      fn: (tx: typeof txClient) => Promise<T>,
       _options?: unknown,
-    ): Promise<T> => await fn(tx as unknown as Prisma.TransactionClient),
+    ): Promise<T> => await fn(txClient),
   };
 
-  const prisma = { getClient: () => client } as unknown as PrismaService;
+  const prisma = createPrototypeStub(PrismaService, { getClient: () => client });
   return { prisma, userUpdateManyCalls, profileUpsertCalls, userFindUniqueCalls };
 }
 

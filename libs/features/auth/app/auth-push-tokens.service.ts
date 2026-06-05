@@ -2,6 +2,7 @@ import { AuthError } from './auth.errors';
 import type { AuthRepository, SessionPushPlatform } from './ports/auth.repository';
 import type { Clock } from './time';
 import { ErrorCode } from '../../../shared/error-codes';
+import { assertAuthUserIsActive } from './auth-user-state';
 
 export class AuthPushTokensService {
   constructor(
@@ -9,20 +10,13 @@ export class AuthPushTokensService {
     private readonly clock: Clock,
   ) {}
 
-  private async assertUserIsNotDeleted(userId: string): Promise<void> {
-    const user = await this.repo.findUserById(userId);
-    if (!user || user.status === 'DELETED') {
-      throw new AuthError({ status: 401, code: ErrorCode.UNAUTHORIZED, message: 'Unauthorized' });
-    }
-  }
-
   async upsertMyPushToken(input: {
     userId: string;
     sessionId: string;
     platform: SessionPushPlatform;
     token: string;
   }): Promise<void> {
-    await this.assertUserIsNotDeleted(input.userId);
+    await assertAuthUserIsActive(this.repo, input.userId);
 
     const now = this.clock.now();
     const res = await this.repo.upsertSessionPushToken({ ...input, now });
@@ -32,7 +26,7 @@ export class AuthPushTokensService {
   }
 
   async revokeMyPushToken(input: { userId: string; sessionId: string }): Promise<void> {
-    await this.assertUserIsNotDeleted(input.userId);
+    await assertAuthUserIsActive(this.repo, input.userId);
 
     const now = this.clock.now();
     await this.repo.revokeSessionPushToken({ ...input, now });

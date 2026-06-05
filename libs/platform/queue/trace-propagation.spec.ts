@@ -1,4 +1,3 @@
-import type { ConfigService } from '@nestjs/config';
 import {
   context as otelContext,
   propagation as otelPropagation,
@@ -13,8 +12,8 @@ import {
   InMemorySpanExporter,
   SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
+import { createConfigService } from '../../../test/support/stubs';
 import { jobName } from './job-name';
-import type { JsonObject } from './json.types';
 import { queueName } from './queue-name';
 import { QueueProducer } from './queue.producer';
 import { QueueWorkerFactory } from './queue.worker';
@@ -43,25 +42,67 @@ jest.mock('bullmq', () => {
   };
 });
 
-const WorkerCtor = jest.requireMock('bullmq').Worker as jest.Mock;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
-function stubConfig(values: Record<string, unknown>): ConfigService {
-  return {
-    get: <T = unknown>(key: string): T | undefined => values[key] as T | undefined,
-  } as unknown as ConfigService;
+function getWorkerCtor(): jest.Mock {
+  const workerCtor = Reflect.get(jest.requireMock('bullmq'), 'Worker');
+  if (!jest.isMockFunction(workerCtor)) {
+    throw new Error('Expected bullmq Worker mock');
+  }
+
+  return workerCtor;
+}
+
+function expectRecord(value: unknown, label: string): Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new Error(`Expected ${label} object`);
+  }
+
+  return value;
+}
+
+function isSpanContext(value: unknown): value is SpanContext {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.traceId === 'string' &&
+    value.traceId.trim() !== '' &&
+    typeof value.spanId === 'string' &&
+    value.spanId.trim() !== ''
+  );
 }
 
 function expectSpanContext(value: unknown): asserts value is SpanContext {
-  if (!value || typeof value !== 'object') {
-    throw new Error('Expected SpanContext object');
-  }
-  const sc = value as SpanContext;
-  if (typeof sc.traceId !== 'string' || sc.traceId.trim() === '') {
+  if (!isSpanContext(value)) {
     throw new Error('Expected SpanContext.traceId');
   }
-  if (typeof sc.spanId !== 'string' || sc.spanId.trim() === '') {
-    throw new Error('Expected SpanContext.spanId');
+}
+
+type FinishedSpanLike = Readonly<{
+  name: string;
+  spanContext: () => SpanContext;
+  parentSpanContext?: SpanContext;
+}>;
+
+function isFinishedSpanLike(value: unknown): value is FinishedSpanLike {
+  return (
+    isRecord(value) &&
+    typeof value.name === 'string' &&
+    typeof value.spanContext === 'function' &&
+    (value.parentSpanContext === undefined || isSpanContext(value.parentSpanContext))
+  );
+}
+
+function expectFinishedSpan(value: unknown, name: string): FinishedSpanLike {
+  if (!isFinishedSpanLike(value)) {
+    throw new Error(`Expected finished span "${name}"`);
   }
+
+  return value;
 }
 
 function getSpanByName(spans: ReadonlyArray<{ name: string }>, name: string): unknown {
@@ -84,15 +125,15 @@ describe('Queue trace propagation', () => {
     otelPropagation.setGlobalPropagator(new W3CTraceContextPropagator());
     otelTrace.setGlobalTracerProvider(provider);
 
-    const producer = new QueueProducer(stubConfig({ REDIS_URL: 'redis://unused' }));
-    const workers = new QueueWorkerFactory(stubConfig({ REDIS_URL: 'redis://unused' }));
+    const producer = new QueueProducer(createConfigService({ REDIS_URL: 'redis://unused' }));
+    const workers = new QueueWorkerFactory(createConfigService({ REDIS_URL: 'redis://unused' }));
 
     const tracer = otelTrace.getTracer('test');
     const httpSpan = tracer.startSpan('http.request', { kind: SpanKind.SERVER });
 
     const queue = queueName('system');
     const name = jobName('system.smoke');
-    const data: JsonObject = { runId: '1', requestedAt: new Date().toISOString() };
+    const data = { runId: '1', requestedAt: new Date().toISOString() };
 
     await otelContext.with(otelTrace.setSpan(otelContext.active(), httpSpan), async () => {
       await producer.enqueue(queue, name, data, { jobId: 'job-1' });
@@ -100,36 +141,37 @@ describe('Queue trace propagation', () => {
     httpSpan.end();
 
     expect(addCalls).toHaveLength(1);
-    const payload = addCalls[0]?.data as Record<string, unknown> | undefined;
-    expect(payload).toBeDefined();
-    expect(payload?.__meta).toBeDefined();
+    const payload = expectRecord(addCalls[0]?.data, 'job payload');
+    expect(payload.__meta).toBeDefined();
 
-    const meta = payload?.__meta as Record<string, unknown>;
-    const otel = meta.otel as Record<string, unknown>;
+    const meta = expectRecord(payload.__meta, 'job payload.__meta');
+    const otel = expectRecord(meta.otel, 'job payload.__meta.otel');
     expect(typeof otel.traceparent).toBe('string');
     expect(String(otel.traceparent)).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-0[01]$/);
 
     // Register a worker and execute its wrapped processor with the enqueued job payload.
-    workers.createWorker<JsonObject, unknown>(queue, async () => ({ ok: true }));
-    expect(WorkerCtor).toHaveBeenCalledWith(
+    workers.createWorker(queue, async () => ({ ok: true }));
+    expect(getWorkerCtor()).toHaveBeenCalledWith(
       queue,
       expect.any(Function),
       expect.objectContaining(DEFAULT_WORKER_OPTIONS),
     );
 
-    const worker = createdWorkers[0] as { __processor?: unknown } | undefined;
-    expect(worker?.__processor).toBeDefined();
-
-    const processor = worker?.__processor as (job: unknown, token: string) => Promise<unknown>;
+    const worker = expectRecord(createdWorkers[0], 'created worker');
+    expect(worker.__processor).toBeDefined();
+    const processor = Reflect.get(worker, '__processor');
+    if (typeof processor !== 'function') {
+      throw new Error('Expected worker processor function');
+    }
 
     await processor(
       {
         id: 'job-1',
         name: String(name),
-        data: payload as JsonObject,
+        data: payload,
         attemptsMade: 0,
         opts: { attempts: 1 },
-      } as unknown,
+      },
       'token',
     );
 
@@ -138,15 +180,9 @@ describe('Queue trace propagation', () => {
 
     const spans = exporter.getFinishedSpans();
 
-    const http = getSpanByName(spans, 'http.request') as
-      | { spanContext: () => SpanContext; parentSpanContext?: SpanContext }
-      | undefined;
-    const enqueue = getSpanByName(spans, 'queue.enqueue') as
-      | { spanContext: () => SpanContext; parentSpanContext?: SpanContext }
-      | undefined;
-    const process = getSpanByName(spans, 'queue.process') as
-      | { spanContext: () => SpanContext; parentSpanContext?: SpanContext }
-      | undefined;
+    const http = expectFinishedSpan(getSpanByName(spans, 'http.request'), 'http.request');
+    const enqueue = expectFinishedSpan(getSpanByName(spans, 'queue.enqueue'), 'queue.enqueue');
+    const process = expectFinishedSpan(getSpanByName(spans, 'queue.process'), 'queue.process');
 
     expect(http).toBeDefined();
     expect(enqueue).toBeDefined();

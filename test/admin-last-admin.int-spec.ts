@@ -1,18 +1,12 @@
 import { randomUUID } from 'crypto';
-import type { ConfigService } from '@nestjs/config';
 import { UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../libs/platform/db/prisma.service';
 import { PrismaAdminUsersRepository } from '../libs/features/admin/infra/persistence/prisma-admin-users.repository';
+import { createConfigService } from './support/stubs';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 const shouldSkip = skipDepsTests || !databaseUrl;
-
-function stubConfig(values: Record<string, string | undefined>): ConfigService {
-  return {
-    get: <T = unknown>(key: string): T | undefined => values[key] as unknown as T,
-  } as unknown as ConfigService;
-}
 
 (shouldSkip ? describe.skip : describe)('Admin last-admin invariants (int)', () => {
   let prisma: PrismaService;
@@ -22,7 +16,9 @@ function stubConfig(values: Record<string, string | undefined>): ConfigService {
   const demotedAdminIds: string[] = [];
 
   beforeAll(async () => {
-    prisma = new PrismaService(stubConfig({ NODE_ENV: 'test', DATABASE_URL: databaseUrl }));
+    prisma = new PrismaService(
+      createConfigService({ NODE_ENV: 'test', DATABASE_URL: databaseUrl }),
+    );
     await prisma.ping();
     repo = new PrismaAdminUsersRepository(prisma);
   });

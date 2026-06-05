@@ -74,7 +74,7 @@ describe('parseSort', () => {
 
   it('rejects non-string sort inputs (e.g. repeated query params)', () => {
     expect(() =>
-      parseSort(['createdAt'] as unknown, {
+      parseSort(['createdAt'], {
         allowed: ALLOWED,
         default: [{ field: 'createdAt', direction: 'desc' }],
         maxFields: 3,

@@ -20,6 +20,13 @@ function parseInList(raw: unknown): string[] | undefined {
   return parts.length > 0 ? parts : undefined;
 }
 
+function hasOwnField<T extends object>(
+  value: T,
+  field: PropertyKey,
+): field is Extract<keyof T, string> {
+  return Object.prototype.hasOwnProperty.call(value, field);
+}
+
 export function parseFilters<Field extends string>(
   rawFilter: unknown,
   allowlist: FilterAllowlist<Field>,
@@ -36,14 +43,11 @@ export function parseFilters<Field extends string>(
   const isBracketed =
     isPlainObject(rawFilter) && Object.keys(rawFilter).some((k) => k.startsWith('filter['));
   const nestedFilter = isPlainObject(rawFilter) && !isBracketed ? rawFilter : undefined;
-  const bracketedEntries = isBracketed ? (rawFilter as Record<string, unknown>) : undefined;
+  const bracketedEntries = isBracketed && isPlainObject(rawFilter) ? rawFilter : undefined;
 
   if (!nestedFilter && !bracketedEntries) {
     throw new ListQueryValidationError([{ field: 'filter', message: 'filter must be an object' }]);
   }
-
-  const allowedFields = Object.keys(allowlist) as Field[];
-  const allowedSet = new Set<string>(allowedFields);
 
   const addExpr = (
     field: Field,
@@ -101,24 +105,23 @@ export function parseFilters<Field extends string>(
 
   if (nestedFilter) {
     for (const [fieldRaw, value] of Object.entries(nestedFilter)) {
-      if (!allowedSet.has(fieldRaw)) {
+      if (!hasOwnField(allowlist, fieldRaw)) {
         issues.push({ field: formatFilterField(fieldRaw), message: 'Unsupported filter field' });
         continue;
       }
 
-      const field = fieldRaw as Field;
-      const config = allowlist[field];
+      const config = allowlist[fieldRaw];
 
       if (isPlainObject(value)) {
         for (const [opRaw, opValue] of Object.entries(value)) {
           if (opRaw === 'eq') {
-            addExpr(field, 'eq', opValue, config);
+            addExpr(fieldRaw, 'eq', opValue, config);
           } else if (opRaw === 'in') {
-            addExpr(field, 'in', opValue, config);
+            addExpr(fieldRaw, 'in', opValue, config);
           } else if (opRaw === 'gte') {
-            addExpr(field, 'gte', opValue, config);
+            addExpr(fieldRaw, 'gte', opValue, config);
           } else if (opRaw === 'lte') {
-            addExpr(field, 'lte', opValue, config);
+            addExpr(fieldRaw, 'lte', opValue, config);
           } else {
             issues.push({
               field: formatFilterField(fieldRaw, opRaw),
@@ -127,7 +130,7 @@ export function parseFilters<Field extends string>(
           }
         }
       } else {
-        addExpr(field, 'eq', value, config);
+        addExpr(fieldRaw, 'eq', value, config);
       }
     }
   }
@@ -140,13 +143,12 @@ export function parseFilters<Field extends string>(
       let m = eqRe.exec(key);
       if (m) {
         const fieldRaw = m[1];
-        if (!allowedSet.has(fieldRaw)) {
+        if (!hasOwnField(allowlist, fieldRaw)) {
           issues.push({ field: formatFilterField(fieldRaw), message: 'Unsupported filter field' });
           continue;
         }
-        const field = fieldRaw as Field;
-        const config = allowlist[field];
-        addExpr(field, 'eq', value, config);
+        const config = allowlist[fieldRaw];
+        addExpr(fieldRaw, 'eq', value, config);
         continue;
       }
 
@@ -154,20 +156,19 @@ export function parseFilters<Field extends string>(
       if (m) {
         const fieldRaw = m[1];
         const opRaw = m[2];
-        if (!allowedSet.has(fieldRaw)) {
+        if (!hasOwnField(allowlist, fieldRaw)) {
           issues.push({
             field: formatFilterField(fieldRaw, opRaw),
             message: 'Unsupported filter field',
           });
           continue;
         }
-        const field = fieldRaw as Field;
-        const config = allowlist[field];
+        const config = allowlist[fieldRaw];
 
-        if (opRaw === 'eq') addExpr(field, 'eq', value, config);
-        else if (opRaw === 'in') addExpr(field, 'in', value, config);
-        else if (opRaw === 'gte') addExpr(field, 'gte', value, config);
-        else if (opRaw === 'lte') addExpr(field, 'lte', value, config);
+        if (opRaw === 'eq') addExpr(fieldRaw, 'eq', value, config);
+        else if (opRaw === 'in') addExpr(fieldRaw, 'in', value, config);
+        else if (opRaw === 'gte') addExpr(fieldRaw, 'gte', value, config);
+        else if (opRaw === 'lte') addExpr(fieldRaw, 'lte', value, config);
         else {
           issues.push({
             field: formatFilterField(fieldRaw, opRaw),

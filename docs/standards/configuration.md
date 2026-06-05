@@ -25,6 +25,7 @@ Rationale: misconfiguration is a top source of production incidents; fail fast i
 Implementation (current):
 
 - Validation is implemented in `libs/platform/config/env.validation.ts`.
+- `env.example` is statically checked by `npm run verify:env` to catch schema drift, stale keys, invalid example values, and production-like invariant drift before startup.
 - `NODE_ENV=staging|production` currently requires: `HTTP_TRUST_PROXY`, `DATABASE_URL`, `REDIS_URL`, `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`.
 - Auth issuer/audience are required in staging/production: `AUTH_ISSUER`, `AUTH_AUDIENCE`.
 
@@ -110,6 +111,7 @@ Local dev may use `.env`, but:
 
 - `.env` is never committed.
 - `env.example` is committed and kept up-to-date.
+- Keep `env.example` passing `npm run verify:env` whenever config schema keys change.
 - `.env` is only loaded automatically in `development`/`test` (ignored in `staging`/`production`).
 
 ## Rotation-Friendly Key Management

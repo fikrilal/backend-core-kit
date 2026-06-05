@@ -1,19 +1,31 @@
-import type { FastifyRequest } from 'fastify';
 import { computeRequestHash, createCompletedRecord, parseRecord } from './idempotency.core';
 
-function makeRequest(input: {
+type RequestLike = {
   method?: string;
   url?: string;
   query?: unknown;
   body?: unknown;
-}): FastifyRequest {
+};
+
+function makeRequest(input: RequestLike): RequestLike & { headers: Record<string, string> } {
   return {
     method: input.method ?? 'POST',
     url: input.url ?? '/v1/resource?x=1',
     query: input.query ?? {},
     body: input.body,
     headers: {},
-  } as unknown as FastifyRequest;
+  };
+}
+
+function hashRequest(
+  req: RequestLike & { headers: Record<string, string> },
+  method: string,
+): string {
+  const hash = Reflect.apply(computeRequestHash, undefined, [req, method]);
+  if (typeof hash !== 'string') {
+    throw new Error('Expected string request hash');
+  }
+  return hash;
 }
 
 describe('idempotency.core', () => {
@@ -27,7 +39,7 @@ describe('idempotency.core', () => {
       body: { a: 'first', z: 'last' },
     });
 
-    expect(computeRequestHash(reqA, 'POST')).toBe(computeRequestHash(reqB, 'POST'));
+    expect(hashRequest(reqA, 'POST')).toBe(hashRequest(reqB, 'POST'));
   });
 
   it('parses only valid stored records', () => {

@@ -26,7 +26,7 @@ function decodeBase64UrlJson(segment: string): unknown {
   }
 
   try {
-    return JSON.parse(json) as unknown;
+    return JSON.parse(json);
   } catch {
     throw new AccessTokenInvalidError();
   }

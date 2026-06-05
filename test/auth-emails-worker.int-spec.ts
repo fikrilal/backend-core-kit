@@ -1,27 +1,20 @@
 import { randomUUID } from 'crypto';
-import type { ConfigService } from '@nestjs/config';
-import type { Job } from 'bullmq';
-import type { PinoLogger } from 'nestjs-pino';
+import { PinoLogger } from 'nestjs-pino';
 import { PrismaService } from '../libs/platform/db/prisma.service';
-import type { EmailService } from '../libs/platform/email/email.service';
-import type { QueueWorkerFactory } from '../libs/platform/queue/queue.worker';
+import { EmailService } from '../libs/platform/email/email.service';
+import { QueueWorkerFactory } from '../libs/platform/queue/queue.worker';
 import { AUTH_SEND_VERIFICATION_EMAIL_JOB } from '../libs/features/auth/infra/jobs/auth-email-verification.job';
 import { EmailsWorker } from '../apps/worker/src/jobs/emails.worker';
+import { bindInstanceMethod, createConfigService, createPrototypeStub } from './support/stubs';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const skipDepsTests = process.env.SKIP_DEPS_TESTS === 'true';
 const shouldSkip = skipDepsTests || !databaseUrl;
 
-function stubConfig(values: Record<string, unknown>): ConfigService {
-  return {
-    get: <T = unknown>(key: string): T | undefined => values[key] as T | undefined,
-  } as unknown as ConfigService;
-}
+type EmailsJobLike = Readonly<{ name: string; data: { userId: string; requestedAt: string } }>;
 
-type ProcessFn = (job: Job<unknown, unknown>) => Promise<unknown>;
-
-function getProcess(worker: EmailsWorker): ProcessFn {
-  return (worker as unknown as { process: ProcessFn }).process.bind(worker as unknown as object);
+function getProcess(worker: EmailsWorker) {
+  return bindInstanceMethod(worker, 'process');
 }
 
 (shouldSkip ? describe.skip : describe)('EmailsWorker (int)', () => {
@@ -29,7 +22,9 @@ function getProcess(worker: EmailsWorker): ProcessFn {
   const createdUserIds: string[] = [];
 
   beforeAll(async () => {
-    prisma = new PrismaService(stubConfig({ NODE_ENV: 'test', DATABASE_URL: databaseUrl }));
+    prisma = new PrismaService(
+      createConfigService({ NODE_ENV: 'test', DATABASE_URL: databaseUrl }),
+    );
     await prisma.ping();
   });
 
@@ -47,21 +42,21 @@ function getProcess(worker: EmailsWorker): ProcessFn {
   });
 
   it('does not register a worker when email is disabled', async () => {
-    const workers: QueueWorkerFactory = {
+    const workers = createPrototypeStub(QueueWorkerFactory, {
       isEnabled: () => true,
       createWorker: jest.fn(),
-    } as unknown as QueueWorkerFactory;
+    });
 
-    const email: EmailService = {
+    const email = createPrototypeStub(EmailService, {
       isEnabled: () => false,
-    } as unknown as EmailService;
+    });
 
     const worker = new EmailsWorker(
-      stubConfig({}),
+      createConfigService({}),
       workers,
-      { isEnabled: () => true } as unknown as PrismaService,
+      createPrototypeStub(PrismaService, { isEnabled: () => true }),
       email,
-      { setContext: () => undefined } as unknown as PinoLogger,
+      createPrototypeStub(PinoLogger, { setContext: () => undefined }),
     );
 
     await worker.onModuleInit();
@@ -69,28 +64,28 @@ function getProcess(worker: EmailsWorker): ProcessFn {
   });
 
   it('skips verification email jobs when the user does not exist', async () => {
-    const email: EmailService = {
+    const email = createPrototypeStub(EmailService, {
       isEnabled: () => true,
       send: jest.fn(),
-    } as unknown as EmailService;
+    });
 
     const worker = new EmailsWorker(
-      stubConfig({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
-      { isEnabled: () => true } as unknown as QueueWorkerFactory,
+      createConfigService({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
+      createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
       prisma,
       email,
-      {
+      createPrototypeStub(PinoLogger, {
         setContext: () => undefined,
         warn: () => undefined,
         info: () => undefined,
-      } as unknown as PinoLogger,
+      }),
     );
 
     const userId = randomUUID();
-    const job = {
+    const job: EmailsJobLike = {
       name: AUTH_SEND_VERIFICATION_EMAIL_JOB,
       data: { userId, requestedAt: new Date().toISOString() },
-    } as unknown as Job<unknown, unknown>;
+    };
 
     await expect(getProcess(worker)(job)).resolves.toMatchObject({
       ok: true,
@@ -113,23 +108,23 @@ function getProcess(worker: EmailsWorker): ProcessFn {
     });
     createdUserIds.push(user.id);
 
-    const email: EmailService = {
+    const email = createPrototypeStub(EmailService, {
       isEnabled: () => true,
       send: jest.fn(),
-    } as unknown as EmailService;
+    });
 
     const worker = new EmailsWorker(
-      stubConfig({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
-      { isEnabled: () => true } as unknown as QueueWorkerFactory,
+      createConfigService({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
+      createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
       prisma,
       email,
-      { setContext: () => undefined, info: () => undefined } as unknown as PinoLogger,
+      createPrototypeStub(PinoLogger, { setContext: () => undefined, info: () => undefined }),
     );
 
-    const job = {
+    const job: EmailsJobLike = {
       name: AUTH_SEND_VERIFICATION_EMAIL_JOB,
       data: { userId: user.id, requestedAt: new Date().toISOString() },
-    } as unknown as Job<unknown, unknown>;
+    };
 
     await expect(getProcess(worker)(job)).resolves.toMatchObject({
       ok: true,
@@ -155,23 +150,23 @@ function getProcess(worker: EmailsWorker): ProcessFn {
     });
     createdUserIds.push(user.id);
 
-    const email: EmailService = {
+    const email = createPrototypeStub(EmailService, {
       isEnabled: () => true,
       send: jest.fn(async () => ({ id: `email-${randomUUID()}` })),
-    } as unknown as EmailService;
+    });
 
     const worker = new EmailsWorker(
-      stubConfig({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
-      { isEnabled: () => true } as unknown as QueueWorkerFactory,
+      createConfigService({ AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: 60 }),
+      createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
       prisma,
       email,
-      { setContext: () => undefined, info: () => undefined } as unknown as PinoLogger,
+      createPrototypeStub(PinoLogger, { setContext: () => undefined, info: () => undefined }),
     );
 
-    const job = {
+    const job: EmailsJobLike = {
       name: AUTH_SEND_VERIFICATION_EMAIL_JOB,
       data: { userId: user.id, requestedAt: new Date().toISOString() },
-    } as unknown as Job<unknown, unknown>;
+    };
 
     const res = await getProcess(worker)(job);
     expect(res).toMatchObject({ ok: true, userId: user.id, outcome: 'sent' });

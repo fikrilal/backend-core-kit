@@ -24,14 +24,28 @@ function getServiceName(config: ConfigService, role: LoggingRole): string {
   return deriveServiceName({ otelServiceName: config.get<string>('OTEL_SERVICE_NAME'), role });
 }
 
-function getOrCreateRequestId(req: RequestWithId): string {
+function getOptionalStringProperty(value: object, key: string): string | undefined {
+  const candidate: unknown = Reflect.get(value, key);
+  return typeof candidate === 'string' && candidate.trim() !== '' ? candidate : undefined;
+}
+
+function getOptionalNumberProperty(value: object, key: string): number | undefined {
+  const candidate: unknown = Reflect.get(value, key);
+  return typeof candidate === 'number' ? candidate : undefined;
+}
+
+function syncRequestId(value: object, requestId: string): void {
+  Reflect.set(value, 'requestId', requestId);
+  Reflect.set(value, 'id', requestId);
+}
+
+function getOrCreateRequestId(req: IncomingMessage): string {
   const requestId = computeRequestId({
     headerValue: req.headers['x-request-id'],
-    existingRequestId: req.requestId,
-    existingId: req.id,
+    existingRequestId: getOptionalStringProperty(req, 'requestId'),
+    existingId: getOptionalStringProperty(req, 'id'),
   });
-  req.requestId = requestId;
-  req.id = requestId;
+  syncRequestId(req, requestId);
   return requestId;
 }
 
@@ -80,9 +94,9 @@ export class LoggingModule {
                     },
                   }
                 : {}),
-              genReqId: (req) => getOrCreateRequestId(req as RequestWithId),
+              genReqId: (req) => getOrCreateRequestId(req),
               customProps: (req) => {
-                const requestId = getOrCreateRequestId(req as RequestWithId);
+                const requestId = getOrCreateRequestId(req);
                 const spanContext = otelTrace.getSpan(otelContext.active())?.spanContext();
                 return {
                   requestId,
@@ -94,7 +108,7 @@ export class LoggingModule {
               },
               customLogLevel: (_req, res, err) => {
                 if (err) return LogLevel.Error;
-                const statusCode = (res as ResponseWithStatus).statusCode ?? 0;
+                const statusCode = getOptionalNumberProperty(res, 'statusCode') ?? 0;
                 if (statusCode >= 500) return LogLevel.Error;
                 if (statusCode >= 400) return LogLevel.Warn;
                 return LogLevel.Info;
@@ -105,13 +119,12 @@ export class LoggingModule {
                   const requestId = getOrCreateRequestId(req);
                   return {
                     id: requestId,
-                    method: asHttpMethod((req as { method?: unknown }).method),
-                    url: asUrl((req as { url?: unknown }).url),
+                    method: asHttpMethod(Reflect.get(req, 'method')),
+                    url: asUrl(Reflect.get(req, 'url')),
                   };
                 },
                 res(res: ResponseWithStatus) {
-                  const statusCode =
-                    typeof res.statusCode === 'number' ? res.statusCode : undefined;
+                  const statusCode = getOptionalNumberProperty(res, 'statusCode');
                   return statusCode !== undefined ? { statusCode } : {};
                 },
                 err: stdSerializers.err,

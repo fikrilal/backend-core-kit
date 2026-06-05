@@ -22,8 +22,15 @@ Current scaffolding:
 
 - Prisma schema: `prisma/schema.prisma` (schema only; no datasource URL in Prisma 7)
 - Prisma config: `prisma.config.ts` (schema path + datasource URL for Prisma CLI)
-- Scripts: `npm run prisma:generate`, `npm run prisma:migrate`, `npm run prisma:migrate:deploy`
+- Scripts: `npm run prisma:validate`, `npm run prisma:generate`, `npm run prisma:migrate`, `npm run prisma:migrate:status`, `npm run prisma:migrate:deploy`
+- Drift check: `npm run verify:prisma` runs schema validation and verifies Prisma generation does not dirty tracked generated artifacts.
 - Prisma client wiring: `libs/platform/db/prisma.service.ts` (Postgres driver adapter via `@prisma/adapter-pg`)
+
+CI/local policy:
+
+- Run `npm run verify:prisma` in the non-Docker lane.
+- Run `npm run prisma:migrate:status` before `npm run prisma:migrate:deploy` in DB-backed lanes.
+- Run `npm run verify:e2e` when Prisma schema, migrations, repositories, or request flows touching Postgres changed.
 
 ## Repository Pattern
 

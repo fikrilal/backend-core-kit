@@ -35,9 +35,9 @@ describe('auth.service.helpers', () => {
   });
 
   it('maps invalid OIDC token to stable auth error', async () => {
-    const verifier = {
+    const verifier: OidcIdTokenVerifier = {
       verifyIdToken: async () => ({ kind: 'invalid' }),
-    } as unknown as OidcIdTokenVerifier;
+    };
 
     await expect(
       verifyOidcIdentityOrThrow(verifier, {

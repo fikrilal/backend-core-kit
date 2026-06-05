@@ -1,15 +1,11 @@
-import type { ArgumentsHost } from '@nestjs/common';
 import { ErrorCode } from '../errors/error-codes';
+import { createHttpArgumentsHost } from '../../../../test/support/http';
 import { applyRetryAfterHeader, mapFeatureErrorToProblem } from './feature-error.mapper';
 
 type HeaderSetter = (name: string, value: string) => void;
 
-function createHostWithHeaderSpy(header: jest.MockedFunction<HeaderSetter>): ArgumentsHost {
-  return {
-    switchToHttp: () => ({
-      getResponse: () => ({ header }),
-    }),
-  } as unknown as ArgumentsHost;
+function createHostWithHeaderSpy(header: jest.MockedFunction<HeaderSetter>) {
+  return createHttpArgumentsHost({}, { header });
 }
 
 describe('feature-error.mapper', () => {

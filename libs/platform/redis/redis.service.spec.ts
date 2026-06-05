@@ -1,7 +1,7 @@
 import Redis from 'ioredis';
 import { RedisService } from './redis.service';
-import type { ConfigService } from '@nestjs/config';
 import { NodeEnv } from '../config/env.validation';
+import { createConfigService } from '../../../test/support/stubs';
 
 type RedisClientStub = Readonly<{
   status: string;
@@ -34,12 +34,6 @@ jest.mock('ioredis', () => {
   };
 });
 
-function stubConfig(values: Record<string, unknown>): ConfigService {
-  return {
-    get: <T = unknown>(key: string): T | undefined => values[key] as T | undefined,
-  } as unknown as ConfigService;
-}
-
 describe('RedisService', () => {
   beforeEach(() => {
     clients.length = 0;
@@ -48,7 +42,7 @@ describe('RedisService', () => {
   });
 
   it('reports disabled and throws getClient() when REDIS_URL is not configured', () => {
-    const service = new RedisService(stubConfig({ NODE_ENV: NodeEnv.Development }));
+    const service = new RedisService(createConfigService({ NODE_ENV: NodeEnv.Development }));
 
     expect(service.isEnabled()).toBe(false);
     expect(() => service.getClient()).toThrow(/REDIS_URL is not configured/i);
@@ -56,7 +50,7 @@ describe('RedisService', () => {
 
   it('does not connect on startup outside production-like envs', async () => {
     const service = new RedisService(
-      stubConfig({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://unused' }),
+      createConfigService({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://unused' }),
     );
     expect(service.isEnabled()).toBe(true);
 
@@ -69,7 +63,7 @@ describe('RedisService', () => {
 
   it('connects and pings on startup in production-like envs', async () => {
     const service = new RedisService(
-      stubConfig({ NODE_ENV: NodeEnv.Production, REDIS_URL: 'redis://unused' }),
+      createConfigService({ NODE_ENV: NodeEnv.Production, REDIS_URL: 'redis://unused' }),
     );
     expect(service.isEnabled()).toBe(true);
 
@@ -83,7 +77,7 @@ describe('RedisService', () => {
 
   it('disconnects on destroy for a never-connected lazy client', async () => {
     const service = new RedisService(
-      stubConfig({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://unused' }),
+      createConfigService({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://unused' }),
     );
 
     await service.onModuleDestroy();
@@ -96,7 +90,7 @@ describe('RedisService', () => {
 
   it('tries quit on destroy when already connected', async () => {
     const service = new RedisService(
-      stubConfig({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://ready' }),
+      createConfigService({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://ready' }),
     );
 
     await service.onModuleDestroy();
@@ -109,48 +103,63 @@ describe('RedisService', () => {
 
   it('falls back to disconnect when quit fails', async () => {
     const service = new RedisService(
-      stubConfig({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://ready' }),
+      createConfigService({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://ready' }),
     );
 
-    const client = clients[0] as unknown as { quit: jest.Mock<Promise<void>, []> };
-    client.quit.mockImplementationOnce(async () => {
+    const client = clients[0];
+    if (!client) {
+      throw new Error('Expected Redis client');
+    }
+    jest.mocked(client.quit).mockImplementationOnce(async () => {
       throw new Error('redis down');
     });
 
     await service.onModuleDestroy();
 
-    const raw = clients[0] as unknown as { disconnect: jest.Mock<void, []> };
-    expect(raw.disconnect).toHaveBeenCalledTimes(1);
+    expect(client.disconnect).toHaveBeenCalledTimes(1);
   });
 
   it('only uses the Redis constructor when enabled', () => {
-    new RedisService(stubConfig({ NODE_ENV: NodeEnv.Development }));
-    expect((Redis as unknown as jest.Mock).mock.calls).toHaveLength(0);
+    new RedisService(createConfigService({ NODE_ENV: NodeEnv.Development }));
+    expect(jest.mocked(Redis).mock.calls).toHaveLength(0);
 
-    new RedisService(stubConfig({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://unused' }));
-    expect((Redis as unknown as jest.Mock).mock.calls).toHaveLength(1);
+    new RedisService(
+      createConfigService({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://unused' }),
+    );
+    expect(jest.mocked(Redis).mock.calls).toHaveLength(1);
   });
 
   it('applies explicit Redis reliability defaults', () => {
-    new RedisService(stubConfig({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://unused' }));
+    new RedisService(
+      createConfigService({ NODE_ENV: NodeEnv.Development, REDIS_URL: 'redis://unused' }),
+    );
 
-    const ctor = constructorCalls[0] as { options?: Record<string, unknown> } | undefined;
+    const ctor = constructorCalls[0];
     expect(ctor).toBeDefined();
-    expect(ctor?.options?.lazyConnect).toBe(true);
-    expect(ctor?.options?.connectTimeout).toBe(10_000);
-    expect(ctor?.options?.commandTimeout).toBe(5_000);
-    expect(ctor?.options?.maxRetriesPerRequest).toBe(2);
-    expect(ctor?.options?.enableOfflineQueue).toBe(true);
-    expect(typeof ctor?.options?.retryStrategy).toBe('function');
-
-    const retryStrategy = ctor?.options?.retryStrategy as ((times: number) => number) | undefined;
+    const options =
+      ctor && typeof ctor.options === 'object' && ctor.options !== null ? ctor.options : undefined;
+    expect(options && 'lazyConnect' in options ? options.lazyConnect : undefined).toBe(true);
+    expect(options && 'connectTimeout' in options ? options.connectTimeout : undefined).toBe(
+      10_000,
+    );
+    expect(options && 'commandTimeout' in options ? options.commandTimeout : undefined).toBe(5_000);
+    expect(
+      options && 'maxRetriesPerRequest' in options ? options.maxRetriesPerRequest : undefined,
+    ).toBe(2);
+    expect(
+      options && 'enableOfflineQueue' in options ? options.enableOfflineQueue : undefined,
+    ).toBe(true);
+    const retryStrategy =
+      options && 'retryStrategy' in options && typeof options.retryStrategy === 'function'
+        ? options.retryStrategy
+        : undefined;
     expect(retryStrategy?.(1)).toBe(100);
     expect(retryStrategy?.(50)).toBe(2_000);
   });
 
   it('applies Redis reliability env overrides', () => {
     new RedisService(
-      stubConfig({
+      createConfigService({
         NODE_ENV: NodeEnv.Development,
         REDIS_URL: 'redis://unused',
         REDIS_CONNECT_TIMEOUT_MS: 1500,
@@ -162,12 +171,21 @@ describe('RedisService', () => {
       }),
     );
 
-    const ctor = constructorCalls[0] as { options?: Record<string, unknown> } | undefined;
-    expect(ctor?.options?.connectTimeout).toBe(1500);
-    expect(ctor?.options?.commandTimeout).toBe(900);
-    expect(ctor?.options?.maxRetriesPerRequest).toBe(4);
-    expect(ctor?.options?.enableOfflineQueue).toBe(true);
-    const retryStrategy = ctor?.options?.retryStrategy as ((times: number) => number) | undefined;
+    const ctor = constructorCalls[0];
+    const options =
+      ctor && typeof ctor.options === 'object' && ctor.options !== null ? ctor.options : undefined;
+    expect(options && 'connectTimeout' in options ? options.connectTimeout : undefined).toBe(1500);
+    expect(options && 'commandTimeout' in options ? options.commandTimeout : undefined).toBe(900);
+    expect(
+      options && 'maxRetriesPerRequest' in options ? options.maxRetriesPerRequest : undefined,
+    ).toBe(4);
+    expect(
+      options && 'enableOfflineQueue' in options ? options.enableOfflineQueue : undefined,
+    ).toBe(true);
+    const retryStrategy =
+      options && 'retryStrategy' in options && typeof options.retryStrategy === 'function'
+        ? options.retryStrategy
+        : undefined;
     expect(retryStrategy?.(1)).toBe(50);
     expect(retryStrategy?.(20)).toBe(500);
   });
@@ -176,7 +194,7 @@ describe('RedisService', () => {
     expect(
       () =>
         new RedisService(
-          stubConfig({
+          createConfigService({
             NODE_ENV: NodeEnv.Development,
             REDIS_URL: 'redis://unused',
             REDIS_COMMAND_TIMEOUT_MS: 0,

@@ -6,6 +6,9 @@ import {
 } from '../../libs/features/users/infra/jobs/user-account-deletion-email.job';
 import {
   describeAuthE2eSuite,
+  getBodyData,
+  getObjectField,
+  getStringField,
   isObject,
   type AuthE2eHarness,
   uniqueEmail,
@@ -30,21 +33,20 @@ describeAuthE2eSuite('Auth Account Deletion (e2e)', (harness) => {
       .send({ email, password })
       .expect(200);
 
-    const reg = registerRes.body.data as {
-      accessToken: string;
-    };
+    const reg = getBodyData(registerRes.body);
 
     await request(baseUrl)
       .post('/v1/me/account-deletion/request')
-      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Authorization', `Bearer ${getStringField(reg, 'accessToken')}`)
       .expect(204);
 
     const meAfterRequest = await request(baseUrl)
       .get('/v1/me')
-      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Authorization', `Bearer ${getStringField(reg, 'accessToken')}`)
       .expect(200);
 
-    const userId = meAfterRequest.body.data.id as string;
+    const meAfterRequestData = getBodyData(meAfterRequest.body);
+    const userId = getStringField(meAfterRequestData, 'id');
 
     const emailJobsAfterRequest = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
     const deletionRequestedEmail = emailJobsAfterRequest.find(
@@ -63,14 +65,15 @@ describeAuthE2eSuite('Auth Account Deletion (e2e)', (harness) => {
     expect(deletionRequestedEmail).toBeDefined();
     expect(deletionReminderEmail).toBeDefined();
 
-    expect(meAfterRequest.body.data.accountDeletion).toBeDefined();
-    expect(meAfterRequest.body.data.accountDeletion).toMatchObject({
+    const accountDeletion = getObjectField(meAfterRequestData, 'accountDeletion');
+    expect(accountDeletion).toBeDefined();
+    expect(accountDeletion).toMatchObject({
       requestedAt: expect.any(String),
       scheduledFor: expect.any(String),
     });
 
-    const requestedAt = new Date(meAfterRequest.body.data.accountDeletion.requestedAt as string);
-    const scheduledFor = new Date(meAfterRequest.body.data.accountDeletion.scheduledFor as string);
+    const requestedAt = new Date(getStringField(accountDeletion, 'requestedAt'));
+    const scheduledFor = new Date(getStringField(accountDeletion, 'scheduledFor'));
 
     const msInDay = 24 * 60 * 60 * 1000;
     const deltaDays = (scheduledFor.getTime() - requestedAt.getTime()) / msInDay;
@@ -79,7 +82,7 @@ describeAuthE2eSuite('Auth Account Deletion (e2e)', (harness) => {
 
     await request(baseUrl)
       .post('/v1/me/account-deletion/cancel')
-      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Authorization', `Bearer ${getStringField(reg, 'accessToken')}`)
       .expect(204);
 
     const emailJobsAfterCancel = await emailQueue.getJobs(['waiting', 'delayed'], 0, -1);
@@ -93,10 +96,10 @@ describeAuthE2eSuite('Auth Account Deletion (e2e)', (harness) => {
 
     const meAfterCancel = await request(baseUrl)
       .get('/v1/me')
-      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Authorization', `Bearer ${getStringField(reg, 'accessToken')}`)
       .expect(200);
 
-    expect(meAfterCancel.body.data.accountDeletion).toBeNull();
+    expect(getBodyData(meAfterCancel.body).accountDeletion).toBeNull();
   });
 
   it('request account deletion returns USERS_CANNOT_DELETE_LAST_ADMIN for last active admin', async () => {
@@ -108,13 +111,11 @@ describeAuthE2eSuite('Auth Account Deletion (e2e)', (harness) => {
       .send({ email, password })
       .expect(200);
 
-    const reg = registerRes.body.data as {
-      user: { id: string };
-      accessToken: string;
-    };
+    const reg = getBodyData(registerRes.body);
+    const user = getObjectField(reg, 'user');
 
     await prisma.user.update({
-      where: { id: reg.user.id },
+      where: { id: getStringField(user, 'id') },
       data: { role: UserRole.ADMIN, status: UserStatus.ACTIVE },
     });
 
@@ -123,14 +124,14 @@ describeAuthE2eSuite('Auth Account Deletion (e2e)', (harness) => {
       where: {
         role: UserRole.ADMIN,
         status: UserStatus.ACTIVE,
-        id: { not: reg.user.id },
+        id: { not: getStringField(user, 'id') },
       },
       data: { role: UserRole.USER },
     });
 
     const res = await request(baseUrl)
       .post('/v1/me/account-deletion/request')
-      .set('Authorization', `Bearer ${reg.accessToken}`)
+      .set('Authorization', `Bearer ${getStringField(reg, 'accessToken')}`)
       .expect(409);
 
     expect(res.headers['content-type']).toContain('application/problem+json');

@@ -1,4 +1,5 @@
-import { Prisma, type PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient, type PrismaClient as PrismaClientType } from '@prisma/client';
+import { createPrototypeStub } from '../../../test/support/stubs';
 import {
   isRetryableTransactionError,
   withSerializableRetry,
@@ -10,16 +11,17 @@ type TxHandler = (
   options?: { isolationLevel?: Prisma.TransactionIsolationLevel },
 ) => Promise<unknown>;
 
-function asPrismaClient(handler: TxHandler): PrismaClient {
-  return {
+function createPrismaClient(handler: TxHandler): PrismaClientType {
+  return createPrototypeStub(PrismaClient, {
     $transaction: handler,
-  } as unknown as PrismaClient;
+  });
 }
 
-function makeKnownRequestError(code: string): Prisma.PrismaClientKnownRequestError {
-  const err = Object.create(
-    Prisma.PrismaClientKnownRequestError.prototype,
-  ) as Prisma.PrismaClientKnownRequestError & { code: string };
+function makeKnownRequestError(code: string) {
+  const err = Object.create(Prisma.PrismaClientKnownRequestError.prototype);
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) {
+    throw new Error('Expected PrismaClientKnownRequestError prototype');
+  }
   err.code = code;
   return err;
 }
@@ -40,10 +42,10 @@ describe('tx-retry', () => {
 
   it('retries transaction when classifier marks error retryable', async () => {
     let attempts = 0;
-    const client = asPrismaClient(async (fn, _options) => {
+    const client = createPrismaClient(async (fn, _options) => {
       attempts += 1;
       if (attempts === 1) throw new Error('deadlock detected');
-      return await fn({} as Prisma.TransactionClient);
+      return await fn(createPrototypeStub(PrismaClient, {}));
     });
 
     const result = await withTransactionRetry(client, async () => 'ok', { maxAttempts: 3 });
@@ -55,10 +57,10 @@ describe('tx-retry', () => {
   it('applies exponential backoff between retry attempts', async () => {
     let attempts = 0;
     const sleepCalls: number[] = [];
-    const client = asPrismaClient(async (fn) => {
+    const client = createPrismaClient(async (fn) => {
       attempts += 1;
       if (attempts < 4) throw new Error('deadlock detected');
-      return await fn({} as Prisma.TransactionClient);
+      return await fn(createPrototypeStub(PrismaClient, {}));
     });
 
     const result = await withTransactionRetry(client, async () => 'ok', {
@@ -82,10 +84,10 @@ describe('tx-retry', () => {
   it('caps exponential backoff at max delay and applies jitter', async () => {
     let attempts = 0;
     const sleepCalls: number[] = [];
-    const client = asPrismaClient(async (fn) => {
+    const client = createPrismaClient(async (fn) => {
       attempts += 1;
       if (attempts < 4) throw new Error('deadlock detected');
-      return await fn({} as Prisma.TransactionClient);
+      return await fn(createPrototypeStub(PrismaClient, {}));
     });
 
     await withTransactionRetry(client, async () => 'ok', {
@@ -109,7 +111,7 @@ describe('tx-retry', () => {
   it('does not retry non-retryable errors', async () => {
     let attempts = 0;
     const err = new Error('unique constraint');
-    const client = asPrismaClient(async () => {
+    const client = createPrismaClient(async () => {
       attempts += 1;
       throw err;
     });
@@ -120,9 +122,9 @@ describe('tx-retry', () => {
 
   it('uses provided isolation level', async () => {
     const optionsSeen: Array<{ isolationLevel?: Prisma.TransactionIsolationLevel }> = [];
-    const client = asPrismaClient(async (fn, options) => {
+    const client = createPrismaClient(async (fn, options) => {
       optionsSeen.push(options ?? {});
-      return await fn({} as Prisma.TransactionClient);
+      return await fn(createPrototypeStub(PrismaClient, {}));
     });
 
     await withTransactionRetry(client, async () => 'ok', {
@@ -136,9 +138,9 @@ describe('tx-retry', () => {
 
   it('withSerializableRetry enforces serializable isolation level', async () => {
     const optionsSeen: Array<{ isolationLevel?: Prisma.TransactionIsolationLevel }> = [];
-    const client = asPrismaClient(async (fn, options) => {
+    const client = createPrismaClient(async (fn, options) => {
       optionsSeen.push(options ?? {});
-      return await fn({} as Prisma.TransactionClient);
+      return await fn(createPrototypeStub(PrismaClient, {}));
     });
 
     await withSerializableRetry(client, async () => 'ok');
@@ -151,7 +153,7 @@ describe('tx-retry', () => {
   it('does not sleep when maxAttempts is 1', async () => {
     const err = new Error('deadlock detected');
     const sleep = jest.fn(async () => undefined);
-    const client = asPrismaClient(async () => {
+    const client = createPrismaClient(async () => {
       throw err;
     });
 

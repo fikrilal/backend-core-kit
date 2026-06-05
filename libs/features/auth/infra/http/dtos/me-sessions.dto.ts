@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
+import { CursorPaginationMetaDto } from '../../../../../platform/http/list-query/cursor-pagination-meta.dto';
 
 const SESSION_STATUS_VALUES = ['active', 'revoked', 'expired'] as const;
 
@@ -69,22 +70,6 @@ export class MeSessionDto {
   @IsString()
   @IsIn(SESSION_STATUS_VALUES)
   status!: (typeof SESSION_STATUS_VALUES)[number];
-}
-
-export class CursorPaginationMetaDto {
-  @ApiProperty({ example: 25 })
-  @IsInt()
-  @Min(1)
-  limit!: number;
-
-  @ApiProperty({ example: true })
-  @IsBoolean()
-  hasMore!: boolean;
-
-  @ApiPropertyOptional({ example: 'eyJ2IjoxLCJzb3J0IjoiLWNyZWF0ZWRBdCIsImFmdGVyIjp7fX0' })
-  @IsOptional()
-  @IsString()
-  nextCursor?: string;
 }
 
 export class MeSessionsListEnvelopeDto {

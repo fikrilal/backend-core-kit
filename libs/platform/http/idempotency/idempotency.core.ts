@@ -107,7 +107,7 @@ export function getIdempotencyKeyHeader(req: FastifyRequest): string | undefined
 export function parseRecord(raw: string): StoredRecord | undefined {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw) as unknown;
+    parsed = JSON.parse(raw);
   } catch {
     return undefined;
   }
@@ -147,7 +147,7 @@ export function parseRecord(raw: string): StoredRecord | undefined {
     requestHash,
     status: Math.trunc(status),
     hasBody,
-    ...(hasBody ? { body: (parsed as { body?: unknown }).body } : {}),
+    ...(hasBody ? { body: parsed.body } : {}),
     ...(Object.keys(headers).length ? { headers } : {}),
     completedAt,
   };

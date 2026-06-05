@@ -1,14 +1,14 @@
 import { generateKeyPairSync, sign } from 'crypto';
 import type { KeyObject } from 'crypto';
-import type { ConfigService } from '@nestjs/config';
-import type { AuthKeyRing } from './auth-keyring.service';
+import { AuthKeyRing } from './auth-keyring.service';
 import { AccessTokenInvalidError, AccessTokenVerifier } from './access-token-verifier.service';
 import type { JwtAlg } from './auth.types';
+import { createConfigService, createPrototypeStub } from '../../../test/support/stubs';
 
-function stubConfig(values: Record<string, string | undefined>): ConfigService {
-  return {
-    get: <T = unknown>(key: string): T | undefined => values[key] as unknown as T,
-  } as unknown as ConfigService;
+function createKeyRing(
+  getPublicKeyForKid: AuthKeyRing['getPublicKeyForKid'],
+): AuthKeyRing & Pick<AuthKeyRing, 'getPublicKeyForKid'> {
+  return createPrototypeStub(AuthKeyRing, { getPublicKeyForKid });
 }
 
 function base64UrlJson(value: unknown): string {
@@ -42,11 +42,14 @@ describe('AccessTokenVerifier', () => {
     const nowSeconds = Math.floor(Date.now() / 1000);
 
     const verifier = new AccessTokenVerifier(
-      stubConfig({ AUTH_ISSUER: 'https://issuer.example', AUTH_AUDIENCE: 'api', NODE_ENV: 'test' }),
-      {
-        getPublicKeyForKid: async (requestedKid: string) =>
-          requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
-      } as unknown as AuthKeyRing,
+      createConfigService({
+        AUTH_ISSUER: 'https://issuer.example',
+        AUTH_AUDIENCE: 'api',
+        NODE_ENV: 'test',
+      }),
+      createKeyRing(async (requestedKid: string) =>
+        requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
+      ),
     );
 
     const token = createSignedJwt({
@@ -80,10 +83,12 @@ describe('AccessTokenVerifier', () => {
     const kid = 'kid-eddsa';
     const nowSeconds = Math.floor(Date.now() / 1000);
 
-    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
-      getPublicKeyForKid: async (requestedKid: string) =>
+    const verifier = new AccessTokenVerifier(
+      createConfigService({ NODE_ENV: 'test' }),
+      createKeyRing(async (requestedKid: string) =>
         requestedKid === kid ? { alg: 'EdDSA', key: publicKey } : undefined,
-    } as unknown as AuthKeyRing);
+      ),
+    );
 
     const token = createSignedJwt({
       alg: 'EdDSA',
@@ -110,9 +115,10 @@ describe('AccessTokenVerifier', () => {
   });
 
   it('throws when AUTH_ISSUER/AUTH_AUDIENCE are missing in staging', async () => {
-    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'staging' }), {
-      getPublicKeyForKid: async () => undefined,
-    } as unknown as AuthKeyRing);
+    const verifier = new AccessTokenVerifier(
+      createConfigService({ NODE_ENV: 'staging' }),
+      createKeyRing(async () => undefined),
+    );
 
     await expect(verifier.verifyAccessToken('x.y.z')).rejects.toThrow(
       /AUTH_ISSUER and AUTH_AUDIENCE are required/i,
@@ -124,10 +130,12 @@ describe('AccessTokenVerifier', () => {
     const kid = 'kid-exp';
     const nowSeconds = Math.floor(Date.now() / 1000);
 
-    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
-      getPublicKeyForKid: async (requestedKid: string) =>
+    const verifier = new AccessTokenVerifier(
+      createConfigService({ NODE_ENV: 'test' }),
+      createKeyRing(async (requestedKid: string) =>
         requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
-    } as unknown as AuthKeyRing);
+      ),
+    );
 
     const token = createSignedJwt({
       alg: 'RS256',
@@ -152,15 +160,14 @@ describe('AccessTokenVerifier', () => {
     const nowSeconds = Math.floor(Date.now() / 1000);
 
     const verifier = new AccessTokenVerifier(
-      stubConfig({
+      createConfigService({
         NODE_ENV: 'test',
         AUTH_ISSUER: 'https://issuer.example',
         AUTH_AUDIENCE: 'api',
       }),
-      {
-        getPublicKeyForKid: async (requestedKid: string) =>
-          requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
-      } as unknown as AuthKeyRing,
+      createKeyRing(async (requestedKid: string) =>
+        requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
+      ),
     );
 
     const token = createSignedJwt({
@@ -187,10 +194,12 @@ describe('AccessTokenVerifier', () => {
     const kid = 'kid-missing-claims';
     const nowSeconds = Math.floor(Date.now() / 1000);
 
-    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
-      getPublicKeyForKid: async (requestedKid: string) =>
+    const verifier = new AccessTokenVerifier(
+      createConfigService({ NODE_ENV: 'test' }),
+      createKeyRing(async (requestedKid: string) =>
         requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
-    } as unknown as AuthKeyRing);
+      ),
+    );
 
     const missingSub = createSignedJwt({
       alg: 'RS256',
@@ -246,9 +255,10 @@ describe('AccessTokenVerifier', () => {
     const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
     const nowSeconds = Math.floor(Date.now() / 1000);
 
-    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
-      getPublicKeyForKid: async () => undefined,
-    } as unknown as AuthKeyRing);
+    const verifier = new AccessTokenVerifier(
+      createConfigService({ NODE_ENV: 'test' }),
+      createKeyRing(async () => undefined),
+    );
 
     const token = createSignedJwt({
       alg: 'RS256',
@@ -272,10 +282,12 @@ describe('AccessTokenVerifier', () => {
     const kid = 'kid-typ';
     const nowSeconds = Math.floor(Date.now() / 1000);
 
-    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
-      getPublicKeyForKid: async (requestedKid: string) =>
+    const verifier = new AccessTokenVerifier(
+      createConfigService({ NODE_ENV: 'test' }),
+      createKeyRing(async (requestedKid: string) =>
         requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
-    } as unknown as AuthKeyRing);
+      ),
+    );
 
     const token = createSignedJwt({
       alg: 'RS256',
@@ -299,10 +311,12 @@ describe('AccessTokenVerifier', () => {
     const kid = 'kid-missing-jti';
     const nowSeconds = Math.floor(Date.now() / 1000);
 
-    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
-      getPublicKeyForKid: async (requestedKid: string) =>
+    const verifier = new AccessTokenVerifier(
+      createConfigService({ NODE_ENV: 'test' }),
+      createKeyRing(async (requestedKid: string) =>
         requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
-    } as unknown as AuthKeyRing);
+      ),
+    );
 
     const token = createSignedJwt({
       alg: 'RS256',
@@ -325,10 +339,12 @@ describe('AccessTokenVerifier', () => {
     const kid = 'kid-future-iat';
     const nowSeconds = Math.floor(Date.now() / 1000);
 
-    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
-      getPublicKeyForKid: async (requestedKid: string) =>
+    const verifier = new AccessTokenVerifier(
+      createConfigService({ NODE_ENV: 'test' }),
+      createKeyRing(async (requestedKid: string) =>
         requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
-    } as unknown as AuthKeyRing);
+      ),
+    );
 
     const token = createSignedJwt({
       alg: 'RS256',
@@ -352,10 +368,12 @@ describe('AccessTokenVerifier', () => {
     const kid = 'kid-future-nbf';
     const nowSeconds = Math.floor(Date.now() / 1000);
 
-    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
-      getPublicKeyForKid: async (requestedKid: string) =>
+    const verifier = new AccessTokenVerifier(
+      createConfigService({ NODE_ENV: 'test' }),
+      createKeyRing(async (requestedKid: string) =>
         requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
-    } as unknown as AuthKeyRing);
+      ),
+    );
 
     const token = createSignedJwt({
       alg: 'RS256',
@@ -380,10 +398,12 @@ describe('AccessTokenVerifier', () => {
     const kid = 'kid-oversized';
     const nowSeconds = Math.floor(Date.now() / 1000);
 
-    const verifier = new AccessTokenVerifier(stubConfig({ NODE_ENV: 'test' }), {
-      getPublicKeyForKid: async (requestedKid: string) =>
+    const verifier = new AccessTokenVerifier(
+      createConfigService({ NODE_ENV: 'test' }),
+      createKeyRing(async (requestedKid: string) =>
         requestedKid === kid ? { alg: 'RS256', key: publicKey } : undefined,
-    } as unknown as AuthKeyRing);
+      ),
+    );
 
     const token = createSignedJwt({
       alg: 'RS256',

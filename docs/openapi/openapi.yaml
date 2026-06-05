@@ -1203,6 +1203,7 @@ components:
           nullable: true
           description: When set, the account is scheduled for deletion. The request can be
             canceled until scheduledFor.
+          type: object
           allOf:
             - $ref: "#/components/schemas/AccountDeletionDto"
       required:

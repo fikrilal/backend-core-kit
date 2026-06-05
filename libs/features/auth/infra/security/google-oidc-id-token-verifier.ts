@@ -5,6 +5,7 @@ import type {
   OidcProvider,
   VerifyOidcIdTokenResult,
 } from '../../app/ports/oidc-id-token-verifier';
+import { isObject } from '../../../../platform/auth/auth.utils';
 
 const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'] as const;
 
@@ -18,29 +19,28 @@ type JoseModule = Readonly<{
   createRemoteJWKSet: (url: URL) => JoseRemoteJwks;
 }>;
 
-const importModule = new Function('specifier', 'return import(specifier)') as (
-  specifier: string,
-) => Promise<unknown>;
+async function importJoseModule(): Promise<unknown> {
+  return import('jose');
+}
+
+function isJoseModule(value: unknown): value is JoseModule {
+  return (
+    isObject(value) &&
+    typeof value.jwtVerify === 'function' &&
+    typeof value.createRemoteJWKSet === 'function'
+  );
+}
 
 let josePromise: Promise<JoseModule> | undefined;
 let googleJwks: JoseRemoteJwks | undefined;
 
 async function loadJose(): Promise<JoseModule> {
   if (!josePromise) {
-    josePromise = importModule('jose').then((mod) => {
-      if (!mod || typeof mod !== 'object') {
+    josePromise = importJoseModule().then((mod) => {
+      if (!isJoseModule(mod)) {
         throw new Error('Failed to load jose');
       }
-
-      const record = mod as Record<string, unknown>;
-      if (
-        typeof record.jwtVerify !== 'function' ||
-        typeof record.createRemoteJWKSet !== 'function'
-      ) {
-        throw new Error('Invalid jose module');
-      }
-
-      return mod as JoseModule;
+      return mod;
     });
   }
 

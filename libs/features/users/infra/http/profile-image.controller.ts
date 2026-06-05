@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  HttpStatus,
   Post,
   Res,
   UseFilters,
@@ -61,7 +62,7 @@ export class ProfileImageController {
   @Post('me/profile-image/upload')
   @UseGuards(AccessTokenGuard)
   @ApiBearerAuth('access-token')
-  @HttpCode(200)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'users.me.profileImage.upload',
     summary: 'Create a profile image upload plan (presigned URL)',
@@ -112,7 +113,7 @@ export class ProfileImageController {
   @Post('me/profile-image/complete')
   @UseGuards(AccessTokenGuard)
   @ApiBearerAuth('access-token')
-  @HttpCode(204)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'users.me.profileImage.complete',
     summary: 'Finalize a profile image upload',
@@ -155,7 +156,7 @@ export class ProfileImageController {
   @Delete('me/profile-image')
   @UseGuards(AccessTokenGuard)
   @ApiBearerAuth('access-token')
-  @HttpCode(204)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'users.me.profileImage.clear',
     summary: 'Clear current profile image',

@@ -60,7 +60,7 @@ export function parseListQuery<SortField extends string, FilterField extends str
     : (() => {
         if (input.filter === undefined || input.filter === null) return [];
         if (typeof input.filter === 'object' && input.filter !== null) {
-          const keys = Object.keys(input.filter as Record<string, unknown>);
+          const keys = Object.keys(input.filter);
           if (keys.length === 0) return [];
         }
         throw new ListQueryValidationError([

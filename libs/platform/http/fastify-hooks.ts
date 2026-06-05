@@ -20,6 +20,10 @@ function getOrCreateRequestId(req: FastifyRequest): string {
   return requestId;
 }
 
+function syncRawRequestId(req: FastifyRequest, requestId: string): void {
+  Object.assign(req.raw, { requestId, id: requestId });
+}
+
 export function registerFastifyHttpPlatform(app: NestFastifyApplication) {
   const fastify: FastifyInstance = app.getHttpAdapter().getInstance();
 
@@ -28,9 +32,7 @@ export function registerFastifyHttpPlatform(app: NestFastifyApplication) {
     reply.header('X-Request-Id', requestId);
 
     // Keep the Node raw request in sync (nestjs-pino uses the raw IncomingMessage in serializers).
-    const raw = req.raw as unknown as { id?: string; requestId?: string };
-    raw.requestId = requestId;
-    raw.id = requestId;
+    syncRawRequestId(req, requestId);
 
     // Trace correlation + safe URL attributes (no querystrings).
     const span = otelTrace.getSpan(otelContext.active());

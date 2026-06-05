@@ -1,0 +1,24 @@
+{
+  "format": "typescript",
+  "minLines": 7,
+  "minTokens": 60,
+  "mode": "mild",
+  "reporters": ["json"],
+  "output": "./.tmp/jscpd-core",
+  "silent": true,
+  "gitignore": true,
+  "ignore": [
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "**/*.int-spec.ts",
+    "**/*.e2e-spec.ts",
+    "test/**",
+    "node_modules/**",
+    "dist/**",
+    "coverage/**",
+    ".tmp/**",
+    "**/generated/**",
+    "**/migrations/**",
+    "docs/openapi/openapi.yaml"
+  ]
+}

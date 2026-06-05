@@ -19,6 +19,13 @@ function hasField<Field extends string>(
   return sort.some((s) => s.field === field);
 }
 
+function hasOwnField<T extends object>(
+  value: T,
+  field: PropertyKey,
+): field is Extract<keyof T, string> {
+  return Object.prototype.hasOwnProperty.call(value, field);
+}
+
 export function parseSort<Field extends string>(
   raw: unknown,
   options: ParseSortOptions<Field>,
@@ -26,10 +33,7 @@ export function parseSort<Field extends string>(
   const maxFields = options.maxFields ?? 3;
   const issues: ListQueryIssue[] = [];
 
-  const allowedFields = Object.keys(options.allowed) as Field[];
-  const allowedSet = new Set<string>(allowedFields);
-
-  if (!allowedSet.has(options.tieBreaker.field)) {
+  if (!hasOwnField(options.allowed, options.tieBreaker.field)) {
     throw new Error(
       `ListQuery misconfigured: tieBreaker "${options.tieBreaker.field}" must be included in allowed sort fields`,
     );
@@ -55,7 +59,7 @@ export function parseSort<Field extends string>(
   for (const token of tokens) {
     const direction: SortDirection = token.startsWith('-') ? 'desc' : 'asc';
     const field = (token.startsWith('-') ? token.slice(1) : token).trim();
-    if (!allowedSet.has(field)) {
+    if (!hasOwnField(options.allowed, field)) {
       issues.push({ field: 'sort', message: `Unsupported sort field "${field}"` });
       continue;
     }
@@ -64,7 +68,7 @@ export function parseSort<Field extends string>(
       continue;
     }
     seen.add(field);
-    userSort.push({ field: field as Field, direction });
+    userSort.push({ field, direction });
   }
 
   if (userSort.length > maxFields) {

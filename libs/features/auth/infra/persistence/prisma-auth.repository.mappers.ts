@@ -1,23 +1,44 @@
 import {
   ExternalIdentityProvider as PrismaExternalIdentityProvider,
   PushPlatform as PrismaPushPlatform,
+  UserRole as PrismaUserRole,
+  UserStatus as PrismaUserStatus,
   type RefreshToken,
   type User,
 } from '@prisma/client';
-import type { Email } from '../../domain/email';
 import type { AuthRole, AuthUserRecord, AuthUserStatus } from '../../app/auth.types';
 import type { OidcProvider } from '../../app/ports/oidc-id-token-verifier';
 import type { RefreshTokenRecord, SessionPushPlatform } from '../../app/ports/auth.repository';
+
+function toAuthRole(role: PrismaUserRole): AuthRole {
+  switch (role) {
+    case PrismaUserRole.USER:
+      return 'USER';
+    case PrismaUserRole.ADMIN:
+      return 'ADMIN';
+  }
+}
+
+function toAuthUserStatus(status: PrismaUserStatus): AuthUserStatus {
+  switch (status) {
+    case PrismaUserStatus.ACTIVE:
+      return 'ACTIVE';
+    case PrismaUserStatus.SUSPENDED:
+      return 'SUSPENDED';
+    case PrismaUserStatus.DELETED:
+      return 'DELETED';
+  }
+}
 
 export function toAuthUserRecord(
   user: Pick<User, 'id' | 'email' | 'emailVerifiedAt' | 'role' | 'status'>,
 ): AuthUserRecord {
   return {
     id: user.id,
-    email: user.email as Email,
+    email: user.email,
     emailVerifiedAt: user.emailVerifiedAt,
-    role: user.role as AuthRole,
-    status: user.status as AuthUserStatus,
+    role: toAuthRole(user.role),
+    status: toAuthUserStatus(user.status),
   };
 }
 

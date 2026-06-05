@@ -42,6 +42,13 @@ function filterParamName(field: string, op?: FilterOperator): string {
   return op ? `filter[${field}][${op}]` : `filter[${field}]`;
 }
 
+function hasOwnField<T extends object>(
+  value: T,
+  field: PropertyKey,
+): field is Extract<keyof T, string> {
+  return Object.prototype.hasOwnProperty.call(value, field);
+}
+
 export function ApiListQuery<SortField extends string, FilterField extends string>(
   options: ApiListQueryOptions<SortField, FilterField>,
 ): MethodDecorator & ClassDecorator {
@@ -90,7 +97,8 @@ export function ApiListQuery<SortField extends string, FilterField extends strin
   if (options.filters) {
     const fields = Object.keys(options.filters).sort();
     for (const field of fields) {
-      const config = options.filters[field as FilterField];
+      if (!hasOwnField(options.filters, field)) continue;
+      const config = options.filters[field];
       const typeInfo = formatType(config);
 
       if (config.ops.includes('eq')) {

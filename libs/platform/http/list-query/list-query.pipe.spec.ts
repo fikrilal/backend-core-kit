@@ -36,7 +36,10 @@ describe('ListQueryPipe', () => {
       throw new Error('Expected transform to throw');
     } catch (err: unknown) {
       expect(err).toBeInstanceOf(ProblemException);
-      const ex = err as ProblemException;
+      if (!(err instanceof ProblemException)) {
+        throw err;
+      }
+      const ex = err;
       expect(ex.getStatus()).toBe(400);
       expect(ex.getResponse()).toMatchObject({
         title: 'Validation Failed',

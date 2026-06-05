@@ -1,8 +1,9 @@
 import { DbRoleHydrator } from './db-role-hydrator.service';
-import type { PrismaService } from '../db/prisma.service';
+import { PrismaService } from '../db/prisma.service';
 import { ProblemException } from '../http/errors/problem.exception';
 import type { AuthPrincipal } from '../auth/auth.types';
 import { AuthErrorCode } from '../../shared/auth/auth-error-codes';
+import { createPrototypeStub } from '../../../test/support/stubs';
 
 function expectProblem(err: unknown, status: number, code: string): void {
   if (!(err instanceof ProblemException)) {
@@ -22,7 +23,7 @@ describe('DbRoleHydrator', () => {
   };
 
   it('throws 500 when Prisma is disabled', async () => {
-    const prisma = { isEnabled: () => false } as unknown as PrismaService;
+    const prisma = createPrototypeStub(PrismaService, { isEnabled: () => false });
     const hydrator = new DbRoleHydrator(prisma);
 
     let err: unknown;
@@ -35,12 +36,12 @@ describe('DbRoleHydrator', () => {
   });
 
   it('throws 401 when user is not found', async () => {
-    const prisma = {
+    const prisma = createPrototypeStub(PrismaService, {
       isEnabled: () => true,
       getClient: () => ({
         user: { findUnique: async () => null },
       }),
-    } as unknown as PrismaService;
+    });
     const hydrator = new DbRoleHydrator(prisma);
 
     let err: unknown;
@@ -53,12 +54,12 @@ describe('DbRoleHydrator', () => {
   });
 
   it('throws 403 AUTH_USER_SUSPENDED when user is suspended', async () => {
-    const prisma = {
+    const prisma = createPrototypeStub(PrismaService, {
       isEnabled: () => true,
       getClient: () => ({
         user: { findUnique: async () => ({ role: 'USER', status: 'SUSPENDED' }) },
       }),
-    } as unknown as PrismaService;
+    });
     const hydrator = new DbRoleHydrator(prisma);
 
     let err: unknown;
@@ -71,12 +72,12 @@ describe('DbRoleHydrator', () => {
   });
 
   it('throws 401 when user is deleted', async () => {
-    const prisma = {
+    const prisma = createPrototypeStub(PrismaService, {
       isEnabled: () => true,
       getClient: () => ({
         user: { findUnique: async () => ({ role: 'USER', status: 'DELETED' }) },
       }),
-    } as unknown as PrismaService;
+    });
     const hydrator = new DbRoleHydrator(prisma);
 
     let err: unknown;
@@ -89,12 +90,12 @@ describe('DbRoleHydrator', () => {
   });
 
   it('overrides principal roles from DB when active', async () => {
-    const prisma = {
+    const prisma = createPrototypeStub(PrismaService, {
       isEnabled: () => true,
       getClient: () => ({
         user: { findUnique: async () => ({ role: 'ADMIN', status: 'ACTIVE' }) },
       }),
-    } as unknown as PrismaService;
+    });
     const hydrator = new DbRoleHydrator(prisma);
 
     await expect(hydrator.hydrate(basePrincipal)).resolves.toEqual({
@@ -104,12 +105,12 @@ describe('DbRoleHydrator', () => {
   });
 
   it('maps unexpected Prisma errors to 500 INTERNAL', async () => {
-    const prisma = {
+    const prisma = createPrototypeStub(PrismaService, {
       isEnabled: () => true,
       getClient: () => {
         throw new Error('db down');
       },
-    } as unknown as PrismaService;
+    });
     const hydrator = new DbRoleHydrator(prisma);
 
     let err: unknown;

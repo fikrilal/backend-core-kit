@@ -5,6 +5,21 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { SKIP_ENVELOPE_KEY } from '../decorators/skip-envelope.decorator';
 
+type ListEnvelopeCandidate = Record<string, unknown> & {
+  items: unknown[];
+  nextCursor?: unknown;
+  limit?: unknown;
+  hasMore?: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isListEnvelopeCandidate(value: unknown): value is ListEnvelopeCandidate {
+  return isRecord(value) && Array.isArray(value.items);
+}
+
 @Injectable()
 export class ResponseEnvelopeInterceptor implements NestInterceptor<unknown, unknown> {
   constructor(private readonly reflector: Reflector) {}
@@ -25,25 +40,18 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor<unknown, unk
         if (typeof data === 'string' || Buffer.isBuffer(data)) return data;
 
         // Auto-list: { items, nextCursor?, limit? } -> { data, meta }
-        if (
-          typeof data === 'object' &&
-          data !== null &&
-          'items' in (data as Record<string, unknown>) &&
-          Array.isArray((data as { items: unknown[] }).items)
-        ) {
-          const { items, nextCursor, limit, hasMore, ...rest } = data as {
-            items: unknown[];
-            nextCursor?: string;
-            limit?: number;
-            hasMore?: boolean;
-            [k: string]: unknown;
-          };
+        if (isListEnvelopeCandidate(data)) {
+          const { items, nextCursor, limit, hasMore, ...rest } = data;
+          const normalizedNextCursor = typeof nextCursor === 'string' ? nextCursor : undefined;
+          const normalizedLimit = typeof limit === 'number' ? limit : undefined;
+          const normalizedHasMore =
+            typeof hasMore === 'boolean' ? hasMore : normalizedNextCursor !== undefined;
 
           // Use object spread to avoid `Object.assign` triggering the `__proto__` setter.
           const meta: Record<string, unknown> = { ...rest };
-          meta.hasMore = typeof hasMore === 'boolean' ? hasMore : nextCursor !== undefined;
-          if (nextCursor !== undefined) meta.nextCursor = nextCursor;
-          if (limit !== undefined) meta.limit = limit;
+          meta.hasMore = normalizedHasMore;
+          if (normalizedNextCursor !== undefined) meta.nextCursor = normalizedNextCursor;
+          if (normalizedLimit !== undefined) meta.limit = normalizedLimit;
 
           const envelope: {
             data: unknown[];
@@ -56,12 +64,7 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor<unknown, unk
         }
 
         // Already enveloped
-        if (
-          typeof data === 'object' &&
-          data !== null &&
-          ('data' in (data as Record<string, unknown>) ||
-            'meta' in (data as Record<string, unknown>))
-        ) {
+        if (isRecord(data) && ('data' in data || 'meta' in data)) {
           return data;
         }
 

@@ -12,10 +12,16 @@ If you are changing behavior, standards, or architecture, update docs + add an A
 - Standards (normative): `docs/standards/README.md`
 - Decision log (ADRs): `docs/adr/README.md`
 - OpenAPI contract: `docs/openapi/README.md`
+- Agent PR loop: `docs/engineering/agent-pr-loop.md`
+- Runtime evidence: `docs/engineering/backend-runtime-evidence.md`
+- Guardrails: `docs/engineering/guardrails.md`
+- Parallel-agent workflow: `docs/engineering/parallel-agent-workflow.md`
+- Execution plans: `docs/exec-plans/README.md`
 
 ## Non-Negotiables (Hard Rules)
 
 - **TypeScript strict** and **no `any`** (`any`, `as any`, implicit `any` are forbidden). Use `unknown` + validation/narrowing.
+- Never use `as` to silence TypeScript; fix the types with inference, narrowing, generics, or runtime validation instead.
 - **Architecture boundaries are enforced** (dependency-cruiser): do not “just import” across layers.
 - **API contract discipline**:
   - success envelope `{ data, meta? }`
@@ -121,7 +127,13 @@ Projects built from this kit should provide stable scripts (names may be finaliz
 - `npm run lint` / `npm run format` / `npm run typecheck`
 - `npm run deps:check` (boundary rules + cycle detection)
 - `npm test` / `npm run test:e2e`
+- `npm run test:coverage` (unit coverage report; no threshold during baseline phase)
+- `npm run verify:prisma` (Prisma schema/generation drift)
 - `npm run openapi:generate` / `npm run openapi:lint`
+- `npm run verify:ci-local` (non-Docker CI mirror)
+- `npm run verify:project-map` (docs/project-map drift)
+- `npm run duplication:report` (categorized duplication self-review reports)
+- `npm run setup:hooks` installs local Git hooks; commits must follow `type(scope): message` (`docs/contributing/commit-conventions.md`)
 
 ## When to Add an ADR
 
@@ -139,9 +151,10 @@ Use `docs/adr/template.md` and keep ADRs short and specific.
 Before coding:
 
 1. Read `docs/README.md` and the relevant standards.
-2. Confirm the change fits the architecture; if not, propose/write an ADR.
-3. Implement minimally; when adding/changing reusable platform/core infra, update the relevant docs/guides/standards; update OpenAPI snapshot if API changes.
-4. Ensure boundary rules aren’t violated (no “shortcut imports”).
+2. For non-trivial work, follow `docs/engineering/agent-pr-loop.md` and create an execution plan under `docs/exec-plans/active/` when risk or coordination warrants it.
+3. Confirm the change fits the architecture; if not, propose/write an ADR.
+4. Implement minimally; when adding/changing reusable platform/core infra, update the relevant docs/guides/standards; update OpenAPI snapshot if API changes.
+5. Ensure boundary rules aren’t violated (no “shortcut imports”).
 
 ### Local Validation Checklist (Agent + Contributor)
 
@@ -153,6 +166,7 @@ When applicable:
 
 - If you changed HTTP routes/controllers/DTOs/OpenAPI decorators: run `npm run openapi:generate`, then re-run `npm run openapi:check`.
 - If you changed Prisma schema/migrations: run `npm run prisma:generate` **before** `npm run typecheck` or `npm run openapi:generate` (keeps Prisma Client types in sync).
+- If you changed Prisma schema/migrations: run `npm run verify:prisma` to validate schema and generation drift.
 - If you changed Prisma schema/migrations or request flows touching Postgres/Redis: run `npm run verify:e2e` (always stops local deps).
 
 WSL note (agent-only): run these via `bash tools/agent/npmw ...` (and `bash tools/agent/dockw ...` for Docker) to avoid OS-specific artifacts.

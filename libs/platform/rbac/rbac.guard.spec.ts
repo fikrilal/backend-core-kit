@@ -1,6 +1,4 @@
 import { Reflector } from '@nestjs/core';
-import type { ExecutionContext } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
 import { Public } from '../auth/public.decorator';
 import type { AuthPrincipal } from '../auth/auth.types';
 import { ErrorCode } from '../http/errors/error-codes';
@@ -12,22 +10,29 @@ import type { PermissionsProvider } from './permissions.provider';
 import { SkipRbac } from './skip-rbac.decorator';
 import { StaticRolePermissionsProvider } from './static-role-permissions.provider';
 import { UseDbRoles } from './use-db-roles.decorator';
+import { createHttpExecutionContext } from '../../../test/support/http';
+import { createPrototypeStub } from '../../../test/support/stubs';
 
-type HandlerFn = (...args: unknown[]) => unknown;
-type ClassConstructor = new (...args: unknown[]) => unknown;
+type RequestLike = {
+  url: string;
+  headers: Record<string, string>;
+  principal?: AuthPrincipal;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 function ctxFor(params: {
-  handler: HandlerFn;
-  cls: ClassConstructor;
-  req: FastifyRequest;
-}): ExecutionContext {
-  return {
-    getHandler: () => params.handler,
-    getClass: () => params.cls,
-    switchToHttp: () => ({
-      getRequest: () => params.req,
-    }),
-  } as unknown as ExecutionContext;
+  handler: (...args: unknown[]) => unknown;
+  cls: new (...args: unknown[]) => unknown;
+  req: RequestLike;
+}) {
+  return createHttpExecutionContext({
+    handler: params.handler,
+    cls: params.cls,
+    request: params.req,
+  });
 }
 
 function getProblem(err: unknown): { status: number; code: unknown } {
@@ -35,10 +40,7 @@ function getProblem(err: unknown): { status: number; code: unknown } {
     throw new Error(`Expected ProblemException, got: ${String(err)}`);
   }
   const body = err.getResponse();
-  const code =
-    typeof body === 'object' && body !== null && 'code' in body
-      ? (body as { code?: unknown }).code
-      : undefined;
+  const code = isRecord(body) ? body.code : undefined;
   return { status: err.getStatus(), code };
 }
 
@@ -66,10 +68,10 @@ describe('RbacGuard', () => {
 
     const reflector = new Reflector();
     const provider: PermissionsProvider = { getPermissions: jest.fn() };
-    const hydrator = { hydrate: jest.fn() } as unknown as DbRoleHydrator;
+    const hydrator = createPrototypeStub(DbRoleHydrator, { hydrate: jest.fn() });
     const guard = new RbacGuard(reflector, provider, hydrator);
 
-    const req = { url: '/v1/me', headers: {} } as unknown as FastifyRequest;
+    const req: RequestLike = { url: '/v1/me', headers: {} };
     await expect(
       guard.canActivate(ctxFor({ handler: Controller.prototype.handler, cls: Controller, req })),
     ).resolves.toBe(true);
@@ -84,10 +86,10 @@ describe('RbacGuard', () => {
 
     const reflector = new Reflector();
     const provider: PermissionsProvider = { getPermissions: jest.fn() };
-    const hydrator = { hydrate: jest.fn() } as unknown as DbRoleHydrator;
+    const hydrator = createPrototypeStub(DbRoleHydrator, { hydrate: jest.fn() });
     const guard = new RbacGuard(reflector, provider, hydrator);
 
-    const req = { url: '/v1/me', headers: {}, principal: undefined } as unknown as FastifyRequest;
+    const req: RequestLike = { url: '/v1/me', headers: {}, principal: undefined };
     await expect(
       guard.canActivate(ctxFor({ handler: Controller.prototype.handler, cls: Controller, req })),
     ).resolves.toBe(true);
@@ -100,10 +102,10 @@ describe('RbacGuard', () => {
 
     const reflector = new Reflector();
     const provider: PermissionsProvider = { getPermissions: jest.fn() };
-    const hydrator = { hydrate: jest.fn() } as unknown as DbRoleHydrator;
+    const hydrator = createPrototypeStub(DbRoleHydrator, { hydrate: jest.fn() });
     const guard = new RbacGuard(reflector, provider, hydrator);
 
-    const req = { url: '/v1/me', headers: {} } as unknown as FastifyRequest;
+    const req: RequestLike = { url: '/v1/me', headers: {} };
     await expect(
       guard.canActivate(ctxFor({ handler: Controller.prototype.handler, cls: Controller, req })),
     ).resolves.toBe(true);
@@ -117,10 +119,10 @@ describe('RbacGuard', () => {
 
     const reflector = new Reflector();
     const provider: PermissionsProvider = { getPermissions: jest.fn() };
-    const hydrator = { hydrate: jest.fn() } as unknown as DbRoleHydrator;
+    const hydrator = createPrototypeStub(DbRoleHydrator, { hydrate: jest.fn() });
     const guard = new RbacGuard(reflector, provider, hydrator);
 
-    const req = { url: '/v1/me', headers: {} } as unknown as FastifyRequest;
+    const req: RequestLike = { url: '/v1/me', headers: {} };
 
     let err: unknown;
     try {
@@ -141,7 +143,7 @@ describe('RbacGuard', () => {
 
     const reflector = new Reflector();
     const provider: PermissionsProvider = { getPermissions: () => [] };
-    const hydrator = { hydrate: jest.fn() } as unknown as DbRoleHydrator;
+    const hydrator = createPrototypeStub(DbRoleHydrator, { hydrate: jest.fn() });
     const guard = new RbacGuard(reflector, provider, hydrator);
 
     const principal: AuthPrincipal = {
@@ -151,7 +153,7 @@ describe('RbacGuard', () => {
       roles: ['USER'],
     };
 
-    const req = { url: '/v1/me', headers: {}, principal } as unknown as FastifyRequest;
+    const req: RequestLike = { url: '/v1/me', headers: {}, principal };
 
     let err: unknown;
     try {
@@ -172,9 +174,9 @@ describe('RbacGuard', () => {
 
     const reflector = new Reflector();
     const provider = new StaticRolePermissionsProvider();
-    const hydrator = {
+    const hydrator = createPrototypeStub(DbRoleHydrator, {
       hydrate: jest.fn(async (p: AuthPrincipal) => ({ ...p, roles: ['ADMIN'] })),
-    } as unknown as DbRoleHydrator;
+    });
 
     const guard = new RbacGuard(reflector, provider, hydrator);
 
@@ -185,7 +187,7 @@ describe('RbacGuard', () => {
       roles: ['USER'],
     };
 
-    const req = { url: '/v1/admin/whoami', headers: {}, principal } as unknown as FastifyRequest;
+    const req: RequestLike = { url: '/v1/admin/whoami', headers: {}, principal };
     await expect(
       guard.canActivate(ctxFor({ handler: Controller.prototype.handler, cls: Controller, req })),
     ).resolves.toBe(true);
@@ -203,9 +205,9 @@ describe('RbacGuard', () => {
 
     const reflector = new Reflector();
     const provider = new StaticRolePermissionsProvider();
-    const hydrator = {
+    const hydrator = createPrototypeStub(DbRoleHydrator, {
       hydrate: jest.fn(async (p: AuthPrincipal) => ({ ...p, roles: ['ADMIN'] })),
-    } as unknown as DbRoleHydrator;
+    });
     const guard = new RbacGuard(reflector, provider, hydrator);
 
     const principal: AuthPrincipal = {
@@ -215,7 +217,7 @@ describe('RbacGuard', () => {
       roles: ['USER'],
     };
 
-    const req = { url: '/v1/me', headers: {}, principal } as unknown as FastifyRequest;
+    const req: RequestLike = { url: '/v1/me', headers: {}, principal };
     await expect(
       guard.canActivate(ctxFor({ handler: Controller.prototype.handler, cls: Controller, req })),
     ).resolves.toBe(true);
@@ -231,7 +233,7 @@ describe('RbacGuard', () => {
 
     const reflector = new Reflector();
     const provider = new StaticRolePermissionsProvider();
-    const hydrator = { hydrate: jest.fn() } as unknown as DbRoleHydrator;
+    const hydrator = createPrototypeStub(DbRoleHydrator, { hydrate: jest.fn() });
     const guard = new RbacGuard(reflector, provider, hydrator);
 
     const principal: AuthPrincipal = {
@@ -241,7 +243,7 @@ describe('RbacGuard', () => {
       roles: ['UNKNOWN_ROLE'],
     };
 
-    const req = { url: '/v1/me', headers: {}, principal } as unknown as FastifyRequest;
+    const req: RequestLike = { url: '/v1/me', headers: {}, principal };
 
     let err: unknown;
     try {

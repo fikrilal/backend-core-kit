@@ -9,7 +9,7 @@ export type JobMeta = Readonly<{
   otel?: JobOtelMeta;
 }>;
 
-export type JobDataWithMeta<TData extends JsonObject> = TData & {
+export type JobDataWithMeta = JsonObject & {
   __meta?: JobMeta;
 };
 
@@ -17,14 +17,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-export function withJobOtelMeta<TData extends JsonObject>(
-  data: TData,
-  otel: JobOtelMeta,
-): JobDataWithMeta<TData> {
-  const existingMeta = isRecord((data as JobDataWithMeta<TData>).__meta)
-    ? ((data as JobDataWithMeta<TData>).__meta as Record<string, unknown>)
-    : undefined;
-  const existingOtel = existingMeta && isRecord(existingMeta.otel) ? existingMeta.otel : undefined;
+function getExistingMeta(data: JsonObject): JobMeta | undefined {
+  const meta = Reflect.get(data, '__meta');
+  if (!isRecord(meta)) return undefined;
+  const existingOtel = Reflect.get(meta, 'otel');
+  if (!isRecord(existingOtel)) return undefined;
+
+  const traceparent = Reflect.get(existingOtel, 'traceparent');
+  if (typeof traceparent !== 'string' || traceparent.trim() === '') return undefined;
+
+  const tracestate = Reflect.get(existingOtel, 'tracestate');
+  return {
+    otel: {
+      traceparent,
+      ...(typeof tracestate === 'string' && tracestate.trim() !== '' ? { tracestate } : {}),
+    },
+  };
+}
+
+export function withJobOtelMeta(data: JsonObject, otel: JobOtelMeta): JobDataWithMeta {
+  const existingMeta = getExistingMeta(data);
+  const existingOtel = existingMeta?.otel;
 
   const mergedOtel: JobOtelMeta = {
     traceparent: otel.traceparent,
@@ -35,11 +48,11 @@ export function withJobOtelMeta<TData extends JsonObject>(
   };
 
   const mergedMeta: JobMeta = {
-    ...(existingMeta ? (existingMeta as JobMeta) : {}),
+    ...(existingMeta ?? {}),
     otel: mergedOtel,
   };
 
-  return { ...(data as Record<string, unknown>), __meta: mergedMeta } as JobDataWithMeta<TData>;
+  return { ...data, __meta: mergedMeta };
 }
 
 export function getJobOtelMeta(data: unknown): JobOtelMeta | undefined {
