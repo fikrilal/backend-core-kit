@@ -1,6 +1,8 @@
-import { generateKeyPairSync, type JsonWebKey } from 'crypto';
+import { generateKeyPairSync, type webcrypto } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { AuthKeyRing } from './auth-keyring.service';
+
+type JsonWebKey = webcrypto.JsonWebKey;
 
 describe('AuthKeyRing', () => {
   it('infers EdDSA from OKP even when item.alg is RS256', async () => {
