@@ -162,11 +162,11 @@ async function main(): Promise<void> {
     process.stdout.write('==> wait:minio\n');
     await waitForMinio();
 
-    process.stdout.write('==> prisma:migrate:status\n');
-    await run(npm, ['run', 'prisma:migrate:status']);
-
     process.stdout.write('==> prisma:migrate:deploy\n');
     await run(npm, ['run', 'prisma:migrate:deploy']);
+
+    process.stdout.write('==> prisma:migrate:status\n');
+    await run(npm, ['run', 'prisma:migrate:status']);
 
     process.stdout.write('==> test:int\n');
     await run(npm, ['run', 'test:int']);

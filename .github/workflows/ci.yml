@@ -129,15 +129,15 @@ jobs:
           docker compose logs minio
           exit 1
 
-      - name: Prisma migration status
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
-        run: npm run prisma:migrate:status
-
       - name: Apply Prisma migrations
         env:
           DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
         run: npm run prisma:migrate:deploy
+
+      - name: Prisma migration status
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
+        run: npm run prisma:migrate:status
 
       - name: Integration tests
         env:
