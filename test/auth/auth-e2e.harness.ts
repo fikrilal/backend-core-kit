@@ -245,6 +245,7 @@ export function describeAuthE2eSuite(
         region: process.env.STORAGE_S3_REGION ?? 'us-east-1',
         endpoint: process.env.STORAGE_S3_ENDPOINT,
         forcePathStyle: process.env.STORAGE_S3_FORCE_PATH_STYLE === 'true',
+        requestChecksumCalculation: 'WHEN_REQUIRED',
         credentials: {
           accessKeyId: process.env.STORAGE_S3_ACCESS_KEY_ID ?? 'minioadmin',
           secretAccessKey: process.env.STORAGE_S3_SECRET_ACCESS_KEY ?? 'minioadmin',
