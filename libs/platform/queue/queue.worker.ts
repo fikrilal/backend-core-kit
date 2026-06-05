@@ -2,46 +2,17 @@ import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Worker, type WorkerOptions, type Processor } from 'bullmq';
 import {
-  ROOT_CONTEXT,
   SpanKind,
   SpanStatusCode,
   context as otelContext,
-  defaultTextMapGetter,
-  propagation as otelPropagation,
   trace as otelTrace,
-  type Context,
-  type Exception,
 } from '@opentelemetry/api';
 import type { JsonObject } from './json.types';
 import type { QueueName } from './queue-name';
-import { getJobOtelMeta } from './job-meta';
-import {
-  buildRedisConnectionOptions,
-  type RedisConnectionOptions,
-} from '../config/redis-connection';
 import { DEFAULT_WORKER_OPTIONS } from './queue.defaults';
-
-type OtelCarrier = Record<string, string>;
-
-const tracer = otelTrace.getTracer('platform.queue');
-
-function toOtelException(err: unknown): Exception {
-  if (err instanceof Error) {
-    return { name: err.name, message: err.message, stack: err.stack };
-  }
-
-  return String(err);
-}
-
-function extractJobContextFromData(data: unknown): Context {
-  const meta = getJobOtelMeta(data);
-  if (!meta) return ROOT_CONTEXT;
-
-  const carrier: OtelCarrier = { traceparent: meta.traceparent };
-  if (meta.tracestate) carrier.tracestate = meta.tracestate;
-
-  return otelPropagation.extract(ROOT_CONTEXT, carrier, defaultTextMapGetter);
-}
+import { extractJobContextFromData, QUEUE_TRACER, toOtelException } from './queue-otel';
+import { buildQueueRedisConnection } from './queue-redis';
+import type { RedisConnectionOptions } from '../config/redis-connection';
 
 @Injectable()
 export class QueueWorkerFactory implements OnModuleDestroy {
@@ -49,10 +20,7 @@ export class QueueWorkerFactory implements OnModuleDestroy {
   private readonly redis?: RedisConnectionOptions;
 
   constructor(private readonly config: ConfigService) {
-    this.redis = buildRedisConnectionOptions({
-      redisUrl: this.config.get<string>('REDIS_URL'),
-      tlsRejectUnauthorized: this.config.get<boolean>('REDIS_TLS_REJECT_UNAUTHORIZED') ?? true,
-    });
+    this.redis = buildQueueRedisConnection(this.config);
   }
 
   isEnabled(): boolean {
@@ -78,7 +46,7 @@ export class QueueWorkerFactory implements OnModuleDestroy {
     const wrappedProcessor: Processor<TData, TResult, string> = async (job, token) => {
       const parentContext = extractJobContextFromData(job.data);
 
-      const span = tracer.startSpan(
+      const span = QUEUE_TRACER.startSpan(
         'queue.process',
         {
           kind: SpanKind.CONSUMER,

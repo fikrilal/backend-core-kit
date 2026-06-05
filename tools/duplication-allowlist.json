@@ -1,4 +1,23 @@
 {
   "version": 1,
-  "reviewedAcceptable": []
+  "reviewedAcceptable": [
+    {
+      "category": "dto_view_mapper",
+      "files": [
+        "libs/features/admin/infra/http/dtos/admin-user-account-deletion-audit.dto.ts",
+        "libs/features/admin/infra/http/dtos/admin-user-role-change-audit.dto.ts"
+      ],
+      "reason": "Admin audit DTOs intentionally repeat explicit OpenAPI-decorated fields. A base DTO would make schema generation less direct for little code reduction.",
+      "reviewedOn": "2026-06-05"
+    },
+    {
+      "category": "prisma_query_builder",
+      "files": [
+        "libs/features/admin/infra/persistence/prisma-admin-audit.query-builders.ts",
+        "libs/features/admin/infra/persistence/prisma-admin-users.query-builders.ts"
+      ],
+      "reason": "Cursor field operations are model-specific Prisma where-input builders. Keeping explicit typed closures avoids unsafe generic object construction.",
+      "reviewedOn": "2026-06-05"
+    }
+  ]
 }

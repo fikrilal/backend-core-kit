@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsArray, IsString } from 'class-validator';
-import { CursorPaginationMetaDto } from './cursor-pagination-meta.dto';
+import { CursorPaginationMetaDto } from '../../../../../platform/http/list-query/cursor-pagination-meta.dto';
 
 const ADMIN_USER_ROLE_VALUES = ['USER', 'ADMIN'] as const;
 

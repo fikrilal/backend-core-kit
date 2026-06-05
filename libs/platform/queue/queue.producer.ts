@@ -5,48 +5,16 @@ import {
   SpanKind,
   SpanStatusCode,
   context as otelContext,
-  propagation as otelPropagation,
   trace as otelTrace,
-  type Exception,
 } from '@opentelemetry/api';
 import { DEFAULT_JOB_OPTIONS } from './queue.defaults';
 import type { QueueName } from './queue-name';
 import type { JobName } from './job-name';
 import type { JsonObject } from './json.types';
-import { withJobOtelMeta, type JobOtelMeta } from './job-meta';
-import {
-  buildRedisConnectionOptions,
-  type RedisConnectionOptions,
-} from '../config/redis-connection';
-
-type OtelCarrier = Record<string, string>;
-
-const tracer = otelTrace.getTracer('platform.queue');
-
-function toOtelException(err: unknown): Exception {
-  if (err instanceof Error) {
-    return { name: err.name, message: err.message, stack: err.stack };
-  }
-
-  return String(err);
-}
-
-function getActiveJobOtelMeta(): JobOtelMeta | undefined {
-  const carrier: OtelCarrier = {};
-  otelPropagation.inject(otelContext.active(), carrier, {
-    set: (c, key, value) => {
-      if (key === 'traceparent' || key === 'tracestate') {
-        c[key] = value;
-      }
-    },
-  });
-
-  const traceparent = carrier.traceparent;
-  if (!traceparent) return undefined;
-
-  const tracestate = carrier.tracestate;
-  return { traceparent, ...(tracestate ? { tracestate } : {}) };
-}
+import { withJobOtelMeta } from './job-meta';
+import { getActiveJobOtelMeta, QUEUE_TRACER, toOtelException } from './queue-otel';
+import { buildQueueRedisConnection } from './queue-redis';
+import type { RedisConnectionOptions } from '../config/redis-connection';
 
 @Injectable()
 export class QueueProducer implements OnModuleDestroy {
@@ -54,10 +22,7 @@ export class QueueProducer implements OnModuleDestroy {
   private readonly redis?: RedisConnectionOptions;
 
   constructor(private readonly config: ConfigService) {
-    this.redis = buildRedisConnectionOptions({
-      redisUrl: this.config.get<string>('REDIS_URL'),
-      tlsRejectUnauthorized: this.config.get<boolean>('REDIS_TLS_REJECT_UNAUTHORIZED') ?? true,
-    });
+    this.redis = buildQueueRedisConnection(this.config);
   }
 
   isEnabled(): boolean {
@@ -89,7 +54,7 @@ export class QueueProducer implements OnModuleDestroy {
   ): Promise<Job<JsonObject, JsonObject, string>> {
     const queue = this.getQueue(queueName);
 
-    const span = tracer.startSpan('queue.enqueue', {
+    const span = QUEUE_TRACER.startSpan('queue.enqueue', {
       kind: SpanKind.PRODUCER,
       attributes: {
         'app.queue.name': queueName,

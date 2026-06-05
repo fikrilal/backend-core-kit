@@ -1,12 +1,11 @@
 import type { ListQuery } from '../../../shared/list-query';
-import { AuthError } from './auth.errors';
-import { ErrorCode } from '../../../shared/error-codes';
 import type {
   AuthRepository,
   UserSessionsSortField,
   UserSessionListItem,
 } from './ports/auth.repository';
 import type { Clock } from './time';
+import { assertAuthUserIsActive } from './auth-user-state';
 
 export type SessionStatus = 'active' | 'revoked' | 'expired';
 
@@ -46,19 +45,12 @@ export class AuthSessionsService {
     private readonly clock: Clock,
   ) {}
 
-  private async assertUserIsNotDeleted(userId: string): Promise<void> {
-    const user = await this.repo.findUserById(userId);
-    if (!user || user.status === 'DELETED') {
-      throw new AuthError({ status: 401, code: ErrorCode.UNAUTHORIZED, message: 'Unauthorized' });
-    }
-  }
-
   async listMySessions(
     userId: string,
     currentSessionId: string,
     query: ListQuery<UserSessionsSortField, never>,
   ): Promise<ListMySessionsResult> {
-    await this.assertUserIsNotDeleted(userId);
+    await assertAuthUserIsActive(this.repo, userId);
 
     const now = this.clock.now();
     const res = await this.repo.listUserSessions(userId, query);
@@ -84,7 +76,7 @@ export class AuthSessionsService {
     userId: string,
     sessionId: string,
   ): Promise<Readonly<{ kind: 'ok' } | { kind: 'not_found' }>> {
-    await this.assertUserIsNotDeleted(userId);
+    await assertAuthUserIsActive(this.repo, userId);
 
     const ok = await this.repo.revokeSessionById(userId, sessionId, this.clock.now());
     return ok ? { kind: 'ok' } : { kind: 'not_found' };
