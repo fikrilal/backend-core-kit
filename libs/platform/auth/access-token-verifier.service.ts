@@ -2,10 +2,11 @@ import { verify as cryptoVerify } from 'crypto';
 import type { KeyObject } from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { asNonEmptyString } from '../../shared/string';
 import { NodeEnv } from '../config/env.validation';
 import type { AuthPrincipal, JwtAlg } from './auth.types';
 import { AuthKeyRing } from './auth-keyring.service';
-import { asNonEmptyString, getNodeEnv, isObject, normalizeJwtAlg } from './auth.utils';
+import { getNodeEnv, isObject, normalizeJwtAlg } from './auth.utils';
 
 export class AccessTokenInvalidError extends Error {
   constructor() {

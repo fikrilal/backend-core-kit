@@ -1,4 +1,4 @@
-import { NodeEnv } from '../config/env.validation';
+import { NodeEnv } from '../config/env.enums';
 import { isTelemetryEnabled } from './telemetry.policy';
 
 describe('telemetry.policy', () => {

@@ -3,7 +3,7 @@ import { UserRole, UserStatus } from '@prisma/client';
 import {
   USERS_SEND_ACCOUNT_DELETION_REMINDER_EMAIL_JOB,
   USERS_SEND_ACCOUNT_DELETION_REQUESTED_EMAIL_JOB,
-} from '../../libs/features/users/infra/jobs/user-account-deletion-email.job';
+} from '../../libs/features/users/account-deletion/user-account-deletion-email.job';
 import {
   describeAuthE2eSuite,
   getBodyData,

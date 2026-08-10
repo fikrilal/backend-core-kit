@@ -1,8 +1,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+type ScaffoldTier = 'simple' | 'clean';
+
 type CliOptions = Readonly<{
   name: string;
+  tier: ScaffoldTier;
   withQueue: boolean;
   dryRun: boolean;
   force: boolean;
@@ -22,18 +25,25 @@ type ScaffoldFile = Readonly<{
 
 function usage(): string {
   return [
-    'Usage: npm run scaffold:feature -- --name <feature-name> [--with-queue] [--dry-run] [--force]',
+    'Usage: npm run scaffold:feature -- --name <feature-name> [--tier simple|clean] [--with-queue] [--dry-run] [--force]',
     '',
     'Options:',
-    '  --name <value>   Feature name (e.g. billing, user-preferences).',
-    '  --with-queue     Include queue job skeleton files.',
-    '  --dry-run        Print generated paths without writing files.',
-    '  --force          Overwrite existing files.',
+    '  --name <value>       Feature name (e.g. billing, user-preferences).',
+    '  --tier <value>       Scaffold tier: simple (default) or clean.',
+    '  --with-queue         Include queue job skeleton files.',
+    '  --dry-run            Print generated paths without writing files.',
+    '  --force              Overwrite existing files.',
   ].join('\n');
+}
+
+function parseTier(value: string): ScaffoldTier {
+  if (value === 'simple' || value === 'clean') return value;
+  throw new Error('--tier must be one of: simple, clean');
 }
 
 function parseArgs(argv: string[]): CliOptions {
   let name: string | undefined;
+  let tier: ScaffoldTier = 'simple';
   let withQueue = false;
   let dryRun = false;
   let force = false;
@@ -47,6 +57,16 @@ function parseArgs(argv: string[]): CliOptions {
         throw new Error('Missing value for --name');
       }
       name = value;
+      i += 1;
+      continue;
+    }
+
+    if (arg === '--tier') {
+      const value = argv[i + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('Missing value for --tier');
+      }
+      tier = parseTier(value);
       i += 1;
       continue;
     }
@@ -75,7 +95,7 @@ function parseArgs(argv: string[]): CliOptions {
 
   if (!name) throw new Error('Missing required argument --name');
 
-  return { name, withQueue, dryRun, force };
+  return { name, tier, withQueue, dryRun, force };
 }
 
 function normalizeFeatureName(raw: string): string {
@@ -132,7 +152,7 @@ function ensureDir(path: string): void {
   mkdirSync(path, { recursive: true });
 }
 
-function writeFile(path: string, content: string, force: boolean): void {
+function writeScaffoldFile(path: string, content: string, force: boolean): void {
   const existing = readIfExists(path);
   if (existing !== undefined && !force) {
     throw new Error(`File already exists: ${path} (pass --force to overwrite)`);
@@ -141,60 +161,231 @@ function writeFile(path: string, content: string, force: boolean): void {
   writeFileSync(path, content, 'utf8');
 }
 
-function buildFiles(names: FeatureNames, withQueue: boolean): ScaffoldFile[] {
+function buildQueueFiles(names: FeatureNames, options: { clean: boolean }): ScaffoldFile[] {
   const base = join('libs', 'features', names.kebab);
-  const serviceClass = `${names.pascal}Service`;
-  const errorClass = `${names.pascal}Error`;
-  const errorCodeEnum = `${names.pascal}ErrorCode`;
-  const errorCodeValue = `${names.pascal}ErrorCodeValue`;
-  const repositoryInterface = `${names.pascal}Repository`;
-  const repositoryClass = `Prisma${names.pascal}Repository`;
-  const moduleClass = `${names.pascal}Module`;
-  const controllerClass = `${names.pascal}Controller`;
-  const filterClass = `${names.pascal}ErrorFilter`;
-  const dtoClass = `${names.pascal}HealthDto`;
-  const clockToken = `${names.upperSnake}_CLOCK`;
+  const jobsDir = options.clean ? join(base, 'infra', 'jobs') : join(base, 'jobs');
+  const platformPrefix = options.clean ? '../../../../platform' : '../../../platform';
+  const sharedPrefix = options.clean ? '../../../../shared' : '../../../shared';
+  const tokenImport = options.clean ? `../${names.kebab}.tokens` : `../${names.kebab}.tokens`;
   const jobsClass = `${names.pascal}Jobs`;
   const queueNameConst = `${names.upperSnake}_QUEUE`;
   const queueJobConst = `${names.upperSnake}_SYNC_JOB`;
 
-  const files: ScaffoldFile[] = [
+  return [
     {
-      path: join(base, 'app', `${names.kebab}.error-codes.ts`),
-      content: `import type { ErrorCode } from '../../../shared/error-codes';
+      path: join(jobsDir, `${names.kebab}.job.ts`),
+      content: `import { jobName, queueName, type JsonObject } from '${platformPrefix}/queue/queue.types';
 
-export enum ${errorCodeEnum} {
-  ${names.upperSnake}_NOT_IMPLEMENTED = '${names.upperSnake}_NOT_IMPLEMENTED',
+export const ${queueNameConst} = queueName('${names.kebab}');
+export const ${queueJobConst} = jobName('${names.camel}.sync');
+
+export type ${names.pascal}SyncJobData = Readonly<{
+  resourceId: string;
+  enqueuedAt: string;
+}> &
+  JsonObject;
+
+export function ${names.camel}SyncJobId(resourceId: string): string {
+  // BullMQ job ids cannot contain ":".
+  return '${names.camel}.sync-' + resourceId;
 }
-
-export type ${errorCodeValue} = ${errorCodeEnum} | ErrorCode;
 `,
     },
     {
-      path: join(base, 'app', `${names.kebab}.errors.ts`),
-      content: `import type { ${errorCodeValue} } from './${names.kebab}.error-codes';
+      path: join(jobsDir, `${names.kebab}.jobs.ts`),
+      content: `import { Inject, Injectable } from '@nestjs/common';
+import { QueueProducer } from '${platformPrefix}/queue/queue.producer';
+import type { Clock } from '${sharedPrefix}/time';
+import {
+  ${queueJobConst},
+  ${queueNameConst},
+  ${names.camel}SyncJobId,
+  type ${names.pascal}SyncJobData,
+} from './${names.kebab}.job';
+import { ${names.upperSnake}_CLOCK } from '${tokenImport}';
 
-export type ${names.pascal}Issue = Readonly<{ field?: string; message: string }>;
+@Injectable()
+export class ${jobsClass} {
+  constructor(
+    private readonly queue: QueueProducer,
+    @Inject(${names.upperSnake}_CLOCK) private readonly clock: Clock,
+  ) {}
 
-export class ${errorClass} extends Error {
-  readonly status: number;
-  readonly code: ${errorCodeValue};
-  readonly issues?: ReadonlyArray<${names.pascal}Issue>;
+  async enqueueSync(resourceId: string): Promise<boolean> {
+    if (!this.queue.isEnabled()) return false;
 
-  constructor(params: {
-    status: number;
-    code: ${errorCodeValue};
-    message?: string;
-    issues?: ReadonlyArray<${names.pascal}Issue>;
-  }) {
-    super(params.message ?? params.code);
-    this.status = params.status;
-    this.code = params.code;
-    this.issues = params.issues;
+    const data: ${names.pascal}SyncJobData = {
+      resourceId,
+      enqueuedAt: this.clock.now().toISOString(),
+    };
+
+    await this.queue.enqueue(${queueNameConst}, ${queueJobConst}, data, {
+      jobId: ${names.camel}SyncJobId(resourceId),
+    });
+    return true;
   }
 }
 `,
     },
+  ];
+}
+
+function buildSimpleFiles(names: FeatureNames, withQueue: boolean): ScaffoldFile[] {
+  const base = join('libs', 'features', names.kebab);
+  const serviceClass = `${names.pascal}Service`;
+  const repositoryClass = `Prisma${names.pascal}Repository`;
+  const moduleClass = `${names.pascal}Module`;
+  const controllerClass = `${names.pascal}Controller`;
+  const dtoClass = `${names.pascal}HealthDto`;
+  const jobsClass = `${names.pascal}Jobs`;
+
+  const files: ScaffoldFile[] = [
+    {
+      path: join(base, `${names.kebab}.tokens.ts`),
+      content: `export const ${names.upperSnake}_CLOCK = Symbol('${names.upperSnake}_CLOCK');
+`,
+    },
+    {
+      path: join(base, `${names.kebab}.dto.ts`),
+      content: `import { ApiProperty } from '@nestjs/swagger';
+
+export class ${dtoClass} {
+  @ApiProperty({ example: 'ok' })
+  status!: 'ok';
+
+  @ApiProperty({ format: 'date-time', example: '2026-01-01T00:00:00.000Z' })
+  now!: string;
+}
+`,
+    },
+    {
+      path: join(base, `prisma-${names.kebab}.repository.ts`),
+      content: `import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../platform/db/prisma.service';
+
+@Injectable()
+export class ${repositoryClass} {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async ping(): Promise<void> {
+    await this.prisma.getClient().$queryRaw\`SELECT 1\`;
+  }
+}
+`,
+    },
+    {
+      path: join(base, `${names.kebab}.service.ts`),
+      content: `import { Inject, Injectable } from '@nestjs/common';
+import type { Clock } from '../../shared/time';
+import { ${names.upperSnake}_CLOCK } from './${names.kebab}.tokens';
+import { ${repositoryClass} } from './prisma-${names.kebab}.repository';
+
+@Injectable()
+export class ${serviceClass} {
+  constructor(
+    private readonly repo: ${repositoryClass},
+    @Inject(${names.upperSnake}_CLOCK) private readonly clock: Clock,
+  ) {}
+
+  async healthCheck(): Promise<Readonly<{ status: 'ok'; now: string }>> {
+    await this.repo.ping();
+    return { status: 'ok', now: this.clock.now().toISOString() };
+  }
+}
+`,
+    },
+    {
+      path: join(base, `${names.kebab}.controller.ts`),
+      content: `import { Controller, Get } from '@nestjs/common';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ErrorCode } from '../../platform/http/errors/error-codes';
+import { ApiErrorCodes } from '../../platform/http/openapi/api-error-codes.decorator';
+import { ${dtoClass} } from './${names.kebab}.dto';
+import { ${serviceClass} } from './${names.kebab}.service';
+
+@ApiTags('${names.pascal}')
+@Controller('${names.kebab}')
+export class ${controllerClass} {
+  constructor(private readonly service: ${serviceClass}) {}
+
+  @Get('health')
+  @ApiOperation({
+    operationId: '${names.kebab}.health.get',
+    summary: 'Health check',
+    description: 'Minimal endpoint-slice scaffold for the ${names.kebab} feature.',
+  })
+  @ApiErrorCodes([ErrorCode.INTERNAL])
+  @ApiOkResponse({ type: ${dtoClass} })
+  async health(): Promise<${dtoClass}> {
+    return await this.service.healthCheck();
+  }
+}
+`,
+    },
+    {
+      path: join(base, `${names.kebab}.module.ts`),
+      content: `import { Module } from '@nestjs/common';
+import { PrismaModule } from '../../platform/db/prisma.module';
+${withQueue ? "import { QueueModule } from '../../platform/queue/queue.module';\n" : ''}import { provideSystemClockToken } from '../../platform/di/app-service.provider';
+import { ${controllerClass} } from './${names.kebab}.controller';
+${withQueue ? `import { ${jobsClass} } from './jobs/${names.kebab}.jobs';\n` : ''}import { ${serviceClass} } from './${names.kebab}.service';
+import { ${names.upperSnake}_CLOCK } from './${names.kebab}.tokens';
+import { ${repositoryClass} } from './prisma-${names.kebab}.repository';
+
+@Module({
+  imports: [
+    PrismaModule,
+${withQueue ? '    QueueModule,\n' : ''}  ],
+  controllers: [${controllerClass}],
+  providers: [
+    ${repositoryClass},
+${withQueue ? `    ${jobsClass},\n` : ''}    provideSystemClockToken(${names.upperSnake}_CLOCK),
+    ${serviceClass},
+  ],
+  exports: [${serviceClass}],
+})
+export class ${moduleClass} {}
+`,
+    },
+    {
+      path: join(base, `${names.kebab}.service.spec.ts`),
+      content: `describe('${serviceClass}', () => {
+  it.todo('returns deterministic health check values');
+  it.todo('propagates repository failures when needed');
+});
+`,
+    },
+    {
+      path: join(base, `prisma-${names.kebab}.repository.spec.ts`),
+      content: `describe('${repositoryClass}', () => {
+  it.todo('implements ping against Prisma');
+});
+`,
+    },
+    {
+      path: join('test', `${names.kebab}.e2e-spec.ts`),
+      content: `describe('${names.kebab} (e2e)', () => {
+  it.todo('GET /v1/${names.kebab}/health returns 200');
+});
+`,
+    },
+  ];
+
+  if (withQueue) files.push(...buildQueueFiles(names, { clean: false }));
+  return files;
+}
+
+function buildCleanFiles(names: FeatureNames, withQueue: boolean): ScaffoldFile[] {
+  const base = join('libs', 'features', names.kebab);
+  const serviceClass = `${names.pascal}Service`;
+  const repositoryInterface = `${names.pascal}Repository`;
+  const repositoryClass = `Prisma${names.pascal}Repository`;
+  const moduleClass = `${names.pascal}Module`;
+  const controllerClass = `${names.pascal}Controller`;
+  const dtoClass = `${names.pascal}HealthDto`;
+  const jobsClass = `${names.pascal}Jobs`;
+
+  const files: ScaffoldFile[] = [
     {
       path: join(base, 'app', 'ports', `${names.kebab}.repository.ts`),
       content: `export interface ${repositoryInterface} {
@@ -222,7 +413,7 @@ export class ${serviceClass} {
     },
     {
       path: join(base, 'infra', `${names.kebab}.tokens.ts`),
-      content: `export const ${clockToken} = Symbol('${clockToken}');
+      content: `export const ${names.upperSnake}_CLOCK = Symbol('${names.upperSnake}_CLOCK');
 `,
     },
     {
@@ -255,46 +446,16 @@ export class ${dtoClass} {
 `,
     },
     {
-      path: join(base, 'infra', 'http', `${names.kebab}-error.filter.ts`),
-      content: `import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
-import { ErrorCode } from '../../../../platform/http/errors/error-codes';
-import { mapFeatureErrorToProblem } from '../../../../platform/http/filters/feature-error.mapper';
-import { ProblemDetailsFilter } from '../../../../platform/http/filters/problem-details.filter';
-import { isAppErrorCode } from '../../../../shared/app-error-codes';
-import { ${errorClass} } from '../../app/${names.kebab}.errors';
-
-@Catch(${errorClass})
-export class ${filterClass} implements ExceptionFilter {
-  private readonly problemDetailsFilter = new ProblemDetailsFilter();
-
-  catch(exception: ${errorClass}, host: ArgumentsHost): void {
-    const code = isAppErrorCode(exception.code) ? exception.code : ErrorCode.INTERNAL;
-    const mapped = mapFeatureErrorToProblem({
-      status: exception.status,
-      code,
-      detail: exception.message,
-      issues: exception.issues,
-      titleStrategy: 'status-default',
-    });
-
-    this.problemDetailsFilter.catch(mapped, host);
-  }
-}
-`,
-    },
-    {
       path: join(base, 'infra', 'http', `${names.kebab}.controller.ts`),
-      content: `import { Controller, Get, UseFilters } from '@nestjs/common';
+      content: `import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { ${serviceClass} } from '../../app/${names.kebab}.service';
 import { ${dtoClass} } from './dtos/${names.kebab}.dto';
-import { ${filterClass} } from './${names.kebab}-error.filter';
 
 @ApiTags('${names.pascal}')
 @Controller('${names.kebab}')
-@UseFilters(${filterClass})
 export class ${controllerClass} {
   constructor(private readonly service: ${serviceClass}) {}
 
@@ -302,16 +463,12 @@ export class ${controllerClass} {
   @ApiOperation({
     operationId: '${names.kebab}.health.get',
     summary: 'Health check',
-    description: 'Minimal endpoint scaffold for the ${names.kebab} feature.',
+    description: 'Minimal clean-slice scaffold for the ${names.kebab} feature.',
   })
   @ApiErrorCodes([ErrorCode.INTERNAL])
   @ApiOkResponse({ type: ${dtoClass} })
   async health(): Promise<${dtoClass}> {
-    const result = await this.service.healthCheck();
-    return {
-      status: result.status,
-      now: result.now,
-    };
+    return await this.service.healthCheck();
   }
 }
 `,
@@ -326,10 +483,9 @@ import {
 import { PrismaModule } from '../../../platform/db/prisma.module';
 ${withQueue ? "import { QueueModule } from '../../../platform/queue/queue.module';\n" : ''}import { ${serviceClass} } from '../app/${names.kebab}.service';
 import { ${controllerClass} } from './http/${names.kebab}.controller';
-import { ${filterClass} } from './http/${names.kebab}-error.filter';
-import { ${repositoryClass} } from './persistence/prisma-${names.kebab}.repository';
-import { ${clockToken} } from './${names.kebab}.tokens';
-${withQueue ? `import { ${jobsClass} } from './jobs/${names.kebab}.jobs';\n` : ''}
+${withQueue ? `import { ${jobsClass} } from './jobs/${names.kebab}.jobs';\n` : ''}import { ${repositoryClass} } from './persistence/prisma-${names.kebab}.repository';
+import { ${names.upperSnake}_CLOCK } from './${names.kebab}.tokens';
+
 @Module({
   imports: [
     PrismaModule,
@@ -337,11 +493,10 @@ ${withQueue ? '    QueueModule,\n' : ''}  ],
   controllers: [${controllerClass}],
   providers: [
     ${repositoryClass},
-    ${filterClass},
-${withQueue ? `    ${jobsClass},\n` : ''}    provideSystemClockToken(${clockToken}),
+${withQueue ? `    ${jobsClass},\n` : ''}    provideSystemClockToken(${names.upperSnake}_CLOCK),
     provideConstructedAppService({
       provide: ${serviceClass},
-      inject: [${repositoryClass}, ${clockToken}],
+      inject: [${repositoryClass}, ${names.upperSnake}_CLOCK],
       useClass: ${serviceClass},
     }),
   ],
@@ -354,7 +509,7 @@ export class ${moduleClass} {}
       path: join(base, 'app', `${names.kebab}.service.spec.ts`),
       content: `describe('${serviceClass}', () => {
   it.todo('returns deterministic health check values');
-  it.todo('propagates repository failures as feature errors when needed');
+  it.todo('propagates repository failures when needed');
 });
 `,
     },
@@ -374,69 +529,14 @@ export class ${moduleClass} {}
     },
   ];
 
-  if (withQueue) {
-    files.push(
-      {
-        path: join(base, 'infra', 'jobs', `${names.kebab}.job.ts`),
-        content: `import { jobName } from '../../../../platform/queue/job-name';
-import type { JsonObject } from '../../../../platform/queue/json.types';
-import { queueName } from '../../../../platform/queue/queue-name';
-
-export const ${queueNameConst} = queueName('${names.kebab}');
-export const ${queueJobConst} = jobName('${names.camel}.sync');
-
-export type ${names.pascal}SyncJobData = Readonly<{
-  resourceId: string;
-  enqueuedAt: string;
-}> &
-  JsonObject;
-
-export function ${names.camel}SyncJobId(resourceId: string): string {
-  // BullMQ job ids cannot contain ":".
-  return '${names.camel}.sync-' + resourceId;
-}
-`,
-      },
-      {
-        path: join(base, 'infra', 'jobs', `${names.kebab}.jobs.ts`),
-        content: `import { Inject, Injectable } from '@nestjs/common';
-import { QueueProducer } from '../../../../platform/queue/queue.producer';
-import type { Clock } from '../../../../shared/time';
-import {
-  ${queueJobConst},
-  ${queueNameConst},
-  ${names.camel}SyncJobId,
-  type ${names.pascal}SyncJobData,
-} from './${names.kebab}.job';
-import { ${clockToken} } from '../${names.kebab}.tokens';
-
-@Injectable()
-export class ${jobsClass} {
-  constructor(
-    private readonly queue: QueueProducer,
-    @Inject(${clockToken}) private readonly clock: Clock,
-  ) {}
-
-  async enqueueSync(resourceId: string): Promise<boolean> {
-    if (!this.queue.isEnabled()) return false;
-
-    const data: ${names.pascal}SyncJobData = {
-      resourceId,
-      enqueuedAt: this.clock.now().toISOString(),
-    };
-
-    await this.queue.enqueue(${queueNameConst}, ${queueJobConst}, data, {
-      jobId: ${names.camel}SyncJobId(resourceId),
-    });
-    return true;
-  }
-}
-`,
-      },
-    );
-  }
-
+  if (withQueue) files.push(...buildQueueFiles(names, { clean: true }));
   return files;
+}
+
+function buildFiles(options: Pick<CliOptions, 'name' | 'tier' | 'withQueue'>): ScaffoldFile[] {
+  const names = buildFeatureNames(options.name);
+  if (options.tier === 'clean') return buildCleanFiles(names, options.withQueue);
+  return buildSimpleFiles(names, options.withQueue);
 }
 
 function writeScaffoldFiles(
@@ -448,7 +548,7 @@ function writeScaffoldFiles(
       process.stdout.write(`[dry-run] ${file.path}\n`);
       continue;
     }
-    writeFile(file.path, file.content, options.force);
+    writeScaffoldFile(file.path, file.content, options.force);
     process.stdout.write(`[created] ${file.path}\n`);
   }
 }
@@ -457,10 +557,10 @@ function main(): void {
   try {
     const options = parseArgs(process.argv.slice(2));
     const names = buildFeatureNames(options.name);
-    const files = buildFiles(names, options.withQueue);
+    const files = buildFiles(options);
 
     process.stdout.write(
-      `Scaffolding feature "${names.kebab}"${options.withQueue ? ' (with queue)' : ''}${options.dryRun ? ' [dry-run]' : ''}\n`,
+      `Scaffolding feature "${names.kebab}" (${options.tier})${options.withQueue ? ' with queue' : ''}${options.dryRun ? ' [dry-run]' : ''}\n`,
     );
 
     writeScaffoldFiles(files, options);
@@ -468,8 +568,12 @@ function main(): void {
     if (options.dryRun) {
       process.stdout.write('Dry-run completed. No files were written.\n');
     } else {
+      const modulePath =
+        options.tier === 'clean'
+          ? `libs/features/${names.kebab}/infra/${names.kebab}.module.ts`
+          : `libs/features/${names.kebab}/${names.kebab}.module.ts`;
       process.stdout.write(
-        `Done. Next steps:\n- add ${names.pascal}Module to apps/api/src/app.module.ts\n- replace TODO tests in generated spec files\n`,
+        `Done. Next steps:\n- add ${names.pascal}Module from ${modulePath} to apps/api/src/app.module.ts when exposing it\n- replace TODO tests in generated spec files\n`,
       );
     }
   } catch (error: unknown) {

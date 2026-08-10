@@ -3,9 +3,9 @@ import type { FastifyRequest } from 'fastify';
 import { ErrorCode } from '../errors/error-codes';
 import { ProblemException } from '../errors/problem.exception';
 import { RedisService } from '../../redis/redis.service';
+import { asNonEmptyString } from '../../../shared/string';
 import type { IdempotencyOptions } from './idempotency.decorator';
 import {
-  asNonEmptyString,
   type CompletedRecord,
   computeRequestHash,
   createCompletedRecord,
@@ -27,12 +27,10 @@ export type IdempotencyBeginResult =
       redisKey: string;
       requestHash: string;
       ttlSeconds: number;
-      lockTtlSeconds: number;
       waitMs: number;
     }>
   | Readonly<{
       kind: 'replay';
-      redisKey: string;
       record: CompletedRecord;
     }>
   | Readonly<{
@@ -118,7 +116,7 @@ export class IdempotencyService {
       'NX',
     );
     if (created === 'OK') {
-      return { kind: 'acquired', redisKey, requestHash, ttlSeconds, lockTtlSeconds, waitMs };
+      return { kind: 'acquired', redisKey, requestHash, ttlSeconds, waitMs };
     }
 
     const existingRaw = await client.get(redisKey);
@@ -132,7 +130,7 @@ export class IdempotencyService {
         'NX',
       );
       if (retry === 'OK') {
-        return { kind: 'acquired', redisKey, requestHash, ttlSeconds, lockTtlSeconds, waitMs };
+        return { kind: 'acquired', redisKey, requestHash, ttlSeconds, waitMs };
       }
 
       throw new ProblemException(409, {
@@ -160,7 +158,7 @@ export class IdempotencyService {
     }
 
     if (existing.state === 'completed') {
-      return { kind: 'replay', redisKey, record: existing };
+      return { kind: 'replay', record: existing };
     }
 
     return { kind: 'in_progress', redisKey, requestHash, waitMs };

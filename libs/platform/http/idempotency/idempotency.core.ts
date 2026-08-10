@@ -1,7 +1,6 @@
 import { createHash } from 'crypto';
 import type { FastifyRequest } from 'fastify';
 import { asNonEmptyString } from '../../../shared/string';
-export { asNonEmptyString };
 
 export type WriteMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 

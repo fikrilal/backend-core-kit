@@ -11,6 +11,7 @@ import {
 } from 'firebase-admin/app';
 import { getMessaging, type Message } from 'firebase-admin/messaging';
 import { asNonEmptyString } from '../../shared/string';
+import { PushProvider } from '../config/env.enums';
 import type { PushService } from './push.service';
 import type { PushNotification, SendPushToTokenInput, SendPushToTokenResult } from './push.types';
 import { PushErrorCode, PushSendError } from './push.types';
@@ -133,7 +134,7 @@ export class FcmPushService implements PushService {
 
   constructor(private readonly config: ConfigService) {
     const provider = asNonEmptyString(this.config.get<string>('PUSH_PROVIDER'));
-    if (provider !== 'FCM') {
+    if (provider !== PushProvider.Fcm) {
       this.enabled = false;
       return;
     }

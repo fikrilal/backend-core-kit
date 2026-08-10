@@ -5,13 +5,13 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import Redis from 'ioredis';
 import { Queue } from 'bullmq';
 import { CreateBucketCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import type { AuthSendVerificationEmailJobData } from '../../libs/features/auth/infra/jobs/auth-email-verification.job';
-import type { AuthSendPasswordResetEmailJobData } from '../../libs/features/auth/infra/jobs/auth-password-reset.job';
-import { EMAIL_QUEUE } from '../../libs/features/auth/infra/jobs/auth-email-verification.job';
+import type { AuthSendVerificationEmailJobData } from '../../libs/features/auth/email-verification/email-verification.job';
+import type { AuthSendPasswordResetEmailJobData } from '../../libs/features/auth/password-reset/password-reset.job';
+import { EMAIL_QUEUE } from '../../libs/features/auth/email-verification/email-verification.job';
 import type {
   UsersSendAccountDeletionReminderEmailJobData,
   UsersSendAccountDeletionRequestedEmailJobData,
-} from '../../libs/features/users/infra/jobs/user-account-deletion-email.job';
+} from '../../libs/features/users/account-deletion/user-account-deletion-email.job';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
@@ -211,8 +211,13 @@ export function describeAuthE2eSuite(
       process.env.PUBLIC_APP_URL ??= 'http://localhost:3000';
 
       // Enable push token endpoints in e2e tests without requiring real FCM credentials.
+      // Pin the other credential strategies to empty so loadDotEnvOnce will not restore
+      // them from .env (dotenv.config never overwrites an already-set variable).
       process.env.PUSH_PROVIDER ??= 'FCM';
       process.env.FCM_PROJECT_ID ??= 'test-project';
+      process.env.FCM_USE_APPLICATION_DEFAULT = '';
+      process.env.FCM_SERVICE_ACCOUNT_JSON_PATH = '';
+      process.env.FCM_SERVICE_ACCOUNT_JSON_BASE64 = '';
       process.env.FCM_SERVICE_ACCOUNT_JSON ??= (() => {
         const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
         return JSON.stringify({

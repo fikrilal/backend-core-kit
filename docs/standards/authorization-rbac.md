@@ -39,10 +39,9 @@ Policy:
 - Access tokens may contain a stale `roles` claim after an admin role change.
 - For admin routes, RBAC uses the database as the source of truth for roles on every request (single indexed lookup by `userId`).
 
-Implementation hooks:
+Implementation hook:
 
-- `RbacGuard` hydrates roles from the DB for `/v1/admin/*` routes.
-- `@UseDbRoles()` can be used to opt-in explicitly on other routes if needed.
+- Admin controllers must declare `@UseDbRoles()` so `RbacGuard` hydrates roles from the DB before permission checks.
 
 ### Audit Logging (Role Changes)
 

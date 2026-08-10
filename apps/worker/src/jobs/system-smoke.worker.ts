@@ -1,9 +1,7 @@
 import { Injectable, type OnModuleInit } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { PrismaService } from '../../../../libs/platform/db/prisma.service';
-import { jobName } from '../../../../libs/platform/queue/job-name';
-import type { JsonObject } from '../../../../libs/platform/queue/json.types';
-import { queueName } from '../../../../libs/platform/queue/queue-name';
+import { jobName, queueName, type JsonObject } from '../../../../libs/platform/queue/queue.types';
 import { QueueWorkerFactory } from '../../../../libs/platform/queue/queue.worker';
 
 type SystemSmokeJobData = {

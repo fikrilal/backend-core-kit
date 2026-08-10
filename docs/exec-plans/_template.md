@@ -1,9 +1,18 @@
 # <Plan Title>
 
+**Plan version:** 2
+**Task ID:** lowercase-kebab-case-task-id
+**Status:** active
+**Owner:** <name>
+**Risk:** low | medium | high
+**Authority:** implement and verify locally; no external mutation
+**Allowed paths:** narrow/repository-relative/file-or-directory-prefixes
+**Allowed actions:** edit, verify
+**Maximum risk:** low | medium | high
+**Repair limit:** 2
+**Task timeout:** 90m
+
 Date: YYYY-MM-DD  
-Owner: <name>  
-Status: active  
-Risk class: low | medium | high  
 Related issue/PR: <link or N/A>
 
 ## Objective

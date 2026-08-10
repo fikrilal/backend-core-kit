@@ -8,10 +8,14 @@ drift across sessions.
 ## Lifecycle
 
 1. Create a plan file in `docs/exec-plans/active/` from `docs/exec-plans/_template.md`.
-2. Update the same file as work progresses.
-3. Record decisions, verification evidence, and known blockers.
-4. Move the file to `docs/exec-plans/completed/` when done.
-5. Add unresolved follow-ups to `docs/exec-plans/tech-debt-tracker.md`.
+2. For agent-loop work, authorize the V2 boundary with
+   `npm run backendkit -- task begin --plan <path>` before task edits.
+3. Update the same file as work progresses without changing authority-bearing
+   metadata. An authority change requires a new task baseline.
+4. Record decisions, verification evidence, and known blockers.
+5. Move the file to `docs/exec-plans/completed/`, set `Status` to `completed`,
+   and close its implementation checklist when done.
+6. Add unresolved follow-ups to `docs/exec-plans/tech-debt-tracker.md`.
 
 ## File Naming
 
@@ -37,6 +41,55 @@ Examples:
 - verification evidence
 - runtime evidence when static checks are insufficient
 - follow-up debt
+
+V2 active and queued plans also require the structured metadata in the current
+template. Allowed paths are explicit repository-relative files or directory
+prefixes; roots, absolute paths, traversal, whitespace ambiguity, and globs are
+invalid. Allowed actions are independent grants. Plan parsing never grants an
+action that was not explicitly authorized by the user.
+
+Run `npm run backendkit -- knowledge check` to validate lifecycle and schema
+rules. Existing completed plans created before V2 are grandfathered; new active
+and queued plans are not.
+
+After `task begin`, use `npm run backendkit -- task verify --task <task-id>` to
+select risk/impact-derived verification and record the attempt. `Repair limit`
+is the number of unchanged repair opportunities permitted after the initial
+failure; it is not an unlimited retry count. A meaningful task fingerprint
+change resets the repeated count for that stable failed boundary.
+
+For isolated current-agent work, run `task workspace prepare --task <id>` after
+begin and use the returned path as the working directory. After compaction or a
+later turn, `task workspace status --task <id>` validates the same task
+workspace. Preflight and verification automatically target it. Workspace
+cleanup is explicit, refuses dirty or active worktrees, and preserves the
+candidate branch. The repository CLI never launches another coding agent.
+
+Queued V2 plans are already-authorized intent waiting for activation.
+`backendkit events run --once` may move one from `queued/` to `active/` and
+create its task baseline, but it cannot change authority-bearing fields. Event
+receipts deduplicate unchanged delivery and support fail-closed recovery. One
+active task or plan remains the default, and the current conversational agent
+still prepares the workspace explicitly.
+
+After successful verification, `ready_for_review` still grants no publication
+authority. The current agent must prepare and show a fresh action-specific
+handoff dry-run, then obtain explicit user authorization separately for commit,
+push, or draft PR. Each approval expires, cannot be reused across actions, and
+is revalidated against current evidence and repository state. Merge, force,
+deployment, migration, and branch deletion remain outside the harness.
+
+Operating-evidence promotion is also a separate plan-scoped source edit. A
+ledger entry requires independent human review and clean-checkout CI for the
+exact revision; local episode success is insufficient. `backendkit evidence
+check` validates metadata and reports advisory eligibility but cannot promote
+an episode, create a task, or authorize a harness change.
+
+A harness-improvement hypothesis never replaces an execution plan. After the
+operating-evidence threshold is reached, approved/evaluating improvements must
+reference a separate high-risk V2 plan restricted to harness paths and exactly
+`edit, verify`. Shadow keep/revert advice is read-only; rollout and publication
+continue through ordinary explicit authority boundaries.
 
 ## What Does Not Belong Here
 

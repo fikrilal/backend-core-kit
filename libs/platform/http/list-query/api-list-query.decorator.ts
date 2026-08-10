@@ -1,21 +1,20 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiQuery } from '@nestjs/swagger';
-import type {
-  FilterAllowlist,
-  FilterFieldConfig,
-  FilterOperator,
-  ParseSortOptions,
-  SortSpec,
+import {
+  hasOwnField,
+  type FilterFieldConfig,
+  type FilterOperator,
+  type SortSpec,
 } from '../../../shared/list-query';
+import type { ListQueryPipeOptions } from './list-query.pipe';
 
-export type ApiListQueryOptions<SortField extends string, FilterField extends string> = Readonly<{
-  defaultLimit?: number;
-  maxLimit?: number;
-  search?: boolean;
-  searchDescription?: string;
-  sort: ParseSortOptions<SortField>;
-  filters?: FilterAllowlist<FilterField>;
-}>;
+export type ApiListQueryOptions<
+  SortField extends string,
+  FilterField extends string,
+> = ListQueryPipeOptions<SortField, FilterField> &
+  Readonly<{
+    searchDescription?: string;
+  }>;
 
 function sortSpecToString<Field extends string>(spec: ReadonlyArray<SortSpec<Field>>): string {
   return spec.map((s) => (s.direction === 'desc' ? `-${s.field}` : String(s.field))).join(',');
@@ -40,13 +39,6 @@ function formatType(config: FilterFieldConfig): { type: string; format?: string;
 
 function filterParamName(field: string, op?: FilterOperator): string {
   return op ? `filter[${field}][${op}]` : `filter[${field}]`;
-}
-
-function hasOwnField<T extends object>(
-  value: T,
-  field: PropertyKey,
-): field is Extract<keyof T, string> {
-  return Object.prototype.hasOwnProperty.call(value, field);
 }
 
 export function ApiListQuery<SortField extends string, FilterField extends string>(
@@ -95,10 +87,11 @@ export function ApiListQuery<SortField extends string, FilterField extends strin
   }
 
   if (options.filters) {
-    const fields = Object.keys(options.filters).sort();
+    const filters = options.filters;
+    const fields = Object.keys(filters).sort();
     for (const field of fields) {
-      if (!hasOwnField(options.filters, field)) continue;
-      const config = options.filters[field];
+      if (!hasOwnField(filters, field)) continue;
+      const config = filters[field];
       const typeInfo = formatType(config);
 
       if (config.ops.includes('eq')) {

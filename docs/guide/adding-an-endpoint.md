@@ -4,6 +4,7 @@ This guide standardizes the shape of endpoints so clients can be consistent acro
 
 ## Checklist
 
+- [ ] Endpoint lives in the smallest feature tier that fits the behavior
 - [ ] Route is versioned (e.g., `/v1/...`) unless explicitly excluded
 - [ ] DTOs validate input (whitelist + forbid unknown fields)
 - [ ] Response uses `{ data, meta? }` envelope
@@ -12,6 +13,35 @@ This guide standardizes the shape of endpoints so clients can be consistent acro
 - [ ] Pagination/filter/sort follow standard conventions when listing
 - [ ] OpenAPI decorators document request/response and `x-error-codes`
 - [ ] E2E test asserts envelope + error shape + `X-Request-Id`
+
+## Placement
+
+Default to a simple endpoint slice:
+
+```text
+libs/features/<feature>/
+  <feature>.module.ts
+  <feature>.controller.ts
+  <feature>.dto.ts
+  <feature>.service.ts
+  prisma-<feature>.repository.ts
+```
+
+Use capability folders when a feature has multiple related endpoint groups:
+
+```text
+libs/features/<feature>/
+  <feature>.module.ts
+  <capability>/
+    <capability>.controller.ts
+    <capability>.dto.ts
+    <capability>.service.ts
+    prisma-<capability>.repository.ts
+  shared/
+```
+
+Use `domain/app/infra` only when the promotion triggers in
+`docs/guide/adding-a-feature.md` apply.
 
 ## Protecting Endpoints (Access Tokens)
 
@@ -63,12 +93,11 @@ listUsers() {
 }
 ```
 
-Note: for `/v1/admin/*` endpoints, `RbacGuard` hydrates roles from the database on each request to ensure immediate demotion/promotion. You can also opt-in explicitly via `@UseDbRoles()` on other controllers/handlers if needed.
+Note: endpoints that need immediate role changes, such as admin endpoints, should declare `@UseDbRoles()` so `RbacGuard` hydrates roles from the database before permission checks.
 
-Escape hatches (when needed):
+Escape hatch:
 
 - `@Public()` marks an endpoint as unauthenticated (skips access-token guard and RBAC when present).
-- `@SkipRbac()` skips RBAC checks (rare; use for migrations/internal endpoints).
 
 ## Write Safety (Idempotency-Key)
 
@@ -102,6 +131,18 @@ patchMe(@CurrentPrincipal() principal: AuthPrincipal, @Body() body: PatchMeReque
 ```
 
 See `docs/engineering/auth/token-refresh-and-request-retry.md` for client retry guidance.
+
+## Simple Endpoint Errors
+
+For simple feature slices, prefer the shared platform problem exception instead
+of creating a feature-specific error class and filter:
+
+- throw `ProblemException` from `libs/platform/http/errors/problem.exception.ts`;
+- keep generated controllers on the global `ProblemDetailsFilter` unless the
+  feature needs custom error-to-problem mapping.
+
+Create feature-specific error enums/classes only when clients need stable
+feature-specific codes or the feature has special mapping behavior.
 
 ## Common Pitfalls
 

@@ -2,6 +2,9 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -12,22 +15,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  checks:
-    name: Checks
+  risk:
+    name: CI Risk
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+    outputs:
+      effective_risk: ${{ steps.classify.outputs.effective_risk }}
+      runtime_required: ${{ steps.classify.outputs.runtime_required }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Dependency review
-        uses: actions/dependency-review-action@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fail-on-severity: high
-          fail-on-scopes: runtime, development
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22.x
           cache: npm
@@ -35,122 +38,128 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Runtime dependency vulnerability audit (high+)
-        run: npm run audit:prod
-
-      - name: Prisma schema and generation drift
+      - name: Classify clean base/head diff
+        id: classify
         env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
-        run: npm run verify:prisma
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [[ "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA=$(git rev-parse "$HEAD_SHA^")
+          fi
+          npm run --silent backendkit -- ci classify --base "$BASE_SHA" --head "$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
-      - name: Format check
-        run: npm run format:check
+  full:
+    name: CI Full
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
-      - name: Lint
-        run: npm run lint
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+          cache: npm
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Environment example schema
-        run: npm run verify:env
-
-      - name: Dependency boundaries
-        run: npm run deps:check
-
-      - name: Scaffold smoke gate (generated feature must pass lint/typecheck/deps)
-        run: npm run scaffold:smoke
-
-      - name: Architecture smell scan (fail on new high)
-        run: npm run smells:arch:ci
-
-      - name: Unit tests with coverage
-        run: npm run test:coverage
+      - name: Canonical full verification
+        run: npm run verify:ci-local
 
       - name: Upload unit coverage artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: unit-coverage
           path: coverage/
           if-no-files-found: ignore
+          retention-days: 7
 
-      - name: OpenAPI snapshot gate
-        run: npm run openapi:check
+  runtime:
+    name: CI Runtime
+    needs: risk
+    if: needs.risk.outputs.runtime_required == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
+      REDIS_URL: redis://127.0.0.1:63790/0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
-      - name: OpenAPI Spectral lint
-        run: npm run openapi:lint
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+          cache: npm
 
-      - name: Gate honesty (expected failures)
-        run: npm run verify:gates
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Start local dependencies (Postgres + Redis + MinIO)
-        run: npm run deps:up
+      - name: Generate Prisma client
+        run: npm run prisma:generate
 
-      - name: Wait for Postgres (docker compose)
-        run: |
-          for i in {1..30}; do
-            if docker compose exec -T postgres pg_isready -U postgres -d backend_core_kit > /dev/null 2>&1; then
-              echo "Postgres is ready"
-              exit 0
-            fi
-            echo "Waiting for Postgres... ($i/30)"
-            sleep 2
-          done
-          echo "Postgres did not become ready in time"
-          docker compose logs postgres
-          exit 1
-
-      - name: Wait for Redis (docker compose)
-        run: |
-          for i in {1..30}; do
-            if docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; then
-              echo "Redis is ready"
-              exit 0
-            fi
-            echo "Waiting for Redis... ($i/30)"
-            sleep 2
-          done
-          echo "Redis did not become ready in time"
-          docker compose logs redis
-          exit 1
-
-      - name: Wait for MinIO (docker compose)
-        run: |
-          for i in {1..60}; do
-            if curl -fsS http://127.0.0.1:59090/minio/health/ready > /dev/null; then
-              echo "MinIO is ready"
-              exit 0
-            fi
-            echo "Waiting for MinIO... ($i/60)"
-            sleep 1
-          done
-          echo "MinIO did not become ready in time"
-          docker compose logs minio
-          exit 1
-
-      - name: Apply Prisma migrations
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
-        run: npm run prisma:migrate:deploy
-
-      - name: Prisma migration status
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
-        run: npm run prisma:migrate:status
-
-      - name: Integration tests
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
-          REDIS_URL: redis://127.0.0.1:63790/0
-        run: npm run test:int
-
-      - name: E2E tests
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
-          REDIS_URL: redis://127.0.0.1:63790/0
-        run: npm run test:e2e
+      - name: Canonical runtime verification
+        run: npm run verify:e2e
 
       - name: Stop local dependencies
         if: always()
         run: npm run deps:down
+
+  governance:
+    name: CI Governance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Dependency review
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261 # v4.8.2
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime, development
+
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  required:
+    name: CI Required
+    needs:
+      - risk
+      - full
+      - runtime
+      - governance
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      RISK_RESULT: ${{ needs.risk.result }}
+      FULL_RESULT: ${{ needs.full.result }}
+      RUNTIME_RESULT: ${{ needs.runtime.result }}
+      GOVERNANCE_RESULT: ${{ needs.governance.result }}
+    steps:
+      - name: Require every selected lane
+        run: |
+          if [[ "$RISK_RESULT" != "success" || "$FULL_RESULT" != "success" || "$GOVERNANCE_RESULT" != "success" ]]; then
+            exit 1
+          fi
+          if [[ "$RUNTIME_RESULT" != "success" && "$RUNTIME_RESULT" != "skipped" ]]; then
+            exit 1
+          fi

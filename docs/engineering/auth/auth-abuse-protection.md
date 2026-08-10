@@ -103,9 +103,9 @@ Client guidance:
 
 ## Implementation pointers
 
-- Login limiter: `libs/features/auth/infra/rate-limit/redis-login-rate-limiter.ts`
-- Reset request limiter: `libs/features/auth/infra/rate-limit/redis-password-reset-rate-limiter.ts`
-- Verification resend limiter: `libs/features/auth/infra/rate-limit/redis-email-verification-rate-limiter.ts`
+- Login limiter: `libs/features/auth/shared/rate-limit/redis-login-rate-limiter.ts`
+- Reset request limiter: `libs/features/auth/shared/rate-limit/redis-password-reset-rate-limiter.ts`
+- Verification resend limiter: `libs/features/auth/shared/rate-limit/redis-email-verification-rate-limiter.ts`
 
 ## Future improvements
 

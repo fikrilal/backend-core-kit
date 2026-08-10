@@ -123,7 +123,7 @@ async function main(): Promise<void> {
     await writeFile(
       violationFilePath,
       [
-        "import { AuthModule } from '../../features/auth/infra/auth.module';",
+        "import { AuthModule } from '../../features/auth/auth.module';",
         '',
         'export const gate = AuthModule;',
         '',

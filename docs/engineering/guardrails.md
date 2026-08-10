@@ -27,6 +27,9 @@ mode is likely to recur, especially with agent-authored code.
 
 ## Canonical Commands
 
+Profile composition is owned by `tools/backendkit/verification/`. The stable
+npm commands below are compatibility aliases to those typed profiles.
+
 Fast local gate:
 
 ```bash
@@ -45,6 +48,12 @@ Docker-backed dependency lane:
 npm run verify:e2e
 ```
 
+Full hosted-CI profile:
+
+```bash
+npm run verify:ci
+```
+
 Targeted guardrails:
 
 ```bash
@@ -56,6 +65,11 @@ npm run verify:prisma
 npm run verify:project-map
 npm run deps:check
 npm run test:coverage
+npm run test:mutation:pilot
+npm run backendkit -- oracles check
+npm run backendkit -- evidence check
+npm run backendkit -- improve check
+npm run backendkit -- doctor
 npm run smells:arch:ci
 npm run duplication:report
 npm run openapi:check
@@ -72,6 +86,13 @@ npm run audit:prod
 - `eslint.config.mjs`
 - `.prettierrc`
 - `package.json`
+
+### Harness orchestration
+
+- `tools/backendkit/`
+- `docs/engineering/backendkit-cli.md`
+- `package.json` compatibility aliases
+- `.github/workflows/ci.yml`
 
 ### Architecture boundaries
 
@@ -103,7 +124,7 @@ npm run audit:prod
 ### Config and security
 
 - `scripts/verify-env-example.ts`
-- `.github/workflows/governance.yml`
+- `.github/workflows/ci.yml` (`CI Governance`)
 - `npm run audit:prod`
 
 ### Scaffolding and gate honesty
@@ -118,7 +139,8 @@ npm run audit:prod
 
 Examples:
 
-- feature app/domain layers stay framework-free
+- feature app/domain layers stay framework-free when present
+- simple feature slices stay inside `libs/features/<feature>`
 - platform does not import features
 - forbidden imports and cycles fail the boundary gate
 
@@ -206,6 +228,70 @@ Use baselines only when:
 - new findings still fail at the selected severity
 
 Do not baseline secrets, auth bypasses, contract breakage, or data-loss risks.
+
+## Structured Task Boundary
+
+Execution-plan V2 metadata is executable authority for controller-managed
+tasks. `backendkit task begin` records the base revision, authority fingerprint,
+and pre-existing dirty paths in ignored atomic state. `backendkit task
+preflight` rejects authority drift, unauthorized actions, task-owned scope
+escape, invalid state, and effective risk above the approved maximum.
+
+Risk rules and task schemas are guardrails themselves. Agents must not lower
+risk, broaden allowed paths/actions, edit their state to bypass policy, or
+convert a failing preflight into a baseline exception. Any authority change
+requires explicit user approval and a new baseline.
+
+Task verification must use canonical profiles selected from effective risk and
+runtime impact. Failure categories, repair fingerprints, diagnostics caps,
+redaction, and episode schemas are guardrails: do not bypass them by invoking a
+weaker lane, deleting failure state, adding irrelevant fingerprint churn,
+persisting raw output, or rewriting baselines. `ready_for_review` is evidence,
+not publication authority.
+
+Current-agent workspace isolation adds another enforced boundary: a short
+repository command lock, one task-owned linked worktree and branch, and a strict
+private workspace schema. Status, preflight, and verification must validate
+authority and Git identity before work continues. Cancellation records task
+state only; repository code must never launch or kill the Codex process.
+Cleanup must refuse active or dirty work and preserve the candidate branch.
+
+Event intake is also fail closed. Only a valid queued V2 plan can be activated,
+activation must preserve its authority hash, and one active task/plan is the
+default. Claimed and accepted receipts are private, strict, bounded controller
+state; delivery replay must not create another task. Conflicting recovery state
+requires human inspection. Maintenance commands come from a fixed registry and
+cannot accept plan- or event-supplied command arguments.
+
+Verified handoff keeps evidence and authority separate. Every commit, push, or
+draft PR requires a fresh matching dry-run and explicit user authorization.
+Approval state is strict, private, action-scoped, expiring, and bound to the
+episode fingerprint, workspace, branch, remote, and exact paths. Publication
+adapters do not expose force, merge, deploy, migration, branch deletion, or
+PR-ready behavior. An ambiguous external result is terminal until a human
+reconciles it.
+
+Hosted CI is independent evidence. `CI Risk` classifies clean base/head input,
+`CI Full` and conditional `CI Runtime` call canonical profiles, `CI Governance`
+owns security controls, and `CI Required` aggregates all selected lanes. Local
+controller state and diagnostics must never be uploaded as hosted evidence.
+
+Phase 7 adds complementary oracle guardrails: conservative coverage floors,
+advisory duration budgets, high-risk scenario mappings to integration/E2E
+evidence, and one manual pure-policy mutation pilot. The versioned operating
+ledger accepts only strict independently reviewed clean-CI metadata. Ledger
+eligibility is advisory and cannot create tasks, weaken gates, or change policy.
+
+Phase 8 improvement controls are also mechanical: no hypothesis is valid before
+operating-evidence eligibility; every later hypothesis preserves the complete
+immutable-invariant set; approved work references an isolated high-risk edit/
+verify-only plan; and terminal human decisions must match read-only shadow
+evidence. Improvement commands never write source or grant publication.
+
+The read-only doctor closes the prerequisite loop before execution: it checks
+the repository and private-state boundary, validates harness schemas, rejects
+malformed persisted task/workspace metadata, and reports Docker availability
+without reading or printing environment values.
 
 ## Related Docs
 

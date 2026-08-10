@@ -3,9 +3,8 @@ import { QueueEvents } from 'bullmq';
 import request from 'supertest';
 import { createApiApp } from '../apps/api/src/bootstrap';
 import { createWorkerApp } from '../apps/worker/src/bootstrap';
-import { jobName } from '../libs/platform/queue/job-name';
 import { QueueProducer } from '../libs/platform/queue/queue.producer';
-import { queueName } from '../libs/platform/queue/queue-name';
+import { jobName, queueName } from '../libs/platform/queue/queue.types';
 import { PrismaService } from '../libs/platform/db/prisma.service';
 import {
   CreateBucketCommand,
@@ -27,13 +26,13 @@ import {
   USERS_PROFILE_IMAGE_EXPIRE_UPLOAD_JOB,
   type UsersProfileImageDeleteStoredFileJobData,
   type UsersProfileImageExpireUploadJobData,
-} from '../libs/features/users/infra/jobs/profile-image-cleanup.job';
+} from '../libs/features/users/profile-image/profile-image-cleanup.job';
 import {
   finalizeAccountDeletionJobId,
   USERS_FINALIZE_ACCOUNT_DELETION_JOB,
   USERS_QUEUE,
   type UsersFinalizeAccountDeletionJobData,
-} from '../libs/features/users/infra/jobs/user-account-deletion.job';
+} from '../libs/features/users/account-deletion/user-account-deletion.job';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();

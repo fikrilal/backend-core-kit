@@ -94,9 +94,10 @@ Do not bike-shed formatting in reviews.
 
 The core kit architecture is only valuable if enforced.
 
-### Layering Rule
+### Progressive Layering Rule
 
-Within a feature:
+Features use progressive architecture. Simple endpoint slices do not need
+`domain/app/infra`. When those folders exist, their boundaries are strict:
 
 ```text
 infra  -> app  -> domain
@@ -107,6 +108,9 @@ Rules:
 - `domain` must not import `app`, `infra`, or `platform`.
 - `app` must not import `infra` or Nest/Prisma/Redis/BullMQ.
 - `infra` may import `app`, `domain`, and `platform` adapters as needed.
+- Simple endpoint-slice services may use Nest `@Injectable`.
+- Repository classes remain the persistence boundary; controllers must not own
+  Prisma queries.
 
 ### Package Rule
 
@@ -132,6 +136,8 @@ Baseline expectation:
 - fail CI on violations
 
 See ADR: boundary enforcement tool + config will be codified and versioned with the repo.
+
+See also: `docs/adr/0018-progressive-feature-architecture.md`.
 
 ## Duplication Detection
 

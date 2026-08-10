@@ -1,6 +1,7 @@
 # Auth — Engineering Notes
 
 - `docs/engineering/auth/token-refresh-and-request-retry.md`
+- `docs/engineering/auth/capability-split-roadmap.md`
 - `docs/engineering/auth/oidc-google.md`
 - `docs/engineering/auth/auth-abuse-protection.md`
 - `docs/engineering/auth/password-change.md`

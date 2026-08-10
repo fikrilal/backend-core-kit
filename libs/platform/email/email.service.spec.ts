@@ -25,6 +25,13 @@ describe('EmailService (Resend)', () => {
   it('is disabled when RESEND_API_KEY/EMAIL_FROM are missing', () => {
     const svc = new EmailService(createConfigService({}));
     expect(svc.isEnabled()).toBe(false);
+    expect(jest.mocked(Resend)).not.toHaveBeenCalled();
+  });
+
+  it('does not initialize Resend when only RESEND_API_KEY is configured', () => {
+    const svc = new EmailService(createConfigService({ RESEND_API_KEY: 're_test' }));
+    expect(svc.isEnabled()).toBe(false);
+    expect(jest.mocked(Resend)).not.toHaveBeenCalled();
   });
 
   it('throws when sending without config', async () => {
@@ -62,6 +69,16 @@ describe('EmailService (Resend)', () => {
     await expect(
       svc.send({ to: 'user@example.com', subject: '   ', text: 'Hi' }),
     ).rejects.toMatchObject({ message: 'Email subject is required' });
+  });
+
+  it('throws when any recipient in an array is empty', async () => {
+    const svc = new EmailService(
+      createConfigService({ RESEND_API_KEY: 're_test', EMAIL_FROM: 'onboarding@example.com' }),
+    );
+    await expect(
+      svc.send({ to: ['user@example.com', '   '], subject: 'Hello', text: 'Hi' }),
+    ).rejects.toMatchObject({ message: 'Email recipient is required' });
+    expect(sendMock).not.toHaveBeenCalled();
   });
 
   it('supports html-only emails', async () => {

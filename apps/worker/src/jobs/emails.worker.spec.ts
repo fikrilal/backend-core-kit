@@ -3,16 +3,17 @@ import { PrismaService } from '../../../../libs/platform/db/prisma.service';
 import { EmailService } from '../../../../libs/platform/email/email.service';
 import type { SendEmailInput } from '../../../../libs/platform/email/email.types';
 import { QueueWorkerFactory } from '../../../../libs/platform/queue/queue.worker';
+import type { Clock } from '../../../../libs/shared/time';
 import {
   AUTH_SEND_VERIFICATION_EMAIL_JOB,
   type AuthSendVerificationEmailJobData,
-} from '../../../../libs/features/auth/infra/jobs/auth-email-verification.job';
+} from '../../../../libs/features/auth/email-verification/email-verification.job';
 import {
   AUTH_SEND_PASSWORD_RESET_EMAIL_JOB,
   type AuthSendPasswordResetEmailJobData,
-} from '../../../../libs/features/auth/infra/jobs/auth-password-reset.job';
-import { hashEmailVerificationToken } from '../../../../libs/features/auth/app/email-verification-token';
-import { hashPasswordResetToken } from '../../../../libs/features/auth/app/password-reset-token';
+} from '../../../../libs/features/auth/password-reset/password-reset.job';
+import { hashEmailVerificationToken } from '../../../../libs/features/auth/email-verification/email-verification-token';
+import { hashPasswordResetToken } from '../../../../libs/features/auth/password-reset/password-reset-token';
 import { createConfigService, createPrototypeStub } from '../../../../test/support/stubs';
 import { EmailsWorker } from './emails.worker';
 
@@ -54,6 +55,10 @@ function createWorkerFactoryStub(): QueueWorkerFactory {
   return createPrototypeStub(QueueWorkerFactory, {
     isEnabled: () => true,
   });
+}
+
+function systemClock(): Clock {
+  return { now: () => new Date() };
 }
 
 function getResetLink(result: unknown): string | undefined {
@@ -103,6 +108,7 @@ describe('EmailsWorker (unit)', () => {
       createWorkerFactoryStub(),
       prisma,
       email,
+      systemClock(),
       createLoggerStub(),
     );
 
@@ -180,6 +186,7 @@ describe('EmailsWorker (unit)', () => {
       createWorkerFactoryStub(),
       prisma,
       email,
+      systemClock(),
       createLoggerStub(),
     );
 
@@ -233,6 +240,7 @@ describe('EmailsWorker (unit)', () => {
       createWorkerFactoryStub(),
       prisma,
       email,
+      systemClock(),
       createLoggerStub(),
     );
 
@@ -302,6 +310,7 @@ describe('EmailsWorker (unit)', () => {
       createWorkerFactoryStub(),
       prisma,
       email,
+      systemClock(),
       createLoggerStub(),
     );
 

@@ -9,7 +9,7 @@ services:
       # Never run this configuration in production.
       POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - '127.0.0.1:54321:5432'
+      - '127.0.0.1:${POSTGRES_HOST_PORT:-54321}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -25,7 +25,7 @@ services:
     # Never run this configuration in production.
     command: ['redis-server', '--appendonly', 'yes']
     ports:
-      - '127.0.0.1:63790:6379'
+      - '127.0.0.1:${REDIS_HOST_PORT:-63790}:6379'
     volumes:
       - redis_data:/data
     healthcheck:
@@ -44,8 +44,8 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - '127.0.0.1:59090:9000'
-      - '127.0.0.1:59091:9001'
+      - '127.0.0.1:${MINIO_API_HOST_PORT:-59090}:9000'
+      - '127.0.0.1:${MINIO_CONSOLE_HOST_PORT:-59091}:9001'
     volumes:
       - minio_data:/data
 

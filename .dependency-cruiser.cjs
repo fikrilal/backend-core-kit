@@ -18,7 +18,7 @@ module.exports = {
       severity: 'error',
       from: { path: '^libs/features/[^/]+/domain' },
       to: {
-        path: '^(apps/|libs/platform|libs/features/[^/]+/(app|infra))|node_modules/(?:@nestjs|@prisma|fastify|bullmq|ioredis|redis)',
+        path: '^(apps/|libs/platform|libs/features/[^/]+/(?!domain(?:/|$)))|node_modules/(?:@nestjs|@prisma|fastify|bullmq|ioredis|redis)',
       },
     },
     {
@@ -26,7 +26,7 @@ module.exports = {
       severity: 'error',
       from: { path: '^libs/features/[^/]+/app' },
       to: {
-        path: '^(apps/|libs/platform|libs/features/[^/]+/infra)|node_modules/(?:@nestjs|@prisma|fastify|bullmq|ioredis|redis)',
+        path: '^(apps/|libs/platform|libs/features/[^/]+/(?!app(?:/|$)|domain(?:/|$)|shared(?:/|$)))|node_modules/(?:@nestjs|@prisma|fastify|bullmq|ioredis|redis)',
       },
     },
     {

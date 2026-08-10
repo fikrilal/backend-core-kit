@@ -27,4 +27,13 @@ Rules:
 - `docs/adr/0015-openapi-yaml-and-swagger-ui.md`
 - `docs/adr/0016-structured-logging-with-nestjs-pino.md`
 - `docs/adr/0017-standardize-app-errors-and-clock.md`
+- `docs/adr/0018-progressive-feature-architecture.md`
+- `docs/adr/0019-canonical-backendkit-harness.md`
+- `docs/adr/0020-structured-task-authority.md`
+- `docs/adr/0021-risk-aware-verification-repair.md`
+- `docs/adr/0022-isolated-agent-execution.md`
+- `docs/adr/0023-event-driven-task-intake.md`
+- `docs/adr/0024-verified-handoff-independent-ci.md`
+- `docs/adr/0025-test-oracles-operating-evidence.md`
+- `docs/adr/0026-controlled-harness-hill-climbing.md`
 - `docs/adr/template.md`

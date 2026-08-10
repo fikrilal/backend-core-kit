@@ -1,6 +1,7 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { OpenAPIObject } from '@nestjs/swagger';
+import { parseOptionalEnvBoolean } from '../../../libs/platform/config/env-parsing';
 
 export function buildOpenApiDocument(app: NestFastifyApplication): OpenAPIObject {
   const config = new DocumentBuilder()
@@ -34,18 +35,10 @@ export function setupSwaggerUi(app: NestFastifyApplication, document: OpenAPIObj
   });
 }
 
-function parseEnvBoolean(raw: string | undefined): boolean | undefined {
-  if (raw === undefined) return undefined;
-  const normalized = raw.trim().toLowerCase();
-  if (normalized === 'true' || normalized === '1') return true;
-  if (normalized === 'false' || normalized === '0') return false;
-  return undefined;
-}
-
 export function isSwaggerUiEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const nodeEnv = env.NODE_ENV ?? 'development';
   if (nodeEnv === 'production' || nodeEnv === 'test') return false;
 
-  const override = parseEnvBoolean(env.SWAGGER_UI_ENABLED);
+  const override = parseOptionalEnvBoolean(env.SWAGGER_UI_ENABLED);
   return override ?? true;
 }

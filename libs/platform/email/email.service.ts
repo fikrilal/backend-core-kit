@@ -13,11 +13,15 @@ function normalizeRecipients(to: SendEmailInput['to']): string | string[] {
     return v;
   }
 
-  const recipients = to.map(asNonEmptyString).filter((v): v is string => v !== undefined);
+  const recipients = to.map(asNonEmptyString);
+  if (recipients.some((v) => v === undefined)) {
+    throw new EmailSendError({ provider: 'resend', message: 'Email recipient is required' });
+  }
+
   if (recipients.length === 0) {
     throw new EmailSendError({ provider: 'resend', message: 'Email recipient is required' });
   }
-  return recipients;
+  return recipients.filter((v): v is string => v !== undefined);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -40,7 +44,7 @@ export class EmailService {
     this.from = from;
     this.replyTo = replyTo;
 
-    if (apiKey) {
+    if (this.enabled) {
       this.resend = new Resend(apiKey);
     }
   }

@@ -8,9 +8,9 @@ import { IdempotencyModule } from '../../../libs/platform/http/idempotency/idemp
 import { ResponseEnvelopeInterceptor } from '../../../libs/platform/http/interceptors/response-envelope.interceptor';
 import { ProblemDetailsFilter } from '../../../libs/platform/http/filters/problem-details.filter';
 import { validateEnv } from '../../../libs/platform/config/env.validation';
-import { AuthModule } from '../../../libs/features/auth/infra/auth.module';
-import { UsersModule } from '../../../libs/features/users/infra/users.module';
-import { AdminModule } from '../../../libs/features/admin/infra/admin.module';
+import { AuthModule } from '../../../libs/features/auth/auth.module';
+import { UsersModule } from '../../../libs/features/users/users.module';
+import { AdminModule } from '../../../libs/features/admin/admin.module';
 import { IdempotencyInterceptor } from '../../../libs/platform/http/idempotency/idempotency.interceptor';
 
 @Module({

@@ -11,10 +11,12 @@ import { PlatformEmailModule } from '../../../libs/platform/email/email.module';
 import { PlatformPushModule } from '../../../libs/platform/push/push.module';
 import { QueueModule } from '../../../libs/platform/queue/queue.module';
 import { PlatformStorageModule } from '../../../libs/platform/storage/storage.module';
+import { provideSystemClockToken } from '../../../libs/platform/di/app-service.provider';
 import { SystemSmokeWorker } from './jobs/system-smoke.worker';
 import { EmailsWorker } from './jobs/emails.worker';
 import { PushWorker } from './jobs/push.worker';
 import { UsersAccountDeletionWorker } from './jobs/users-account-deletion.worker';
+import { WORKER_CLOCK } from './worker.tokens';
 
 @Module({
   imports: [
@@ -31,6 +33,7 @@ import { UsersAccountDeletionWorker } from './jobs/users-account-deletion.worker
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },
     SystemSmokeWorker,
+    provideSystemClockToken(WORKER_CLOCK),
     EmailsWorker,
     PushWorker,
     UsersAccountDeletionWorker,

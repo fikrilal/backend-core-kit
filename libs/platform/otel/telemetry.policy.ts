@@ -1,4 +1,4 @@
-import { NodeEnv } from '../config/env.validation';
+import { NodeEnv } from '../config/env.enums';
 
 export function isTelemetryEnabled(nodeEnv: NodeEnv, otlpEndpoint: unknown): boolean {
   if (nodeEnv === NodeEnv.Test) return false;

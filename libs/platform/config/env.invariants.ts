@@ -81,6 +81,7 @@ export function assertPushConfigConsistency(env: EnvVars) {
     provider ||
     env.FCM_PROJECT_ID?.trim() ||
     env.FCM_SERVICE_ACCOUNT_JSON_PATH?.trim() ||
+    env.FCM_SERVICE_ACCOUNT_JSON_BASE64?.trim() ||
     env.FCM_SERVICE_ACCOUNT_JSON?.trim() ||
     env.FCM_USE_APPLICATION_DEFAULT,
   );
@@ -106,6 +107,12 @@ export function assertPushConfigConsistency(env: EnvVars) {
   const hasServiceAccountPath = Boolean(env.FCM_SERVICE_ACCOUNT_JSON_PATH?.trim());
   const hasServiceAccountJsonBase64 = Boolean(env.FCM_SERVICE_ACCOUNT_JSON_BASE64?.trim());
   const hasServiceAccountJson = Boolean(env.FCM_SERVICE_ACCOUNT_JSON?.trim());
+  const credentialStrategies = [
+    useAdc,
+    hasServiceAccountPath,
+    hasServiceAccountJsonBase64,
+    hasServiceAccountJson,
+  ].filter(Boolean);
 
   if (!useAdc && !hasServiceAccountPath && !hasServiceAccountJsonBase64 && !hasServiceAccountJson) {
     missing.push(
@@ -116,6 +123,12 @@ export function assertPushConfigConsistency(env: EnvVars) {
   if (missing.length > 0) {
     throw new Error(
       `Missing required environment variables: ${missing.join(', ')} (required when PUSH_PROVIDER=FCM)`,
+    );
+  }
+
+  if (credentialStrategies.length > 1) {
+    throw new Error(
+      'Invalid FCM credential configuration: use only one of FCM_USE_APPLICATION_DEFAULT, FCM_SERVICE_ACCOUNT_JSON_PATH, FCM_SERVICE_ACCOUNT_JSON_BASE64, FCM_SERVICE_ACCOUNT_JSON',
     );
   }
 }

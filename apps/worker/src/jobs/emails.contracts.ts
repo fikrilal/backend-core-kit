@@ -1,10 +1,10 @@
-import type { JsonObject } from '../../../../libs/platform/queue/json.types';
-import type { AuthSendVerificationEmailJobData } from '../../../../libs/features/auth/infra/jobs/auth-email-verification.job';
-import type { AuthSendPasswordResetEmailJobData } from '../../../../libs/features/auth/infra/jobs/auth-password-reset.job';
+import type { JsonObject } from '../../../../libs/platform/queue/queue.types';
+import type { AuthSendVerificationEmailJobData } from '../../../../libs/features/auth/email-verification/email-verification.job';
+import type { AuthSendPasswordResetEmailJobData } from '../../../../libs/features/auth/password-reset/password-reset.job';
 import type {
   UsersSendAccountDeletionReminderEmailJobData,
   UsersSendAccountDeletionRequestedEmailJobData,
-} from '../../../../libs/features/users/infra/jobs/user-account-deletion-email.job';
+} from '../../../../libs/features/users/account-deletion/user-account-deletion-email.job';
 
 export type AuthSendVerificationEmailJobResult = Readonly<{
   ok: true;

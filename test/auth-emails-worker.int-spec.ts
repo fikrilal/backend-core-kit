@@ -3,7 +3,8 @@ import { PinoLogger } from 'nestjs-pino';
 import { PrismaService } from '../libs/platform/db/prisma.service';
 import { EmailService } from '../libs/platform/email/email.service';
 import { QueueWorkerFactory } from '../libs/platform/queue/queue.worker';
-import { AUTH_SEND_VERIFICATION_EMAIL_JOB } from '../libs/features/auth/infra/jobs/auth-email-verification.job';
+import type { Clock } from '../libs/shared/time';
+import { AUTH_SEND_VERIFICATION_EMAIL_JOB } from '../libs/features/auth/email-verification/email-verification.job';
 import { EmailsWorker } from '../apps/worker/src/jobs/emails.worker';
 import { bindInstanceMethod, createConfigService, createPrototypeStub } from './support/stubs';
 
@@ -15,6 +16,10 @@ type EmailsJobLike = Readonly<{ name: string; data: { userId: string; requestedA
 
 function getProcess(worker: EmailsWorker) {
   return bindInstanceMethod(worker, 'process');
+}
+
+function systemClock(): Clock {
+  return { now: () => new Date() };
 }
 
 (shouldSkip ? describe.skip : describe)('EmailsWorker (int)', () => {
@@ -56,6 +61,7 @@ function getProcess(worker: EmailsWorker) {
       workers,
       createPrototypeStub(PrismaService, { isEnabled: () => true }),
       email,
+      systemClock(),
       createPrototypeStub(PinoLogger, { setContext: () => undefined }),
     );
 
@@ -74,6 +80,7 @@ function getProcess(worker: EmailsWorker) {
       createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
       prisma,
       email,
+      systemClock(),
       createPrototypeStub(PinoLogger, {
         setContext: () => undefined,
         warn: () => undefined,
@@ -118,6 +125,7 @@ function getProcess(worker: EmailsWorker) {
       createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
       prisma,
       email,
+      systemClock(),
       createPrototypeStub(PinoLogger, { setContext: () => undefined, info: () => undefined }),
     );
 
@@ -160,6 +168,7 @@ function getProcess(worker: EmailsWorker) {
       createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
       prisma,
       email,
+      systemClock(),
       createPrototypeStub(PinoLogger, { setContext: () => undefined, info: () => undefined }),
     );
 

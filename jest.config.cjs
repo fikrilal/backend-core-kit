@@ -8,11 +8,13 @@ module.exports = {
     '<rootDir>/apps/**/*.test.ts',
     '<rootDir>/libs/**/*.spec.ts',
     '<rootDir>/libs/**/*.test.ts',
+    '<rootDir>/tools/backendkit/**/*.spec.ts',
+    '<rootDir>/tools/backendkit/**/*.test.ts',
   ],
   transform: {
     '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
   },
-  setupFiles: ['reflect-metadata'],
+  setupFiles: ['reflect-metadata', '<rootDir>/test/jest-unit.setup.ts'],
   testEnvironment: 'node',
   collectCoverageFrom: [
     'apps/**/*.ts',
@@ -31,5 +33,13 @@ module.exports = {
   ],
   coverageDirectory: './coverage',
   coverageReporters: ['text-summary', 'lcov', 'json-summary'],
+  coverageThreshold: {
+    global: {
+      statements: 45,
+      branches: 38,
+      functions: 40,
+      lines: 46,
+    },
+  },
   clearMocks: true,
 };

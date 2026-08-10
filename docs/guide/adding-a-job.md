@@ -19,8 +19,8 @@ This guide standardizes background work so it remains observable and reliable.
 
 Also define stable identifiers:
 
-- Queue name via `libs/platform/queue/queue-name.ts` (`queueName('emails')`)
-- Job name via `libs/platform/queue/job-name.ts` (`jobName('user.sendVerificationEmail')`)
+- Queue name via `libs/platform/queue/queue.types.ts` (`queueName('emails')`)
+- Job name via `libs/platform/queue/queue.types.ts` (`jobName('user.sendVerificationEmail')`)
 
 2. Enqueue the job
 

@@ -5,7 +5,7 @@ This folder contains the **platform RBAC scaffold** used by HTTP controllers to 
 RBAC in this kit is intentionally simple:
 
 - **Roles** live on the authenticated principal (`AuthPrincipal.roles`) and are carried in the **first-party access token**.
-- For `/v1/admin/*` endpoints, roles are **hydrated from the database** on each request to ensure immediate demotion/promotion.
+- Controllers that need immediate role changes, such as admin controllers, opt in to database role hydration with `@UseDbRoles()`.
 - **Permissions** are fine-grained capability strings: `<resource>:<action>`.
 - Routes declare required permissions via decorators; a guard enforces them.
 - Unknown roles grant nothing (deny-by-default).
@@ -31,13 +31,12 @@ File: `libs/platform/rbac/rbac.guard.ts`
 Enforcement flow:
 
 1. If `@Public()` is present → allow (skips auth + RBAC when the access-token guard is also present).
-2. If `@SkipRbac()` is present → allow (skips RBAC only; rare).
-3. Read required permissions from class + handler metadata (additive merge).
-4. Read `req.principal` (set by `AccessTokenGuard`).
-   - For `/v1/admin/*` endpoints (or when `@UseDbRoles()` is present), the guard refreshes the principal’s `roles` from the database first.
-5. Resolve granted permissions via `PermissionsProvider`.
-6. Require **all** declared permissions (AND semantics).
-7. On failure: throw RFC7807 `FORBIDDEN`.
+2. Read required permissions from class + handler metadata (additive merge).
+3. Read `req.principal` (set by `AccessTokenGuard`).
+   - When `@UseDbRoles()` is present, the guard refreshes the principal’s `roles` from the database first.
+4. Resolve granted permissions via `PermissionsProvider`.
+5. Require **all** declared permissions (AND semantics).
+6. On failure: throw RFC7807 `FORBIDDEN`.
 
 ### Decorators
 
@@ -45,13 +44,11 @@ Enforcement flow:
   - Can be applied at controller level and/or handler level.
   - Controller requirements apply to all handlers.
   - Handler requirements are **added** (ANDed) with controller requirements.
-  - Multiple decorator usages are supported; duplicates are normalized away.
-- `@SkipRbac()` — file: `libs/platform/rbac/skip-rbac.decorator.ts`
-  - Escape hatch to bypass RBAC checks while still requiring authentication.
+  - Duplicates are normalized away.
 - `@Public()` — file: `libs/platform/auth/public.decorator.ts`
   - Escape hatch to bypass authentication and RBAC entirely.
-- `@UseDbRoles()` — file: `libs/platform/rbac/use-db-roles.decorator.ts`
-  - Opt-in to DB-hydrated role evaluation for a controller/handler (admin endpoints enforce this by default).
+- `@UseDbRoles()` — file: `libs/platform/rbac/rbac.decorator.ts`
+  - Opt-in to DB-hydrated role evaluation for a controller/handler.
 
 ## Permission Strings
 
@@ -97,7 +94,7 @@ Checklist:
 By default, RBAC uses a static mapping:
 
 - Provider: `libs/platform/rbac/static-role-permissions.provider.ts`
-- Token: `RBAC_PERMISSIONS_PROVIDER` (`libs/platform/rbac/rbac.tokens.ts`)
+- Token: `RBAC_PERMISSIONS_PROVIDER` (`libs/platform/rbac/permissions.ts`)
 
 ## Where Roles Come From (Recommended)
 

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../db/prisma.module';
+import { RBAC_PERMISSIONS_PROVIDER } from './permissions';
 import { DbRoleHydrator } from './db-role-hydrator.service';
 import { RbacGuard } from './rbac.guard';
-import { RBAC_PERMISSIONS_PROVIDER } from './rbac.tokens';
 import { StaticRolePermissionsProvider } from './static-role-permissions.provider';
 
 @Module({

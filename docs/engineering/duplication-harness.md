@@ -90,10 +90,7 @@ Example:
 ```json
 {
   "category": "dto_view_mapper",
-  "files": [
-    "libs/features/auth/infra/http/dtos/auth.dto.ts",
-    "libs/features/users/infra/http/dtos/me.dto.ts"
-  ],
+  "files": ["libs/features/auth/shared/auth.dto.ts", "libs/features/users/me/me.dto.ts"],
   "reason": "Parallel DTO metadata is clearer than an abstraction here.",
   "reviewedOn": "2026-06-04"
 }

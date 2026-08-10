@@ -4,12 +4,10 @@ import type { AuthPrincipal } from '../auth/auth.types';
 import { ErrorCode } from '../http/errors/error-codes';
 import { ProblemException } from '../http/errors/problem.exception';
 import { DbRoleHydrator } from './db-role-hydrator.service';
-import { RequirePermissions, getRequiredPermissions } from './rbac.decorator';
+import { RequirePermissions, UseDbRoles, getRequiredPermissions } from './rbac.decorator';
 import { RbacGuard } from './rbac.guard';
-import type { PermissionsProvider } from './permissions.provider';
-import { SkipRbac } from './skip-rbac.decorator';
+import type { PermissionsProvider } from './permissions';
 import { StaticRolePermissionsProvider } from './static-role-permissions.provider';
-import { UseDbRoles } from './use-db-roles.decorator';
 import { createHttpExecutionContext } from '../../../test/support/http';
 import { createPrototypeStub } from '../../../test/support/stubs';
 
@@ -72,24 +70,6 @@ describe('RbacGuard', () => {
     const guard = new RbacGuard(reflector, provider, hydrator);
 
     const req: RequestLike = { url: '/v1/me', headers: {} };
-    await expect(
-      guard.canActivate(ctxFor({ handler: Controller.prototype.handler, cls: Controller, req })),
-    ).resolves.toBe(true);
-  });
-
-  it('skips RBAC for @SkipRbac()', async () => {
-    @RequirePermissions('admin:access')
-    class Controller {
-      @SkipRbac()
-      handler(): void {}
-    }
-
-    const reflector = new Reflector();
-    const provider: PermissionsProvider = { getPermissions: jest.fn() };
-    const hydrator = createPrototypeStub(DbRoleHydrator, { hydrate: jest.fn() });
-    const guard = new RbacGuard(reflector, provider, hydrator);
-
-    const req: RequestLike = { url: '/v1/me', headers: {}, principal: undefined };
     await expect(
       guard.canActivate(ctxFor({ handler: Controller.prototype.handler, cls: Controller, req })),
     ).resolves.toBe(true);
@@ -166,7 +146,7 @@ describe('RbacGuard', () => {
     expect(getProblem(err)).toEqual({ status: 403, code: ErrorCode.FORBIDDEN });
   });
 
-  it('hydrates DB roles automatically for /v1/admin/* paths before permission checks', async () => {
+  it('does not hydrate DB roles from path conventions', async () => {
     @RequirePermissions('admin:access')
     class Controller {
       handler(): void {}
@@ -188,12 +168,18 @@ describe('RbacGuard', () => {
     };
 
     const req: RequestLike = { url: '/v1/admin/whoami', headers: {}, principal };
-    await expect(
-      guard.canActivate(ctxFor({ handler: Controller.prototype.handler, cls: Controller, req })),
-    ).resolves.toBe(true);
+    let err: unknown;
+    try {
+      await guard.canActivate(
+        ctxFor({ handler: Controller.prototype.handler, cls: Controller, req }),
+      );
+    } catch (caught: unknown) {
+      err = caught;
+    }
 
-    expect(hydrator.hydrate).toHaveBeenCalledWith(principal);
-    expect(req.principal?.roles).toEqual(['ADMIN']);
+    expect(getProblem(err)).toEqual({ status: 403, code: ErrorCode.FORBIDDEN });
+    expect(hydrator.hydrate).not.toHaveBeenCalled();
+    expect(req.principal?.roles).toEqual(['USER']);
   });
 
   it('hydrates DB roles when @UseDbRoles() is set (non-admin path)', async () => {

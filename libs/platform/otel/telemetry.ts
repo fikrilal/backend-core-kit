@@ -4,7 +4,7 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
-import { NodeEnv } from '../config/env.validation';
+import { NodeEnv } from '../config/env.enums';
 import { deriveServiceName, normalizeNodeEnv } from '../config/env.runtime';
 import { isTelemetryEnabled as isTelemetryEnabledForEnv } from './telemetry.policy';
 
@@ -13,7 +13,6 @@ export type TelemetryRole = 'api' | 'worker';
 type TelemetryController = Readonly<{ shutdown: () => Promise<void> }>;
 
 let sdk: NodeSDK | undefined;
-let started = false;
 
 const ATTR_DEPLOYMENT_ENVIRONMENT = 'deployment.environment' as const;
 
@@ -21,7 +20,7 @@ function getNodeEnv(): NodeEnv {
   return normalizeNodeEnv(process.env.NODE_ENV);
 }
 
-function parseOtlpHeaders(raw: string | undefined): Record<string, string> | undefined {
+export function parseOtlpHeaders(raw: string | undefined): Record<string, string> | undefined {
   if (!raw) return undefined;
   const trimmed = raw.trim();
   if (trimmed === '') return undefined;
@@ -41,7 +40,7 @@ function parseOtlpHeaders(raw: string | undefined): Record<string, string> | und
   return Object.keys(headers).length ? headers : undefined;
 }
 
-function resolveTracesUrl(baseOrFull: string): string {
+export function resolveTracesUrl(baseOrFull: string): string {
   const trimmed = baseOrFull.trim().replace(/\/+$/, '');
   if (trimmed.endsWith('/v1/traces')) return trimmed;
   return `${trimmed}/v1/traces`;
@@ -63,13 +62,7 @@ export async function initTelemetry(role: TelemetryRole): Promise<TelemetryContr
     return { shutdown: async () => undefined };
   }
 
-  if (sdk && started) {
-    return {
-      shutdown: async () => {
-        await sdk?.shutdown();
-      },
-    };
-  }
+  if (sdk) return { shutdown: shutdownTelemetry };
 
   diag.setLogger(new DiagConsoleLogger(), {
     logLevel: nodeEnv === NodeEnv.Development ? DiagLogLevel.WARN : DiagLogLevel.ERROR,
@@ -83,7 +76,7 @@ export async function initTelemetry(role: TelemetryRole): Promise<TelemetryContr
   const serviceName = deriveServiceName({ otelServiceName: process.env.OTEL_SERVICE_NAME, role });
   const headers = parseOtlpHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
 
-  sdk = new NodeSDK({
+  const nextSdk = new NodeSDK({
     resource: resourceFromAttributes({
       [ATTR_SERVICE_NAME]: serviceName,
       [ATTR_DEPLOYMENT_ENVIRONMENT]: nodeEnv,
@@ -105,17 +98,13 @@ export async function initTelemetry(role: TelemetryRole): Promise<TelemetryContr
     ],
   });
 
-  try {
-    sdk.start();
-    started = true;
-  } catch (err) {
-    sdk = undefined;
-    started = false;
-    throw err;
-  }
-  return {
-    shutdown: async () => {
-      await sdk?.shutdown();
-    },
-  };
+  nextSdk.start();
+  sdk = nextSdk;
+  return { shutdown: shutdownTelemetry };
+}
+
+async function shutdownTelemetry(): Promise<void> {
+  const activeSdk = sdk;
+  sdk = undefined;
+  await activeSdk?.shutdown();
 }

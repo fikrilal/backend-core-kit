@@ -1,12 +1,7 @@
 import { initTelemetry } from '../../../libs/platform/otel/telemetry';
 import { loadDotEnvOnce } from '../../../libs/platform/config/dotenv';
-
-function getEnvNumber(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : fallback;
-}
+import { HTTP_CONFIG_DEFAULTS } from '../../../libs/platform/config/env.defaults';
+import { asEnvNumber } from '../../../libs/platform/config/env-parsing';
 
 async function bootstrap() {
   await loadDotEnvOnce();
@@ -20,7 +15,7 @@ async function bootstrap() {
     const { createWorkerApp } = await import('./bootstrap');
     const app = await createWorkerApp();
 
-    const port = getEnvNumber('WORKER_PORT', 4001);
+    const port = asEnvNumber(process.env.WORKER_PORT, HTTP_CONFIG_DEFAULTS.WORKER_PORT);
     const nodeEnv = process.env.NODE_ENV ?? 'development';
     const host = process.env.WORKER_HOST ?? (nodeEnv === 'production' ? '0.0.0.0' : '127.0.0.1');
 

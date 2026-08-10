@@ -20,6 +20,13 @@ Use these options in order:
 
 The first option is the default recommendation.
 
+`backendkit task workspace` prepares this isolation for the current
+conversational agent one task at a time. It creates a deterministic
+`backendkit/<task-id>` branch and linked worktree, makes preflight and
+verification workspace-aware, and preserves the candidate for review. Manual
+parallel agents still use this guide until disjoint path ownership is
+mechanically enforced.
+
 ## Preferred Setup: Git Worktrees
 
 Use one worktree per task or agent so each agent gets:

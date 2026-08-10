@@ -27,6 +27,7 @@ Use these documents together:
 - architecture: `docs/core/project-architecture.md`
 - standards: `docs/standards/README.md`
 - mechanical guardrails: `docs/engineering/guardrails.md`
+- loop architecture and readiness: `docs/engineering/loop-engineering.md`
 - duplication review: `docs/engineering/duplication-harness.md`
 - runtime evidence: `docs/engineering/backend-runtime-evidence.md`
 - parallel-agent coordination: `docs/engineering/parallel-agent-workflow.md`
@@ -43,6 +44,56 @@ Before implementation starts:
 - classify risk
 - identify impact areas
 - create a plan file for non-trivial work
+
+On a new clone, runner, or after toolchain changes, inspect repository-local
+readiness first:
+
+```bash
+npm run backendkit -- doctor
+```
+
+New controller-managed tasks use execution-plan V2. Before task edits, capture
+the authorized baseline:
+
+```bash
+npm run backendkit -- task begin --plan docs/exec-plans/active/<plan>.md
+```
+
+Before expensive verification, run preflight for the intended action:
+
+```bash
+npm run backendkit -- task preflight --task <task-id> --action verify
+```
+
+The plan grants authority; the controller only validates it. Changed paths may
+raise risk but cannot lower the plan declaration or grant additional actions.
+
+For a baselined V2 task, let the controller choose and record the required
+lanes:
+
+```bash
+npm run backendkit -- task verify --task <task-id>
+```
+
+A repair is the same current Codex conversation changing task-owned content and
+rerunning verification. For isolated work, the agent internally uses:
+
+```bash
+npm run backendkit -- task workspace prepare --task <task-id>
+npm run backendkit -- task workspace status --task <task-id>
+```
+
+The current agent uses ordinary tools in the returned linked worktree. Task
+preflight and verification automatically target that candidate. Repeating an
+unchanged stable failure consumes the plan's repair budget and eventually
+escalates. Repository tooling never launches a second coding agent and grants
+no publication authority.
+
+Queued work may be selected with `npm run backendkit -- events run --once`.
+The queued V2 plan must already be approved; intake only activates that plan,
+deduplicates delivery, and creates normal task state. The current agent still
+prepares and executes the workspace through the commands above. Event payloads,
+schedules, labels, and future adapters cannot grant authority.
 
 Risk classes:
 
@@ -94,6 +145,9 @@ During implementation:
 
 ### 4. Mechanical Verification
 
+The typed profiles and their compatibility aliases are documented in
+`docs/engineering/backendkit-cli.md`.
+
 Default local gate:
 
 ```bash
@@ -113,6 +167,11 @@ MinIO, integration tests, or request flows touching real dependencies changed:
 ```bash
 npm run verify:e2e
 ```
+
+Hosted CI independently runs the same `verify:ci-local` full profile and adds
+the same `verify:e2e` runtime profile when clean-diff risk classification
+requires it. `CI Required` aggregates risk, full, selected runtime, and
+governance jobs. Hosted CI does not trust local task episodes as pass evidence.
 
 Targeted checks:
 
@@ -180,6 +239,12 @@ Before opening or updating a PR, verify:
 
 ### 7. PR Description
 
+Before publication, the current agent performs a fresh action-specific handoff
+dry-run. The user must separately authorize commit, push, and draft-PR actions;
+`ready_for_review` does not authorize any of them. The adapters stage exact
+task paths, use normal non-force push, and create draft PRs only. Any uncertain
+external outcome requires manual reconciliation instead of automatic retry.
+
 Use `.github/pull_request_template.md`.
 
 Include:
@@ -232,3 +297,6 @@ A PR is done only when:
 3. risk-class review expectations are satisfied
 4. runtime evidence is present when behavior needs proof
 5. follow-up debt is tracked instead of left implicit
+6. high-risk harness work has passed the cross-component loop scenario and the
+   canonical full profile
+7. hosted CI independently passes before merge

@@ -1,4 +1,14 @@
+import type { AuthPrincipal } from '../auth/auth.types';
+
 export type Permission = string;
+
+export const RBAC_PERMISSIONS_PROVIDER = Symbol('RBAC_PERMISSIONS_PROVIDER');
+
+export interface PermissionsProvider {
+  getPermissions(
+    principal: AuthPrincipal,
+  ): ReadonlyArray<Permission> | Promise<ReadonlyArray<Permission>>;
+}
 
 function splitPermission(value: string): { resource: string; action: string } | undefined {
   const trimmed = value.trim();

@@ -28,7 +28,21 @@ Coverage visibility:
 - `npm run test:coverage`
 - Generates text summary, `coverage/lcov.info`, and `coverage/coverage-summary.json`.
 - DTOs, generated declarations, module wiring, token/type-only files, test files, and generated folders are excluded from line coverage.
-- No coverage threshold is enforced yet. Add a conservative floor only after measuring baseline signal and avoiding low-value test incentives.
+- The measured 2026-08-10 baseline is 49.02% statements, 42.82% branches,
+  44.43% functions, and 50.64% lines.
+- Conservative regression floors are 45% statements, 38% branches, 40%
+  functions, and 46% lines. Coverage remains a broad sensor, not proof of
+  behavior; do not add low-value tests merely to increase the number.
+
+## High-Risk Oracles And Mutation Pilot
+
+- `npm run backendkit -- oracles check` validates that registered high-risk
+  acceptance scenarios point to existing integration/E2E evidence.
+- `npm run test:mutation:pilot` manually mutates only the pure verification
+  lane-selection policy. It is intentionally absent from default and hosted CI
+  profiles until operating evidence justifies broader or blocking use.
+- See `docs/engineering/operating-evidence.md` for duration calibration and the
+  reviewed operating ledger.
 
 ## Integration Tests
 

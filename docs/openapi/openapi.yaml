@@ -46,32 +46,6 @@ paths:
         - Health
       x-error-codes:
         - INTERNAL
-  /v1/auth/password/register:
-    post:
-      description: Creates a user and immediately issues first-party access + refresh
-        tokens.
-      operationId: auth.password.register
-      parameters: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PasswordRegisterRequestDto"
-      responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResultWithMeEnvelopeDto"
-      summary: Register (password)
-      tags: &a1
-        - Auth
-      x-error-codes:
-        - VALIDATION_FAILED
-        - AUTH_EMAIL_ALREADY_EXISTS
-        - INTERNAL
   /v1/auth/oidc/exchange:
     post:
       description: Verifies an OIDC id_token (e.g., Google) and issues first-party
@@ -93,7 +67,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuthResultWithMeEnvelopeDto"
       summary: Exchange OIDC id_token
-      tags: *a1
+      tags: &a1
+        - Auth
       x-error-codes:
         - VALIDATION_FAILED
         - AUTH_OIDC_NOT_CONFIGURED
@@ -158,7 +133,8 @@ paths:
         "204":
           description: ""
       summary: Verify email
-      tags: *a1
+      tags: &a2
+        - Auth
       x-error-codes:
         - VALIDATION_FAILED
         - AUTH_EMAIL_VERIFICATION_TOKEN_INVALID
@@ -176,7 +152,7 @@ paths:
       security:
         - access-token: []
       summary: Resend verification email (current user)
-      tags: *a1
+      tags: *a2
       x-error-codes:
         - UNAUTHORIZED
         - RATE_LIMITED
@@ -197,7 +173,8 @@ paths:
         "204":
           description: ""
       summary: Request password reset
-      tags: *a1
+      tags: &a3
+        - Auth
       x-error-codes:
         - VALIDATION_FAILED
         - RATE_LIMITED
@@ -217,11 +194,37 @@ paths:
         "204":
           description: ""
       summary: Confirm password reset
-      tags: *a1
+      tags: *a3
       x-error-codes:
         - VALIDATION_FAILED
         - AUTH_PASSWORD_RESET_TOKEN_INVALID
         - AUTH_PASSWORD_RESET_TOKEN_EXPIRED
+        - INTERNAL
+  /v1/auth/password/register:
+    post:
+      description: Creates a user and immediately issues first-party access + refresh
+        tokens.
+      operationId: auth.password.register
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordRegisterRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResultWithMeEnvelopeDto"
+      summary: Register (password)
+      tags: &a4
+        - Auth
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_EMAIL_ALREADY_EXISTS
         - INTERNAL
   /v1/auth/password/login:
     post:
@@ -242,7 +245,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuthResultWithMeEnvelopeDto"
       summary: Login (password)
-      tags: *a1
+      tags: *a4
       x-error-codes:
         - VALIDATION_FAILED
         - AUTH_INVALID_CREDENTIALS
@@ -277,7 +280,7 @@ paths:
       security:
         - access-token: []
       summary: Change password (current user)
-      tags: *a1
+      tags: *a4
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -285,54 +288,6 @@ paths:
         - CONFLICT
         - AUTH_PASSWORD_NOT_SET
         - AUTH_CURRENT_PASSWORD_INVALID
-        - INTERNAL
-  /v1/auth/refresh:
-    post:
-      description: Rotates the refresh token and returns a new access + refresh token.
-      operationId: auth.refresh
-      parameters: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RefreshRequestDto"
-      responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResultEnvelopeDto"
-      summary: Refresh tokens
-      tags: *a1
-      x-error-codes:
-        - VALIDATION_FAILED
-        - AUTH_REFRESH_TOKEN_INVALID
-        - AUTH_REFRESH_TOKEN_EXPIRED
-        - AUTH_REFRESH_TOKEN_REUSED
-        - AUTH_SESSION_REVOKED
-        - AUTH_USER_SUSPENDED
-        - INTERNAL
-  /v1/auth/logout:
-    post:
-      description: Revokes the session associated with the provided refresh token.
-      operationId: auth.logout
-      parameters: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LogoutRequestDto"
-      responses:
-        "204":
-          description: ""
-      summary: Logout
-      tags: *a1
-      x-error-codes:
-        - VALIDATION_FAILED
-        - AUTH_REFRESH_TOKEN_INVALID
         - INTERNAL
   /.well-known/jwks.json:
     get:
@@ -398,7 +353,7 @@ paths:
       security:
         - access-token: []
       summary: List current user sessions
-      tags: &a2
+      tags: &a5
         - Users
       x-error-codes:
         - VALIDATION_FAILED
@@ -421,11 +376,60 @@ paths:
       security:
         - access-token: []
       summary: Revoke a session (current user)
-      tags: *a2
+      tags: *a5
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
         - NOT_FOUND
+        - INTERNAL
+  /v1/auth/refresh:
+    post:
+      description: Rotates the refresh token and returns a new access + refresh token.
+      operationId: auth.refresh
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResultEnvelopeDto"
+      summary: Refresh tokens
+      tags: &a6
+        - Auth
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_REFRESH_TOKEN_INVALID
+        - AUTH_REFRESH_TOKEN_EXPIRED
+        - AUTH_REFRESH_TOKEN_REUSED
+        - AUTH_SESSION_REVOKED
+        - AUTH_USER_SUSPENDED
+        - INTERNAL
+  /v1/auth/logout:
+    post:
+      description: Revokes the session associated with the provided refresh token.
+      operationId: auth.logout
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutRequestDto"
+      responses:
+        "204":
+          description: ""
+      summary: Logout
+      tags: *a6
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_REFRESH_TOKEN_INVALID
         - INTERNAL
   /v1/me/push-token:
     put:
@@ -445,7 +449,7 @@ paths:
       security:
         - access-token: []
       summary: Register/update push token (current session)
-      tags: &a3
+      tags: &a7
         - Users
       x-error-codes:
         - VALIDATION_FAILED
@@ -462,7 +466,7 @@ paths:
       security:
         - access-token: []
       summary: Revoke push token (current session)
-      tags: *a3
+      tags: *a7
       x-error-codes:
         - UNAUTHORIZED
         - INTERNAL
@@ -481,7 +485,7 @@ paths:
       security:
         - access-token: []
       summary: Get current user
-      tags: &a4
+      tags: &a8
         - Users
       x-error-codes:
         - UNAUTHORIZED
@@ -517,7 +521,7 @@ paths:
       security:
         - access-token: []
       summary: Update current user profile
-      tags: *a4
+      tags: *a8
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -556,7 +560,7 @@ paths:
       security:
         - access-token: []
       summary: Create a profile image upload plan (presigned URL)
-      tags: &a5
+      tags: &a9
         - Users
       x-error-codes:
         - VALIDATION_FAILED
@@ -583,7 +587,7 @@ paths:
       security:
         - access-token: []
       summary: Finalize a profile image upload
-      tags: *a5
+      tags: *a9
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -605,7 +609,7 @@ paths:
       security:
         - access-token: []
       summary: Clear current profile image
-      tags: *a5
+      tags: *a9
       x-error-codes:
         - UNAUTHORIZED
         - INTERNAL
@@ -627,7 +631,7 @@ paths:
       security:
         - access-token: []
       summary: Get current profile image URL
-      tags: *a5
+      tags: *a9
       x-error-codes:
         - UNAUTHORIZED
         - USERS_OBJECT_STORAGE_NOT_CONFIGURED
@@ -656,7 +660,7 @@ paths:
       security:
         - access-token: []
       summary: Request account deletion (30-day grace)
-      tags: &a6
+      tags: &a10
         - Users
       x-error-codes:
         - UNAUTHORIZED
@@ -685,16 +689,15 @@ paths:
       security:
         - access-token: []
       summary: Cancel account deletion
-      tags: *a6
+      tags: *a10
       x-error-codes:
         - UNAUTHORIZED
         - IDEMPOTENCY_IN_PROGRESS
         - INTERNAL
   /v1/admin/whoami:
     get:
-      description: Returns the authenticated principal. For /v1/admin/* endpoints,
-        roles are hydrated from the database to ensure immediate
-        demotion/promotion.
+      description: Returns the authenticated principal. This admin controller hydrates
+        roles from the database to ensure immediate demotion/promotion.
       operationId: admin.whoami.get
       parameters: []
       responses:
@@ -792,10 +795,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUsersListEnvelopeDto"
-      security: &a7
+      security: &a11
         - access-token: []
       summary: List users
-      tags: &a8
+      tags: &a12
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -804,9 +807,9 @@ paths:
         - INTERNAL
   /v1/admin/users/{userId}/role:
     patch:
-      description: Sets the user role. For /v1/admin/* endpoints, RBAC roles are
-        hydrated from the database on every request (promotion/demotion takes
-        effect immediately).
+      description: Sets the user role. This admin controller hydrates RBAC roles from
+        the database on every request, so promotion/demotion takes effect
+        immediately.
       operationId: admin.users.role.patch
       parameters:
         - name: userId
@@ -838,9 +841,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a7
+      security: *a11
       summary: Set user role
-      tags: *a8
+      tags: *a12
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -853,7 +856,8 @@ paths:
   /v1/admin/users/{userId}/status:
     patch:
       description: Sets the user status (ACTIVE/SUSPENDED). Suspended users cannot
-        refresh tokens and are blocked from /v1/admin/* endpoints immediately.
+        refresh tokens and are blocked from DB-hydrated admin endpoints
+        immediately.
       operationId: admin.users.status.patch
       parameters:
         - name: userId
@@ -885,9 +889,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a7
+      security: *a11
       summary: Set user status
-      tags: *a8
+      tags: *a12
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -992,10 +996,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserRoleChangeAuditsListEnvelopeDto"
-      security: &a9
+      security: &a13
         - access-token: []
       summary: List user role changes
-      tags: &a10
+      tags: &a14
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -1084,9 +1088,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserAccountDeletionAuditsListEnvelopeDto"
-      security: *a9
+      security: *a13
       summary: List user account deletion events
-      tags: *a10
+      tags: *a14
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -1116,15 +1120,17 @@ components:
       type: http
       description: "First-party access token (Authorization: Bearer <token>)"
   schemas:
-    PasswordRegisterRequestDto:
+    OidcExchangeRequestDto:
       type: object
       properties:
-        email:
+        provider:
           type: string
-          example: user@example.com
-        password:
+          enum: &a15
+            - GOOGLE
+          example: GOOGLE
+        idToken:
           type: string
-          minLength: 10
+          example: <oidc-id-token>
         deviceId:
           type: string
           description: Stable per-device identifier (recommended).
@@ -1132,8 +1138,8 @@ components:
           type: string
           description: Human-friendly device name (optional).
       required:
-        - email
-        - password
+        - provider
+        - idToken
     MeProfileDto:
       type: object
       properties:
@@ -1194,7 +1200,7 @@ components:
           description: Linked authentication methods on this account.
           items:
             type: string
-            enum: &a12
+            enum: &a16
               - PASSWORD
               - GOOGLE
         profile:
@@ -1235,32 +1241,12 @@ components:
           $ref: "#/components/schemas/AuthResultWithMeDto"
       required:
         - data
-    OidcExchangeRequestDto:
-      type: object
-      properties:
-        provider:
-          type: string
-          enum: &a11
-            - GOOGLE
-          example: GOOGLE
-        idToken:
-          type: string
-          example: <oidc-id-token>
-        deviceId:
-          type: string
-          description: Stable per-device identifier (recommended).
-        deviceName:
-          type: string
-          description: Human-friendly device name (optional).
-      required:
-        - provider
-        - idToken
     OidcConnectRequestDto:
       type: object
       properties:
         provider:
           type: string
-          enum: *a11
+          enum: *a15
           example: GOOGLE
         idToken:
           type: string
@@ -1296,6 +1282,24 @@ components:
       required:
         - token
         - newPassword
+    PasswordRegisterRequestDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: user@example.com
+        password:
+          type: string
+          minLength: 10
+        deviceId:
+          type: string
+          description: Stable per-device identifier (recommended).
+        deviceName:
+          type: string
+          description: Human-friendly device name (optional).
+      required:
+        - email
+        - password
     PasswordLoginRequestDto:
       type: object
       properties:
@@ -1326,70 +1330,6 @@ components:
       required:
         - currentPassword
         - newPassword
-    RefreshRequestDto:
-      type: object
-      properties:
-        refreshToken:
-          type: string
-          example: <refresh-token>
-      required:
-        - refreshToken
-    AuthUserDto:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
-        email:
-          type: string
-          example: user@example.com
-        emailVerified:
-          type: boolean
-          example: false
-        authMethods:
-          type: array
-          example:
-            - PASSWORD
-            - GOOGLE
-          description: Linked authentication methods on this account. Omitted on token
-            refresh responses.
-          items:
-            type: string
-            enum: *a12
-      required:
-        - id
-        - email
-        - emailVerified
-    AuthResultDto:
-      type: object
-      properties:
-        user:
-          $ref: "#/components/schemas/AuthUserDto"
-        accessToken:
-          type: string
-          example: <access-token>
-        refreshToken:
-          type: string
-          example: <refresh-token>
-      required:
-        - user
-        - accessToken
-        - refreshToken
-    AuthResultEnvelopeDto:
-      type: object
-      properties:
-        data:
-          $ref: "#/components/schemas/AuthResultDto"
-      required:
-        - data
-    LogoutRequestDto:
-      type: object
-      properties:
-        refreshToken:
-          type: string
-          example: <refresh-token>
-      required:
-        - refreshToken
     MeSessionDto:
       type: object
       properties:
@@ -1475,6 +1415,70 @@ components:
       required:
         - data
         - meta
+    RefreshRequestDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          example: <refresh-token>
+      required:
+        - refreshToken
+    AuthUserDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        email:
+          type: string
+          example: user@example.com
+        emailVerified:
+          type: boolean
+          example: false
+        authMethods:
+          type: array
+          example:
+            - PASSWORD
+            - GOOGLE
+          description: Linked authentication methods on this account. Omitted on token
+            refresh responses.
+          items:
+            type: string
+            enum: *a16
+      required:
+        - id
+        - email
+        - emailVerified
+    AuthResultDto:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUserDto"
+        accessToken:
+          type: string
+          example: <access-token>
+        refreshToken:
+          type: string
+          example: <refresh-token>
+      required:
+        - user
+        - accessToken
+        - refreshToken
+    AuthResultEnvelopeDto:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/AuthResultDto"
+      required:
+        - data
+    LogoutRequestDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          example: <refresh-token>
+      required:
+        - refreshToken
     MePushTokenUpsertRequestDto:
       type: object
       properties:
@@ -1761,13 +1765,13 @@ components:
           example: 9d8c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
         oldRole:
           type: string
-          enum: &a13
+          enum: &a17
             - USER
             - ADMIN
           example: USER
         newRole:
           type: string
-          enum: *a13
+          enum: *a17
           example: ADMIN
         traceId:
           type: string

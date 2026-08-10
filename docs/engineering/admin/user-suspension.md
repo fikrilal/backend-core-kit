@@ -74,7 +74,7 @@ This is intentional so clients can distinguish:
 
 ## Admin endpoint behavior (immediate block)
 
-All `/v1/admin/*` endpoints are **DB-hydrated** on every request. This means:
+Admin controllers declare `@UseDbRoles()`, so those endpoints are **DB-hydrated** on every request. This means:
 
 - Role promotions/demotions take effect immediately.
 - Suspended accounts are blocked immediately (even if they still have an unexpired access token).

@@ -22,9 +22,53 @@ These are the typical commands a project should provide:
 - `npm run start:dev` (API)
 - `npm run start:worker:dev` (worker)
 - `npm run verify:ci-local` (non-Docker CI mirror)
+- `npm run verify:ci` (explicit local full + runtime composition)
 - `npm run duplication:report` (categorized duplication self-review reports)
 
-When code is scaffolded, keep these commands stable; they form the project’s “golden path”.
+The stable verification aliases are composed by the repository-local
+`backendkit` CLI. See `docs/engineering/backendkit-cli.md`. When code is
+scaffolded, keep these commands stable; they form the project’s “golden path”.
+
+Before relying on the controller in a new clone or runner, use the read-only
+`npm run backendkit -- doctor` command. It validates repository-local
+prerequisites and policy schemas and reports whether Docker-backed verification
+is currently available.
+
+For a non-trivial controller-managed task, create a V2 execution plan and run
+`npm run backendkit -- task begin --plan <path>` before edits. Run
+`npm run backendkit -- task preflight --task <task-id> --action verify` before
+the verification profile.
+
+For baselined V2 work, prefer `npm run backendkit -- task verify --task
+<task-id>` so effective risk, runtime impact, attempts, repair decisions, and
+sanitized evidence stay attributable.
+
+For isolated implementation, the current Codex agent internally runs `task
+workspace prepare --task <id>`, then uses the returned linked worktree for
+ordinary tool calls. `task workspace status` rediscovers that workspace after
+context compaction; cancel and cleanup are explicit task-state operations.
+Repository tooling never launches another agent or authorizes publication.
+
+After verification, the current agent uses `handoff dry-run` to present exact
+commit, push, or draft-PR scope. Each external action needs separate explicit
+user authorization and a fresh expiring approval. The adapter supports normal
+commit, normal non-force push, and draft PR creation only; ambiguous outcomes
+are reconciled manually.
+
+For approved queued work, the current agent or an external scheduler may invoke
+`events run --once`. This activates at most one queued plan and returns an
+authorized task; it does not start Codex. Scheduled repository observations use
+`maintenance run --once`, which has a fixed command registry and may refresh
+the existing `_WIP` reports but never edits source or grants task authority.
+
+Hosted CI independently runs clean-checkout `CI Risk`, `CI Full`, conditional
+`CI Runtime`, and `CI Governance` lanes behind the stable `CI Required`
+aggregate. It does not consume local controller episodes as pass evidence.
+
+For the complete authority, state, evidence, and improvement model, see
+`docs/engineering/loop-engineering.md`. Hill climbing remains unavailable until
+real reviewed operating evidence reaches the documented threshold; fixtures and
+local successful episodes do not activate it.
 
 ## PR Expectations
 

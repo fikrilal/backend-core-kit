@@ -3,15 +3,16 @@ import type { Job } from 'bullmq';
 import { PinoLogger } from 'nestjs-pino';
 import { PrismaService } from '../../../../libs/platform/db/prisma.service';
 import { QueueWorkerFactory } from '../../../../libs/platform/queue/queue.worker';
-import type { JsonObject } from '../../../../libs/platform/queue/json.types';
+import type { JsonObject } from '../../../../libs/platform/queue/queue.types';
 import {
   PUSH_QUEUE,
   PUSH_SEND_JOB,
   type PushSendJobData,
 } from '../../../../libs/platform/push/push.job';
-import { PUSH_SERVICE } from '../../../../libs/platform/push/push.tokens';
-import type { PushService } from '../../../../libs/platform/push/push.service';
+import { PUSH_SERVICE, type PushService } from '../../../../libs/platform/push/push.service';
 import { PushErrorCode, PushSendError } from '../../../../libs/platform/push/push.types';
+import type { Clock } from '../../../../libs/shared/time';
+import { WORKER_CLOCK } from '../worker.tokens';
 
 type PushSendJobResult = Readonly<{
   ok: true;
@@ -39,6 +40,7 @@ export class PushWorker implements OnModuleInit {
     private readonly workers: QueueWorkerFactory,
     @Inject(PUSH_SERVICE) private readonly push: PushService,
     private readonly prisma: PrismaService,
+    @Inject(WORKER_CLOCK) private readonly clock: Clock,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(PushWorker.name);
@@ -59,7 +61,7 @@ export class PushWorker implements OnModuleInit {
       throw new Error(`Unknown job name "${job.name}" on queue "${PUSH_QUEUE}"`);
     }
 
-    const now = new Date();
+    const now = this.clock.now();
     const session = await this.prisma.getClient().session.findUnique({
       where: { id: job.data.sessionId },
       select: {

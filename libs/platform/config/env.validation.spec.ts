@@ -76,6 +76,12 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ FCM_PROJECT_ID: 'project' })).toThrow(/PUSH_PROVIDER/i);
   });
 
+  it('throws when FCM base64 env is set without PUSH_PROVIDER', () => {
+    expect(() => validateEnv({ FCM_SERVICE_ACCOUNT_JSON_BASE64: 'e30=' })).toThrow(
+      /PUSH_PROVIDER/i,
+    );
+  });
+
   it('throws when PUSH_PROVIDER=FCM is missing required vars', () => {
     expect(() => validateEnv({ PUSH_PROVIDER: 'FCM' })).toThrow(/FCM_PROJECT_ID/i);
   });
@@ -105,5 +111,16 @@ describe('validateEnv', () => {
         FCM_SERVICE_ACCOUNT_JSON_BASE64: base64,
       }),
     ).not.toThrow();
+  });
+
+  it('throws when PUSH_PROVIDER=FCM has multiple credential strategies', () => {
+    expect(() =>
+      validateEnv({
+        PUSH_PROVIDER: 'FCM',
+        FCM_PROJECT_ID: 'project',
+        FCM_USE_APPLICATION_DEFAULT: 'true',
+        FCM_SERVICE_ACCOUNT_JSON_BASE64: 'e30=',
+      }),
+    ).toThrow(/use only one/i);
   });
 });

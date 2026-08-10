@@ -1,22 +1,17 @@
+import { SetMetadata } from '@nestjs/common';
 import type { Reflector } from '@nestjs/core';
 import type { Permission } from './permissions';
 import { normalizePermissions } from './permissions';
 
 export const REQUIRE_PERMISSIONS_KEY = 'requirePermissions';
-
-function getExistingPermissions(target: object): Permission[] {
-  const existing = Reflect.getMetadata(REQUIRE_PERMISSIONS_KEY, target);
-  if (!Array.isArray(existing)) return [];
-  return normalizePermissions(existing.filter((v): v is string => typeof v === 'string'));
-}
+export const USE_DB_ROLES_KEY = 'rbac:useDbRoles';
 
 export function RequirePermissions(...permissions: Permission[]): ClassDecorator & MethodDecorator {
-  return (target: object, _propertyKey?: string | symbol, descriptor?: PropertyDescriptor) => {
-    const metaTarget = descriptor?.value ?? target;
-    const current = getExistingPermissions(metaTarget);
-    const next = normalizePermissions([...current, ...permissions]);
-    Reflect.defineMetadata(REQUIRE_PERMISSIONS_KEY, next, metaTarget);
-  };
+  return SetMetadata(REQUIRE_PERMISSIONS_KEY, normalizePermissions(permissions));
+}
+
+export function UseDbRoles(): ClassDecorator & MethodDecorator {
+  return SetMetadata(USE_DB_ROLES_KEY, true);
 }
 
 type ReflectorTarget = Parameters<Reflector['getAllAndMerge']>[1][number];

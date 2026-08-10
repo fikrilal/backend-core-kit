@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { AuthPrincipal } from '../auth/auth.types';
-import type { Permission } from './permissions';
+import type { Permission, PermissionsProvider } from './permissions';
 import { normalizePermissions } from './permissions';
-import type { PermissionsProvider } from './permissions.provider';
 
 const ROLE_PERMISSIONS: Readonly<Record<string, ReadonlyArray<Permission>>> = Object.freeze({
   USER: [],
