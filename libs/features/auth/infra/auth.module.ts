@@ -8,7 +8,6 @@ import { PlatformPushModule } from '../../../platform/push/push.module';
 import { QueueModule } from '../../../platform/queue/queue.module';
 import { UsersModule } from '../../users/infra/users.module';
 import { AuthService } from '../app/auth.service';
-import { AuthSessionsService } from '../app/auth-sessions.service';
 import { AuthSessionLifecycleService } from '../app/auth-session-lifecycle.service';
 import { AuthPasswordAuthService } from '../app/auth-password-auth.service';
 import { AuthOidcAuthService } from '../app/auth-oidc-auth.service';
@@ -20,9 +19,10 @@ import { AuthPasswordResetJobs } from '../password-reset/password-reset.jobs';
 import { AuthPasswordResetService } from '../password-reset/password-reset.service';
 import { MePushTokenController } from '../push-tokens/push-token.controller';
 import { AuthPushTokensService } from '../push-tokens/push-tokens.service';
+import { JwksController } from '../sessions/jwks.controller';
+import { AuthSessionsController, MeSessionsController } from '../sessions/sessions.controller';
+import { AuthSessionsService } from '../sessions/sessions.service';
 import { AuthController } from './http/auth.controller';
-import { JwksController } from './http/jwks.controller';
-import { MeSessionsController } from './http/me-sessions.controller';
 import { PrismaAuthRepository } from './persistence/prisma-auth.repository';
 import { RedisEmailVerificationRateLimiter } from './rate-limit/redis-email-verification-rate-limiter';
 import { RedisLoginRateLimiter } from './rate-limit/redis-login-rate-limiter';
@@ -55,6 +55,7 @@ import { AUTH_CONFIG, AUTH_DUMMY_PASSWORD_HASH } from './auth.tokens';
     PasswordResetController,
     JwksController,
     MeSessionsController,
+    AuthSessionsController,
     MePushTokenController,
   ],
   providers: [

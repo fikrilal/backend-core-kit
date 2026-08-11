@@ -206,54 +206,6 @@ paths:
         - AUTH_PASSWORD_NOT_SET
         - AUTH_CURRENT_PASSWORD_INVALID
         - INTERNAL
-  /v1/auth/refresh:
-    post:
-      description: Rotates the refresh token and returns a new access + refresh token.
-      operationId: auth.refresh
-      parameters: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RefreshRequestDto"
-      responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResultEnvelopeDto"
-      summary: Refresh tokens
-      tags: *a1
-      x-error-codes:
-        - VALIDATION_FAILED
-        - AUTH_REFRESH_TOKEN_INVALID
-        - AUTH_REFRESH_TOKEN_EXPIRED
-        - AUTH_REFRESH_TOKEN_REUSED
-        - AUTH_SESSION_REVOKED
-        - AUTH_USER_SUSPENDED
-        - INTERNAL
-  /v1/auth/logout:
-    post:
-      description: Revokes the session associated with the provided refresh token.
-      operationId: auth.logout
-      parameters: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LogoutRequestDto"
-      responses:
-        "204":
-          description: ""
-      summary: Logout
-      tags: *a1
-      x-error-codes:
-        - VALIDATION_FAILED
-        - AUTH_REFRESH_TOKEN_INVALID
-        - INTERNAL
   /v1/auth/email/verify:
     post:
       description: Verifies a user email using a token sent via email.
@@ -429,6 +381,55 @@ paths:
         - UNAUTHORIZED
         - NOT_FOUND
         - INTERNAL
+  /v1/auth/refresh:
+    post:
+      description: Rotates the refresh token and returns a new access + refresh token.
+      operationId: auth.refresh
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResultEnvelopeDto"
+      summary: Refresh tokens
+      tags: &a5
+        - Auth
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_REFRESH_TOKEN_INVALID
+        - AUTH_REFRESH_TOKEN_EXPIRED
+        - AUTH_REFRESH_TOKEN_REUSED
+        - AUTH_SESSION_REVOKED
+        - AUTH_USER_SUSPENDED
+        - INTERNAL
+  /v1/auth/logout:
+    post:
+      description: Revokes the session associated with the provided refresh token.
+      operationId: auth.logout
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutRequestDto"
+      responses:
+        "204":
+          description: ""
+      summary: Logout
+      tags: *a5
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_REFRESH_TOKEN_INVALID
+        - INTERNAL
   /v1/me/push-token:
     put:
       description: Stores the FCM registration token for the current session.
@@ -447,7 +448,7 @@ paths:
       security:
         - access-token: []
       summary: Register/update push token (current session)
-      tags: &a5
+      tags: &a6
         - Users
       x-error-codes:
         - VALIDATION_FAILED
@@ -464,7 +465,7 @@ paths:
       security:
         - access-token: []
       summary: Revoke push token (current session)
-      tags: *a5
+      tags: *a6
       x-error-codes:
         - UNAUTHORIZED
         - INTERNAL
@@ -483,7 +484,7 @@ paths:
       security:
         - access-token: []
       summary: Get current user
-      tags: &a6
+      tags: &a7
         - Users
       x-error-codes:
         - UNAUTHORIZED
@@ -519,7 +520,7 @@ paths:
       security:
         - access-token: []
       summary: Update current user profile
-      tags: *a6
+      tags: *a7
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -558,7 +559,7 @@ paths:
       security:
         - access-token: []
       summary: Create a profile image upload plan (presigned URL)
-      tags: &a7
+      tags: &a8
         - Users
       x-error-codes:
         - VALIDATION_FAILED
@@ -585,7 +586,7 @@ paths:
       security:
         - access-token: []
       summary: Finalize a profile image upload
-      tags: *a7
+      tags: *a8
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -607,7 +608,7 @@ paths:
       security:
         - access-token: []
       summary: Clear current profile image
-      tags: *a7
+      tags: *a8
       x-error-codes:
         - UNAUTHORIZED
         - INTERNAL
@@ -629,7 +630,7 @@ paths:
       security:
         - access-token: []
       summary: Get current profile image URL
-      tags: *a7
+      tags: *a8
       x-error-codes:
         - UNAUTHORIZED
         - USERS_OBJECT_STORAGE_NOT_CONFIGURED
@@ -658,7 +659,7 @@ paths:
       security:
         - access-token: []
       summary: Request account deletion (30-day grace)
-      tags: &a8
+      tags: &a9
         - Users
       x-error-codes:
         - UNAUTHORIZED
@@ -687,7 +688,7 @@ paths:
       security:
         - access-token: []
       summary: Cancel account deletion
-      tags: *a8
+      tags: *a9
       x-error-codes:
         - UNAUTHORIZED
         - IDEMPOTENCY_IN_PROGRESS
@@ -794,10 +795,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUsersListEnvelopeDto"
-      security: &a9
+      security: &a10
         - access-token: []
       summary: List users
-      tags: &a10
+      tags: &a11
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -840,9 +841,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a9
+      security: *a10
       summary: Set user role
-      tags: *a10
+      tags: *a11
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -887,9 +888,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a9
+      security: *a10
       summary: Set user status
-      tags: *a10
+      tags: *a11
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -994,10 +995,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserRoleChangeAuditsListEnvelopeDto"
-      security: &a11
+      security: &a12
         - access-token: []
       summary: List user role changes
-      tags: &a12
+      tags: &a13
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -1086,9 +1087,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserAccountDeletionAuditsListEnvelopeDto"
-      security: *a11
+      security: *a12
       summary: List user account deletion events
-      tags: *a12
+      tags: *a13
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -1196,7 +1197,7 @@ components:
           description: Linked authentication methods on this account.
           items:
             type: string
-            enum: &a14
+            enum: &a15
               - PASSWORD
               - GOOGLE
         profile:
@@ -1242,7 +1243,7 @@ components:
       properties:
         provider:
           type: string
-          enum: &a13
+          enum: &a14
             - GOOGLE
           example: GOOGLE
         idToken:
@@ -1262,7 +1263,7 @@ components:
       properties:
         provider:
           type: string
-          enum: *a13
+          enum: *a14
           example: GOOGLE
         idToken:
           type: string
@@ -1300,70 +1301,6 @@ components:
       required:
         - currentPassword
         - newPassword
-    RefreshRequestDto:
-      type: object
-      properties:
-        refreshToken:
-          type: string
-          example: <refresh-token>
-      required:
-        - refreshToken
-    AuthUserDto:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
-        email:
-          type: string
-          example: user@example.com
-        emailVerified:
-          type: boolean
-          example: false
-        authMethods:
-          type: array
-          example:
-            - PASSWORD
-            - GOOGLE
-          description: Linked authentication methods on this account. Omitted on token
-            refresh responses.
-          items:
-            type: string
-            enum: *a14
-      required:
-        - id
-        - email
-        - emailVerified
-    AuthResultDto:
-      type: object
-      properties:
-        user:
-          $ref: "#/components/schemas/AuthUserDto"
-        accessToken:
-          type: string
-          example: <access-token>
-        refreshToken:
-          type: string
-          example: <refresh-token>
-      required:
-        - user
-        - accessToken
-        - refreshToken
-    AuthResultEnvelopeDto:
-      type: object
-      properties:
-        data:
-          $ref: "#/components/schemas/AuthResultDto"
-      required:
-        - data
-    LogoutRequestDto:
-      type: object
-      properties:
-        refreshToken:
-          type: string
-          example: <refresh-token>
-      required:
-        - refreshToken
     VerifyEmailRequestDto:
       type: object
       properties:
@@ -1477,6 +1414,70 @@ components:
       required:
         - data
         - meta
+    RefreshRequestDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          example: <refresh-token>
+      required:
+        - refreshToken
+    AuthUserDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
+        email:
+          type: string
+          example: user@example.com
+        emailVerified:
+          type: boolean
+          example: false
+        authMethods:
+          type: array
+          example:
+            - PASSWORD
+            - GOOGLE
+          description: Linked authentication methods on this account. Omitted on token
+            refresh responses.
+          items:
+            type: string
+            enum: *a15
+      required:
+        - id
+        - email
+        - emailVerified
+    AuthResultDto:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUserDto"
+        accessToken:
+          type: string
+          example: <access-token>
+        refreshToken:
+          type: string
+          example: <refresh-token>
+      required:
+        - user
+        - accessToken
+        - refreshToken
+    AuthResultEnvelopeDto:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/AuthResultDto"
+      required:
+        - data
+    LogoutRequestDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          example: <refresh-token>
+      required:
+        - refreshToken
     MePushTokenUpsertRequestDto:
       type: object
       properties:
@@ -1763,13 +1764,13 @@ components:
           example: 9d8c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
         oldRole:
           type: string
-          enum: &a15
+          enum: &a16
             - USER
             - ADMIN
           example: USER
         newRole:
           type: string
-          enum: *a15
+          enum: *a16
           example: ADMIN
         traceId:
           type: string

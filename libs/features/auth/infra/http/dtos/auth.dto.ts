@@ -144,20 +144,6 @@ export class OidcConnectRequestDto {
   idToken!: string;
 }
 
-export class RefreshRequestDto {
-  @ApiProperty({ example: '<refresh-token>' })
-  @IsString()
-  @MinLength(1)
-  refreshToken!: string;
-}
-
-export class LogoutRequestDto {
-  @ApiProperty({ example: '<refresh-token>' })
-  @IsString()
-  @MinLength(1)
-  refreshToken!: string;
-}
-
 export class ChangePasswordRequestDto {
   @ApiProperty({ minLength: 1 })
   @IsString()

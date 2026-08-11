@@ -372,7 +372,7 @@ Phase status:
 - [x] Phase 1 — Email verification
 - [x] Phase 2 — Password reset
 - [x] Phase 3 — Push tokens
-- [ ] Phase 4 — Sessions and JWKS
+- [x] Phase 4 — Sessions and JWKS
 - [ ] Phase 5 — Password auth
 - [ ] Phase 6 — OIDC
 - [ ] Phase 7 — Shared cleanup

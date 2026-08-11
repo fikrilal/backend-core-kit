@@ -31,15 +31,12 @@ import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes
 import { AuthEmailVerificationJobs } from '../../email-verification/email-verification.jobs';
 import { UsersService } from '../../../users/app/users.service';
 import {
-  AuthResultEnvelopeDto,
   AuthResultWithMeEnvelopeDto,
   ChangePasswordRequestDto,
-  LogoutRequestDto,
   OidcConnectRequestDto,
   OidcExchangeRequestDto,
   PasswordLoginRequestDto,
   PasswordRegisterRequestDto,
-  RefreshRequestDto,
 } from './dtos/auth.dto';
 import { AuthErrorFilter } from './auth-error.filter';
 import { runBestEffort } from '../../../../platform/logging/best-effort';
@@ -228,47 +225,5 @@ export class AuthController {
       currentPassword: body.currentPassword,
       newPassword: body.newPassword,
     });
-  }
-
-  @Post('refresh')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    operationId: 'auth.refresh',
-    summary: 'Refresh tokens',
-    description: 'Rotates the refresh token and returns a new access + refresh token.',
-  })
-  @ApiErrorCodes([
-    ErrorCode.VALIDATION_FAILED,
-    AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID,
-    AuthErrorCode.AUTH_REFRESH_TOKEN_EXPIRED,
-    AuthErrorCode.AUTH_REFRESH_TOKEN_REUSED,
-    AuthErrorCode.AUTH_SESSION_REVOKED,
-    AuthErrorCode.AUTH_USER_SUSPENDED,
-    ErrorCode.INTERNAL,
-  ])
-  @ApiOkResponse({ type: AuthResultEnvelopeDto })
-  async refresh(@Body() body: RefreshRequestDto, @ClientContext() client: ClientContextValue) {
-    return await this.auth.refresh({
-      refreshToken: body.refreshToken,
-      ip: client.ip,
-      userAgent: client.userAgent,
-    });
-  }
-
-  @Post('logout')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    operationId: 'auth.logout',
-    summary: 'Logout',
-    description: 'Revokes the session associated with the provided refresh token.',
-  })
-  @ApiErrorCodes([
-    ErrorCode.VALIDATION_FAILED,
-    AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID,
-    ErrorCode.INTERNAL,
-  ])
-  @ApiNoContentResponse()
-  async logout(@Body() body: LogoutRequestDto) {
-    await this.auth.logout({ refreshToken: body.refreshToken });
   }
 }

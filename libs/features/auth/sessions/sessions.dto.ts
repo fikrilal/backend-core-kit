@@ -1,8 +1,22 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
-import { CursorPaginationMetaDto } from '../../../../../platform/http/list-query/cursor-pagination-meta.dto';
+import { IsBoolean, IsIn, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { CursorPaginationMetaDto } from '../../../platform/http/list-query/cursor-pagination-meta.dto';
 
 const SESSION_STATUS_VALUES = ['active', 'revoked', 'expired'] as const;
+
+export class RefreshRequestDto {
+  @ApiProperty({ example: '<refresh-token>' })
+  @IsString()
+  @MinLength(1)
+  refreshToken!: string;
+}
+
+export class LogoutRequestDto {
+  @ApiProperty({ example: '<refresh-token>' })
+  @IsString()
+  @MinLength(1)
+  refreshToken!: string;
+}
 
 export class MeSessionIdParamDto {
   @ApiProperty({ example: '3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0' })

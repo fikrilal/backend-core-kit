@@ -188,24 +188,18 @@ describe('AuthService (deleted user semantics)', () => {
       findRefreshTokenWithSession: async () => existing,
     });
 
-    const oidcVerifier: OidcIdTokenVerifier = {
-      verifyIdToken: async () => unimplemented(),
+    const accessTokens: AccessTokenIssuer = {
+      signAccessToken: async () => 'access-token',
+      getPublicJwks: async () => ({}),
     };
-
-    const loginRateLimiter: LoginRateLimiter = {
-      assertAllowed: async () => undefined,
-      recordFailure: async () => undefined,
-      recordSuccess: async () => undefined,
+    const config: AuthConfig = {
+      accessTokenTtlSeconds: 900,
+      refreshTokenTtlSeconds: 60 * 60 * 24 * 30,
+      passwordMinLength: 10,
     };
+    const lifecycle = new AuthSessionLifecycleService(repo, accessTokens, fixedClock(now), config);
 
-    const passwordHasher: PasswordHasher = {
-      hash: async () => unimplemented(),
-      verify: async () => unimplemented(),
-    };
-
-    const svc = makeService({ repo, oidcVerifier, passwordHasher, loginRateLimiter });
-
-    await expect(svc.refresh({ refreshToken: 'refresh-token' })).rejects.toMatchObject({
+    await expect(lifecycle.refresh({ refreshToken: 'refresh-token' })).rejects.toMatchObject({
       status: 401,
       code: AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID,
     });

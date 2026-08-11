@@ -3,9 +3,9 @@ import type {
   AuthRepository,
   UserSessionsSortField,
   UserSessionListItem,
-} from './ports/auth.repository';
-import type { Clock } from './time';
-import { assertAuthUserIsActive } from './auth-user-state';
+} from '../app/ports/auth.repository';
+import type { Clock } from '../app/time';
+import { assertAuthUserIsActive } from '../app/auth-user-state';
 
 export type SessionStatus = 'active' | 'revoked' | 'expired';
 

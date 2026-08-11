@@ -60,20 +60,4 @@ export class AuthService {
   }): Promise<void> {
     await this.passwordAuth.changePassword(input);
   }
-
-  async refresh(input: {
-    refreshToken: string;
-    ip?: string;
-    userAgent?: string;
-  }): Promise<AuthResult> {
-    return await this.sessionLifecycle.refresh(input);
-  }
-
-  async logout(input: { refreshToken: string }): Promise<void> {
-    await this.sessionLifecycle.logout(input);
-  }
-
-  async getPublicJwks(): Promise<unknown> {
-    return this.sessionLifecycle.getPublicJwks();
-  }
 }
