@@ -7,9 +7,9 @@ import {
 import {
   generatePasswordResetToken,
   hashPasswordResetToken,
-} from '../../libs/features/auth/app/password-reset-token';
+} from '../../libs/features/auth/password-reset/password-reset-token';
 import { AUTH_SEND_VERIFICATION_EMAIL_JOB } from '../../libs/features/auth/email-verification/email-verification.job';
-import { AUTH_SEND_PASSWORD_RESET_EMAIL_JOB } from '../../libs/features/auth/infra/jobs/auth-password-reset.job';
+import { AUTH_SEND_PASSWORD_RESET_EMAIL_JOB } from '../../libs/features/auth/password-reset/password-reset.job';
 import {
   describeAuthE2eSuite,
   getBodyData,

@@ -13,16 +13,17 @@ import { AuthPushTokensService } from '../app/auth-push-tokens.service';
 import { AuthSessionLifecycleService } from '../app/auth-session-lifecycle.service';
 import { AuthPasswordAuthService } from '../app/auth-password-auth.service';
 import { AuthOidcAuthService } from '../app/auth-oidc-auth.service';
-import { AuthPasswordResetService } from '../app/auth-password-reset.service';
 import { EmailVerificationController } from '../email-verification/email-verification.controller';
 import { AuthEmailVerificationJobs } from '../email-verification/email-verification.jobs';
 import { AuthEmailVerificationService } from '../email-verification/email-verification.service';
+import { PasswordResetController } from '../password-reset/password-reset.controller';
+import { AuthPasswordResetJobs } from '../password-reset/password-reset.jobs';
+import { AuthPasswordResetService } from '../password-reset/password-reset.service';
 import { AuthController } from './http/auth.controller';
 import { JwksController } from './http/jwks.controller';
 import { MeSessionsController } from './http/me-sessions.controller';
 import { MePushTokenController } from './http/me-push-token.controller';
 import { PrismaAuthRepository } from './persistence/prisma-auth.repository';
-import { AuthPasswordResetJobs } from './jobs/auth-password-reset.jobs';
 import { RedisEmailVerificationRateLimiter } from './rate-limit/redis-email-verification-rate-limiter';
 import { RedisLoginRateLimiter } from './rate-limit/redis-login-rate-limiter';
 import { RedisPasswordResetRateLimiter } from './rate-limit/redis-password-reset-rate-limiter';
@@ -51,6 +52,7 @@ import { AUTH_CONFIG, AUTH_DUMMY_PASSWORD_HASH } from './auth.tokens';
   controllers: [
     AuthController,
     EmailVerificationController,
+    PasswordResetController,
     JwksController,
     MeSessionsController,
     MePushTokenController,
@@ -176,12 +178,7 @@ import { AUTH_CONFIG, AUTH_DUMMY_PASSWORD_HASH } from './auth.tokens';
     }),
     provideConstructedAppService({
       provide: AuthService,
-      inject: [
-        AuthSessionLifecycleService,
-        AuthPasswordAuthService,
-        AuthOidcAuthService,
-        AuthPasswordResetService,
-      ],
+      inject: [AuthSessionLifecycleService, AuthPasswordAuthService, AuthOidcAuthService],
       useClass: AuthService,
     }),
   ],

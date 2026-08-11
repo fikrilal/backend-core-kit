@@ -16,7 +16,6 @@ import {
 } from '@nestjs/swagger';
 import { PinoLogger } from 'nestjs-pino';
 import { AuthService } from '../../app/auth.service';
-import { AuthError } from '../../app/auth.errors';
 import { AuthErrorCode } from '../../app/auth.error-codes';
 import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
@@ -30,8 +29,6 @@ import { Idempotent } from '../../../../platform/http/idempotency/idempotency.de
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { AuthEmailVerificationJobs } from '../../email-verification/email-verification.jobs';
-import { AuthPasswordResetJobs } from '../jobs/auth-password-reset.jobs';
-import { RedisPasswordResetRateLimiter } from '../rate-limit/redis-password-reset-rate-limiter';
 import { UsersService } from '../../../users/app/users.service';
 import {
   AuthResultEnvelopeDto,
@@ -40,10 +37,8 @@ import {
   LogoutRequestDto,
   OidcConnectRequestDto,
   OidcExchangeRequestDto,
-  PasswordResetConfirmRequestDto,
   PasswordLoginRequestDto,
   PasswordRegisterRequestDto,
-  PasswordResetRequestDto,
   RefreshRequestDto,
 } from './dtos/auth.dto';
 import { AuthErrorFilter } from './auth-error.filter';
@@ -57,8 +52,6 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly users: UsersService,
     private readonly emailVerificationJobs: AuthEmailVerificationJobs,
-    private readonly passwordResetJobs: AuthPasswordResetJobs,
-    private readonly passwordResetRateLimiter: RedisPasswordResetRateLimiter,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(AuthController.name);
@@ -172,64 +165,6 @@ export class AuthController {
       provider: body.provider,
       idToken: body.idToken,
     });
-  }
-
-  @Post('password/reset/request')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    operationId: 'auth.password.reset.request',
-    summary: 'Request password reset',
-    description:
-      'Enqueues a password reset email for an existing user. Returns 204 even if the email is unknown to avoid account enumeration.',
-  })
-  @ApiErrorCodes([ErrorCode.VALIDATION_FAILED, ErrorCode.RATE_LIMITED, ErrorCode.INTERNAL])
-  @ApiNoContentResponse()
-  async requestPasswordReset(
-    @Body() body: PasswordResetRequestDto,
-    @ClientContext() client: ClientContextValue,
-  ): Promise<void> {
-    if (!this.passwordResetJobs.isEnabled()) {
-      throw new AuthError({
-        status: 500,
-        code: ErrorCode.INTERNAL,
-        message: 'Password reset email is not configured',
-      });
-    }
-
-    await this.passwordResetRateLimiter.assertRequestAllowed({
-      email: body.email,
-      ip: client.ip,
-    });
-
-    const target = await this.auth.requestPasswordReset({ email: body.email });
-    if (!target) return;
-
-    await runBestEffort({
-      logger: this.logger,
-      operation: 'auth.enqueuePasswordResetEmail',
-      context: { userId: target.userId },
-      run: async () => {
-        await this.passwordResetJobs.enqueueSendPasswordResetEmail(target.userId);
-      },
-    });
-  }
-
-  @Post('password/reset/confirm')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    operationId: 'auth.password.reset.confirm',
-    summary: 'Confirm password reset',
-    description: 'Resets the user password using a one-time token and revokes all sessions.',
-  })
-  @ApiErrorCodes([
-    ErrorCode.VALIDATION_FAILED,
-    AuthErrorCode.AUTH_PASSWORD_RESET_TOKEN_INVALID,
-    AuthErrorCode.AUTH_PASSWORD_RESET_TOKEN_EXPIRED,
-    ErrorCode.INTERNAL,
-  ])
-  @ApiNoContentResponse()
-  async confirmPasswordReset(@Body() body: PasswordResetConfirmRequestDto): Promise<void> {
-    await this.auth.confirmPasswordReset({ token: body.token, newPassword: body.newPassword });
   }
 
   @Post('password/login')

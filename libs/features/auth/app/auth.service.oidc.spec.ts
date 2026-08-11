@@ -12,7 +12,6 @@ import type { AuthUserRecord } from './auth.types';
 import { AuthSessionLifecycleService } from './auth-session-lifecycle.service';
 import { AuthPasswordAuthService } from './auth-password-auth.service';
 import { AuthOidcAuthService } from './auth-oidc-auth.service';
-import { AuthPasswordResetService } from './auth-password-reset.service';
 import type { AuthConfig } from './auth.config';
 
 function unimplemented(): never {
@@ -115,9 +114,8 @@ function makeService(params: {
     sessions,
   );
   const oidcAuth = new AuthOidcAuthService(params.repo, params.oidcVerifier, clock, sessions);
-  const passwordReset = new AuthPasswordResetService(params.repo, dummyHasher, clock, config);
 
-  return new AuthService(sessions, passwordAuth, oidcAuth, passwordReset);
+  return new AuthService(sessions, passwordAuth, oidcAuth);
 }
 
 describe('AuthService.exchangeOidc', () => {

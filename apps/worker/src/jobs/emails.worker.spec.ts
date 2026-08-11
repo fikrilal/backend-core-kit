@@ -10,9 +10,9 @@ import {
 import {
   AUTH_SEND_PASSWORD_RESET_EMAIL_JOB,
   type AuthSendPasswordResetEmailJobData,
-} from '../../../../libs/features/auth/infra/jobs/auth-password-reset.job';
+} from '../../../../libs/features/auth/password-reset/password-reset.job';
 import { hashEmailVerificationToken } from '../../../../libs/features/auth/email-verification/email-verification-token';
-import { hashPasswordResetToken } from '../../../../libs/features/auth/app/password-reset-token';
+import { hashPasswordResetToken } from '../../../../libs/features/auth/password-reset/password-reset-token';
 import { createConfigService, createPrototypeStub } from '../../../../test/support/stubs';
 import { EmailsWorker } from './emails.worker';
 

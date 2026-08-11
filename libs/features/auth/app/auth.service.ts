@@ -3,14 +3,12 @@ import type { AuthResult } from './auth.types';
 import type { AuthSessionLifecycleService } from './auth-session-lifecycle.service';
 import type { AuthPasswordAuthService } from './auth-password-auth.service';
 import type { AuthOidcAuthService } from './auth-oidc-auth.service';
-import type { AuthPasswordResetService } from './auth-password-reset.service';
 
 export class AuthService {
   constructor(
     private readonly sessionLifecycle: AuthSessionLifecycleService,
     private readonly passwordAuth: AuthPasswordAuthService,
     private readonly oidcAuth: AuthOidcAuthService,
-    private readonly passwordReset: AuthPasswordResetService,
   ) {}
 
   async registerWithPassword(input: {
@@ -73,16 +71,6 @@ export class AuthService {
 
   async logout(input: { refreshToken: string }): Promise<void> {
     await this.sessionLifecycle.logout(input);
-  }
-
-  async requestPasswordReset(input: {
-    email: string;
-  }): Promise<Readonly<{ userId: string }> | null> {
-    return await this.passwordReset.requestPasswordReset(input);
-  }
-
-  async confirmPasswordReset(input: { token: string; newPassword: string }): Promise<void> {
-    await this.passwordReset.confirmPasswordReset(input);
   }
 
   async getPublicJwks(): Promise<unknown> {

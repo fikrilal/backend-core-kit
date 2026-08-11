@@ -169,21 +169,3 @@ export class ChangePasswordRequestDto {
   @MinLength(AUTH_PASSWORD_MIN_LENGTH)
   newPassword!: string;
 }
-
-export class PasswordResetRequestDto {
-  @ApiProperty({ example: 'user@example.com' })
-  @IsEmail()
-  email!: string;
-}
-
-export class PasswordResetConfirmRequestDto {
-  @ApiProperty({ example: '<password-reset-token>' })
-  @IsString()
-  @MinLength(1)
-  token!: string;
-
-  @ApiProperty({ minLength: AUTH_PASSWORD_MIN_LENGTH })
-  @IsString()
-  @MinLength(AUTH_PASSWORD_MIN_LENGTH)
-  newPassword!: string;
-}

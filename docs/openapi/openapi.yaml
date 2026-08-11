@@ -143,48 +143,6 @@ paths:
         - AUTH_OIDC_IDENTITY_ALREADY_LINKED
         - AUTH_OIDC_PROVIDER_ALREADY_LINKED
         - INTERNAL
-  /v1/auth/password/reset/request:
-    post:
-      description: Enqueues a password reset email for an existing user. Returns 204
-        even if the email is unknown to avoid account enumeration.
-      operationId: auth.password.reset.request
-      parameters: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PasswordResetRequestDto"
-      responses:
-        "204":
-          description: ""
-      summary: Request password reset
-      tags: *a1
-      x-error-codes:
-        - VALIDATION_FAILED
-        - RATE_LIMITED
-        - INTERNAL
-  /v1/auth/password/reset/confirm:
-    post:
-      description: Resets the user password using a one-time token and revokes all sessions.
-      operationId: auth.password.reset.confirm
-      parameters: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PasswordResetConfirmRequestDto"
-      responses:
-        "204":
-          description: ""
-      summary: Confirm password reset
-      tags: *a1
-      x-error-codes:
-        - VALIDATION_FAILED
-        - AUTH_PASSWORD_RESET_TOKEN_INVALID
-        - AUTH_PASSWORD_RESET_TOKEN_EXPIRED
-        - INTERNAL
   /v1/auth/password/login:
     post:
       description: Authenticates a user and issues first-party access + refresh tokens.
@@ -335,6 +293,49 @@ paths:
         - UNAUTHORIZED
         - RATE_LIMITED
         - INTERNAL
+  /v1/auth/password/reset/request:
+    post:
+      description: Enqueues a password reset email for an existing user. Returns 204
+        even if the email is unknown to avoid account enumeration.
+      operationId: auth.password.reset.request
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetRequestDto"
+      responses:
+        "204":
+          description: ""
+      summary: Request password reset
+      tags: &a3
+        - Auth
+      x-error-codes:
+        - VALIDATION_FAILED
+        - RATE_LIMITED
+        - INTERNAL
+  /v1/auth/password/reset/confirm:
+    post:
+      description: Resets the user password using a one-time token and revokes all sessions.
+      operationId: auth.password.reset.confirm
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetConfirmRequestDto"
+      responses:
+        "204":
+          description: ""
+      summary: Confirm password reset
+      tags: *a3
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_PASSWORD_RESET_TOKEN_INVALID
+        - AUTH_PASSWORD_RESET_TOKEN_EXPIRED
+        - INTERNAL
   /.well-known/jwks.json:
     get:
       description: Publishes public keys used to verify access tokens.
@@ -399,7 +400,7 @@ paths:
       security:
         - access-token: []
       summary: List current user sessions
-      tags: &a3
+      tags: &a4
         - Users
       x-error-codes:
         - VALIDATION_FAILED
@@ -422,7 +423,7 @@ paths:
       security:
         - access-token: []
       summary: Revoke a session (current user)
-      tags: *a3
+      tags: *a4
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -446,7 +447,7 @@ paths:
       security:
         - access-token: []
       summary: Register/update push token (current session)
-      tags: &a4
+      tags: &a5
         - Users
       x-error-codes:
         - VALIDATION_FAILED
@@ -463,7 +464,7 @@ paths:
       security:
         - access-token: []
       summary: Revoke push token (current session)
-      tags: *a4
+      tags: *a5
       x-error-codes:
         - UNAUTHORIZED
         - INTERNAL
@@ -482,7 +483,7 @@ paths:
       security:
         - access-token: []
       summary: Get current user
-      tags: &a5
+      tags: &a6
         - Users
       x-error-codes:
         - UNAUTHORIZED
@@ -518,7 +519,7 @@ paths:
       security:
         - access-token: []
       summary: Update current user profile
-      tags: *a5
+      tags: *a6
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -557,7 +558,7 @@ paths:
       security:
         - access-token: []
       summary: Create a profile image upload plan (presigned URL)
-      tags: &a6
+      tags: &a7
         - Users
       x-error-codes:
         - VALIDATION_FAILED
@@ -584,7 +585,7 @@ paths:
       security:
         - access-token: []
       summary: Finalize a profile image upload
-      tags: *a6
+      tags: *a7
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -606,7 +607,7 @@ paths:
       security:
         - access-token: []
       summary: Clear current profile image
-      tags: *a6
+      tags: *a7
       x-error-codes:
         - UNAUTHORIZED
         - INTERNAL
@@ -628,7 +629,7 @@ paths:
       security:
         - access-token: []
       summary: Get current profile image URL
-      tags: *a6
+      tags: *a7
       x-error-codes:
         - UNAUTHORIZED
         - USERS_OBJECT_STORAGE_NOT_CONFIGURED
@@ -657,7 +658,7 @@ paths:
       security:
         - access-token: []
       summary: Request account deletion (30-day grace)
-      tags: &a7
+      tags: &a8
         - Users
       x-error-codes:
         - UNAUTHORIZED
@@ -686,7 +687,7 @@ paths:
       security:
         - access-token: []
       summary: Cancel account deletion
-      tags: *a7
+      tags: *a8
       x-error-codes:
         - UNAUTHORIZED
         - IDEMPOTENCY_IN_PROGRESS
@@ -793,10 +794,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUsersListEnvelopeDto"
-      security: &a8
+      security: &a9
         - access-token: []
       summary: List users
-      tags: &a9
+      tags: &a10
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -839,9 +840,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a8
+      security: *a9
       summary: Set user role
-      tags: *a9
+      tags: *a10
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -886,9 +887,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a8
+      security: *a9
       summary: Set user status
-      tags: *a9
+      tags: *a10
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -993,10 +994,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserRoleChangeAuditsListEnvelopeDto"
-      security: &a10
+      security: &a11
         - access-token: []
       summary: List user role changes
-      tags: &a11
+      tags: &a12
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -1085,9 +1086,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserAccountDeletionAuditsListEnvelopeDto"
-      security: *a10
+      security: *a11
       summary: List user account deletion events
-      tags: *a11
+      tags: *a12
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -1195,7 +1196,7 @@ components:
           description: Linked authentication methods on this account.
           items:
             type: string
-            enum: &a13
+            enum: &a14
               - PASSWORD
               - GOOGLE
         profile:
@@ -1241,7 +1242,7 @@ components:
       properties:
         provider:
           type: string
-          enum: &a12
+          enum: &a13
             - GOOGLE
           example: GOOGLE
         idToken:
@@ -1261,7 +1262,7 @@ components:
       properties:
         provider:
           type: string
-          enum: *a12
+          enum: *a13
           example: GOOGLE
         idToken:
           type: string
@@ -1269,26 +1270,6 @@ components:
       required:
         - provider
         - idToken
-    PasswordResetRequestDto:
-      type: object
-      properties:
-        email:
-          type: string
-          example: user@example.com
-      required:
-        - email
-    PasswordResetConfirmRequestDto:
-      type: object
-      properties:
-        token:
-          type: string
-          example: <password-reset-token>
-        newPassword:
-          type: string
-          minLength: 10
-      required:
-        - token
-        - newPassword
     PasswordLoginRequestDto:
       type: object
       properties:
@@ -1348,7 +1329,7 @@ components:
             refresh responses.
           items:
             type: string
-            enum: *a13
+            enum: *a14
       required:
         - id
         - email
@@ -1391,6 +1372,26 @@ components:
           example: <verification-token>
       required:
         - token
+    PasswordResetRequestDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: user@example.com
+      required:
+        - email
+    PasswordResetConfirmRequestDto:
+      type: object
+      properties:
+        token:
+          type: string
+          example: <password-reset-token>
+        newPassword:
+          type: string
+          minLength: 10
+      required:
+        - token
+        - newPassword
     MeSessionDto:
       type: object
       properties:
@@ -1762,13 +1763,13 @@ components:
           example: 9d8c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
         oldRole:
           type: string
-          enum: &a14
+          enum: &a15
             - USER
             - ADMIN
           example: USER
         newRole:
           type: string
-          enum: *a14
+          enum: *a15
           example: ADMIN
         traceId:
           type: string

@@ -1,12 +1,12 @@
 import { normalizeEmail } from '../domain/email';
-import { AuthErrorCode } from './auth.error-codes';
-import { AuthError } from './auth.errors';
+import { AuthErrorCode } from '../app/auth.error-codes';
+import { AuthError } from '../app/auth.errors';
+import type { AuthConfig } from '../app/auth.config';
+import { assertPasswordPolicy } from '../app/auth.service.helpers';
+import type { AuthRepository } from '../app/ports/auth.repository';
+import type { PasswordHasher } from '../app/ports/password-hasher';
+import type { Clock } from '../app/time';
 import { hashPasswordResetToken } from './password-reset-token';
-import type { PasswordHasher } from './ports/password-hasher';
-import type { AuthRepository } from './ports/auth.repository';
-import type { Clock } from './time';
-import type { AuthConfig } from './auth.config';
-import { assertPasswordPolicy } from './auth.service.helpers';
 
 export class AuthPasswordResetService {
   constructor(
