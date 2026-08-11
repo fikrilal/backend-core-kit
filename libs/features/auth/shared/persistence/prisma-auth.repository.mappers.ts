@@ -6,9 +6,9 @@ import {
   type RefreshToken,
   type User,
 } from '@prisma/client';
-import type { AuthRole, AuthUserRecord, AuthUserStatus } from '../../shared/auth.types';
-import type { OidcProvider } from '../../shared/ports/oidc-id-token-verifier';
-import type { RefreshTokenRecord, SessionPushPlatform } from '../../shared/ports/auth.repository';
+import type { AuthRole, AuthUserRecord, AuthUserStatus } from '../auth.model';
+import type { OidcProvider } from '../ports/auth.ports';
+import type { RefreshTokenRecord, SessionPushPlatform } from '../ports/auth.repository';
 
 function toAuthRole(role: PrismaUserRole): AuthRole {
   switch (role) {

@@ -2,7 +2,7 @@ import type { PrismaService } from '../../../../platform/db/prisma.service';
 import type {
   ChangePasswordResult,
   ResetPasswordByTokenHashResult,
-} from '../../shared/ports/auth.repository';
+} from '../ports/auth.repository';
 import { withSerializableRetry } from '../../../../platform/db/tx-retry';
 
 export async function findPasswordCredential(

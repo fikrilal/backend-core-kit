@@ -1,11 +1,10 @@
-import { AuthErrorCode } from '../shared/auth.error-codes';
-import { AuthError } from '../shared/auth.errors';
+import { AuthError, AuthErrorCode } from './auth.errors';
 import {
   assertPasswordPolicy,
   toAuthUserView,
   verifyOidcIdentityOrThrow,
-} from '../shared/auth.service.helpers';
-import type { OidcIdTokenVerifier } from '../shared/ports/oidc-id-token-verifier';
+} from './auth.service.helpers';
+import type { OidcIdTokenVerifier } from './ports/auth.ports';
 
 describe('auth.service.helpers', () => {
   it('enforces minimum password length', () => {

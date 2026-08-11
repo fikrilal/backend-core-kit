@@ -35,7 +35,7 @@ import {
   provideClockedAppService,
   provideConstructedClockedAppService,
 } from '../../platform/di/app-service.provider';
-import type { AuthConfig } from './shared/auth.config';
+import type { AuthConfig } from './shared/auth.model';
 import { AUTH_CONFIG, AUTH_DUMMY_PASSWORD_HASH } from './shared/auth.tokens';
 
 @Module({

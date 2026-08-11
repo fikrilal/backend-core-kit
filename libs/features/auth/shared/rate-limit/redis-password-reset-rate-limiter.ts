@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { normalizeEmail } from '../email';
+import { normalizeEmail } from '../auth.model';
 import { RedisService } from '../../../../platform/redis/redis.service';
 import { asPositiveInt } from '../../../../platform/config/env-parsing';
 import { asNonEmptyString } from '../../../../shared/string';

@@ -1,14 +1,13 @@
-import { normalizeEmail } from '../shared/email';
-import { AuthErrorCode } from '../shared/auth.error-codes';
+import { normalizeEmail, type AuthResult } from '../shared/auth.model';
 import {
   AuthError,
+  AuthErrorCode,
   EmailAlreadyExistsError,
   ExternalIdentityAlreadyExistsError,
 } from '../shared/auth.errors';
 import { ErrorCode } from '../../../shared/error-codes';
 import type { AuthRepository } from '../shared/ports/auth.repository';
-import type { OidcIdTokenVerifier, OidcProvider } from '../shared/ports/oidc-id-token-verifier';
-import type { AuthResult } from '../shared/auth.types';
+import type { OidcIdTokenVerifier, OidcProvider } from '../shared/ports/auth.ports';
 import type { Clock } from '../../../shared/time';
 import type { AuthMethod } from '../../../shared/auth/auth-method';
 import {

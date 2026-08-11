@@ -1,13 +1,9 @@
-import { normalizeEmail } from '../shared/email';
-import { AuthErrorCode } from '../shared/auth.error-codes';
-import { AuthError, EmailAlreadyExistsError } from '../shared/auth.errors';
+import { normalizeEmail, type AuthConfig, type AuthResult } from '../shared/auth.model';
+import { AuthError, AuthErrorCode, EmailAlreadyExistsError } from '../shared/auth.errors';
 import { ErrorCode } from '../../../shared/error-codes';
-import type { LoginRateLimiter } from '../shared/ports/login-rate-limiter';
-import type { PasswordHasher } from '../shared/ports/password-hasher';
+import type { LoginRateLimiter, PasswordHasher } from '../shared/ports/auth.ports';
 import type { AuthRepository } from '../shared/ports/auth.repository';
-import type { AuthResult } from '../shared/auth.types';
 import type { Clock } from '../../../shared/time';
-import type { AuthConfig } from '../shared/auth.config';
 import {
   assertPasswordPolicy,
   assertUserIsNotSuspended,

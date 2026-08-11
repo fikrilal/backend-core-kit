@@ -1,5 +1,6 @@
+export { AuthErrorCode } from '../../../shared/auth/auth-error-codes';
+import type { AuthErrorCode } from '../../../shared/auth/auth-error-codes';
 import type { ErrorCode } from '../../../shared/error-codes';
-import type { AuthErrorCode } from '../shared/auth.error-codes';
 
 export type AuthErrorCodeValue = AuthErrorCode | ErrorCode;
 

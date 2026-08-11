@@ -1,12 +1,15 @@
-import { AuthErrorCode } from '../shared/auth.error-codes';
-import { AuthError } from '../shared/auth.errors';
-import type { AccessTokenIssuer } from '../shared/ports/access-token-issuer';
+import {
+  generateRefreshToken,
+  hashRefreshToken,
+  type AuthConfig,
+  type AuthResult,
+  type AuthUserRecord,
+} from '../shared/auth.model';
+import { AuthError, AuthErrorCode } from '../shared/auth.errors';
+import type { AccessTokenIssuer } from '../shared/ports/auth.ports';
 import type { AuthRepository } from '../shared/ports/auth.repository';
-import type { AuthResult, AuthUserRecord } from '../shared/auth.types';
 import type { Clock } from '../../../shared/time';
-import type { AuthConfig } from '../shared/auth.config';
 import type { AuthMethod } from '../../../shared/auth/auth-method';
-import { generateRefreshToken, hashRefreshToken } from '../shared/refresh-token';
 import {
   assertUserIsNotSuspended,
   buildActiveSessionKey,

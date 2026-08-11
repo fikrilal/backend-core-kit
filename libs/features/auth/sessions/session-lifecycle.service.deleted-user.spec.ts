@@ -1,11 +1,9 @@
-import { AuthErrorCode } from '../shared/auth.error-codes';
+import { AuthErrorCode } from '../shared/auth.errors';
 import type { AuthRepository, RefreshTokenWithSession } from '../shared/ports/auth.repository';
-import type { AccessTokenIssuer } from '../shared/ports/access-token-issuer';
+import type { AccessTokenIssuer } from '../shared/ports/auth.ports';
 import type { Clock } from '../../../shared/time';
-import { normalizeEmail } from '../shared/email';
-import type { AuthUserRecord } from '../shared/auth.types';
+import { normalizeEmail, type AuthConfig, type AuthUserRecord } from '../shared/auth.model';
 import { AuthSessionLifecycleService } from './session-lifecycle.service';
-import type { AuthConfig } from '../shared/auth.config';
 
 function unimplemented(): never {
   throw new Error('Not implemented');

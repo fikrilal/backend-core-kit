@@ -1,14 +1,9 @@
-import { AuthErrorCode } from '../shared/auth.error-codes';
-import { AuthError } from '../shared/auth.errors';
+import { AuthError, AuthErrorCode } from './auth.errors';
 import { ErrorCode } from '../../../shared/error-codes';
-import type { AuthRepository } from '../shared/ports/auth.repository';
-import type {
-  OidcIdTokenVerifier,
-  OidcProvider,
-  VerifiedOidcIdentity,
-} from '../shared/ports/oidc-id-token-verifier';
+import type { AuthRepository } from './ports/auth.repository';
+import type { OidcIdTokenVerifier, OidcProvider, VerifiedOidcIdentity } from './ports/auth.ports';
 import type { AuthMethod } from '../../../shared/auth/auth-method';
-import type { AuthUserRecord, AuthUserView } from '../shared/auth.types';
+import type { AuthUserRecord, AuthUserView } from './auth.model';
 import { addSeconds } from '../../../shared/time';
 
 export async function verifyOidcIdentityOrThrow(

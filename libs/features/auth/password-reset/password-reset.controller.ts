@@ -1,7 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, UseFilters } from '@nestjs/common';
 import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PinoLogger } from 'nestjs-pino';
-import { AuthErrorCode } from '../shared/auth.error-codes';
+import { AuthErrorCode } from '../shared/auth.errors';
 import { AuthError } from '../shared/auth.errors';
 import { ErrorCode } from '../../../platform/http/errors/error-codes';
 import {

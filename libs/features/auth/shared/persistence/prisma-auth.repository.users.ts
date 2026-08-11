@@ -3,17 +3,10 @@ import {
   type Prisma,
 } from '@prisma/client';
 import type { AuthMethod } from '../../../../shared/auth/auth-method';
-import type { Email } from '../../shared/email';
-import type { AuthUserRecord } from '../../shared/auth.types';
-import type { OidcProvider } from '../../shared/ports/oidc-id-token-verifier';
-import type {
-  LinkExternalIdentityResult,
-  VerifyEmailResult,
-} from '../../shared/ports/auth.repository';
-import {
-  EmailAlreadyExistsError,
-  ExternalIdentityAlreadyExistsError,
-} from '../../shared/auth.errors';
+import type { AuthUserRecord, Email } from '../auth.model';
+import type { OidcProvider } from '../ports/auth.ports';
+import type { LinkExternalIdentityResult, VerifyEmailResult } from '../ports/auth.repository';
+import { EmailAlreadyExistsError, ExternalIdentityAlreadyExistsError } from '../auth.errors';
 import type { PrismaService } from '../../../../platform/db/prisma.service';
 import {
   isUniqueConstraintError,

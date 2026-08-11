@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { AuthErrorCode } from '../shared/auth.error-codes';
+import { AuthErrorCode } from '../shared/auth.errors';
 import { AuthPushTokensService } from './push-tokens.service';
 import { ProblemException } from '../../../platform/http/errors/problem.exception';
 import { isObject } from '../../../../test/auth/auth-e2e.harness';

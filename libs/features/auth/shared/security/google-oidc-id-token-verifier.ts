@@ -4,7 +4,7 @@ import type {
   OidcIdTokenVerifier,
   OidcProvider,
   VerifyOidcIdTokenResult,
-} from '../../shared/ports/oidc-id-token-verifier';
+} from '../ports/auth.ports';
 import { isObject } from '../../../../platform/auth/auth.utils';
 
 const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'] as const;

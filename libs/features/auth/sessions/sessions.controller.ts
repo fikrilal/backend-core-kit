@@ -41,7 +41,7 @@ import {
   RefreshRequestDto,
 } from './sessions.dto';
 import { AuthErrorFilter } from '../shared/auth-error.filter';
-import { AuthErrorCode } from '../shared/auth.error-codes';
+import { AuthErrorCode } from '../shared/auth.errors';
 
 const listSessionsQueryOptions = {
   defaultLimit: 25,

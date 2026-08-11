@@ -1,11 +1,11 @@
 import type { PrismaService } from '../../../../platform/db/prisma.service';
-import type { AuthUserRecord } from '../../shared/auth.types';
+import type { AuthUserRecord } from '../auth.model';
 import type {
   RefreshRotationResult,
   RefreshTokenRecord,
   RefreshTokenWithSession,
   SessionSeenMetadata,
-} from '../../shared/ports/auth.repository';
+} from '../ports/auth.repository';
 import { toAuthUserRecord, toRefreshTokenRecord } from './prisma-auth.repository.mappers';
 
 class RefreshTokenAlreadyUsedError extends Error {

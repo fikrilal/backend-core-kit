@@ -1,9 +1,21 @@
 # Auth Capability Split Roadmap
 
-- Status: planning
+- Status: complete
 - Date: 2026-08-08
 - Scope: high-level sequencing for reorganizing `libs/features/auth`
 - Related ADR: `docs/adr/0018-progressive-feature-architecture.md`
+
+> **Completion note (2026-08-08):** All seven phases are implemented and
+> verified. `libs/features/auth` is now capability-oriented with a `shared/`
+> layer (`auth.module.ts` at the root; `email-verification/`, `password/`,
+> `password-reset/`, `push-tokens/`, `sessions/`, `oidc/`; shared contracts,
+> ports, persistence, security, and rate-limit under `shared/`). The
+> `AuthService` facade and the old `app/`/`infra/`/`domain/` trees were
+> removed. Endpoint paths, operation IDs, tags, schemas, and error codes are
+> unchanged. Each phase has a completed execution plan under
+> `docs/exec-plans/completed/`. The file lists below reflect each phase's
+> starting point (pre-move); current locations are shown in the Target Shape
+> above.
 
 ## Purpose
 
@@ -41,17 +53,24 @@ Keep one public `AuthModule` so API wiring remains stable:
 ```text
 libs/features/auth/
   auth.module.ts
-  auth.tokens.ts
 
   shared/
     auth.config.ts
+    auth.dto.ts
     auth.error-codes.ts
+    auth-error.filter.ts
     auth.errors.ts
-    auth.repository.ts
-    auth.types.ts
-    auth-user-state.ts
     auth.service.helpers.ts
-    time.ts
+    auth.tokens.ts
+    auth.types.ts
+    email.ts
+    refresh-token.ts
+    ports/
+      access-token-issuer.ts
+      auth.repository.ts
+      login-rate-limiter.ts
+      oidc-id-token-verifier.ts
+      password-hasher.ts
     persistence/
       prisma-auth.repository.ts
       prisma-auth.repository.*.ts
@@ -91,7 +110,6 @@ libs/features/auth/
     sessions.dto.ts
     sessions.service.ts
     session-lifecycle.service.ts
-    refresh-token.ts
     jwks.controller.ts
 
   password/
@@ -102,7 +120,7 @@ libs/features/auth/
   oidc/
     oidc.controller.ts
     oidc.dto.ts
-    oidc.service.ts
+    oidc-auth.service.ts
 ```
 
 This target is intentionally capability-oriented. It does not require each
@@ -133,14 +151,14 @@ Move email verification first.
 
 Current files:
 
-- `libs/features/auth/app/auth-email-verification.service.ts`
-- `libs/features/auth/app/email-verification-token.ts`
-- `libs/features/auth/infra/jobs/auth-email-verification.job.ts`
-- `libs/features/auth/infra/jobs/auth-email-verification.jobs.ts`
+- `libs/features/auth/email-verification/email-verification.service.ts`
+- `libs/features/auth/email-verification/email-verification-token.ts`
+- `libs/features/auth/email-verification/email-verification.job.ts`
+- `libs/features/auth/email-verification/email-verification.jobs.ts`
 - `libs/features/auth/infra/http/auth.controller.ts` handlers:
   - `POST /v1/auth/email/verify`
   - `POST /v1/auth/email/verification/resend`
-- `libs/features/auth/infra/rate-limit/redis-email-verification-rate-limiter.ts`
+- `libs/features/auth/shared/rate-limit/redis-email-verification-rate-limiter.ts`
 - worker imports in `apps/worker/src/jobs/emails.*`
 
 Why first:
@@ -170,14 +188,14 @@ Move password reset after email verification establishes the pattern.
 
 Current files:
 
-- `libs/features/auth/app/auth-password-reset.service.ts`
-- `libs/features/auth/app/password-reset-token.ts`
-- `libs/features/auth/infra/jobs/auth-password-reset.job.ts`
-- `libs/features/auth/infra/jobs/auth-password-reset.jobs.ts`
+- `libs/features/auth/password-reset/password-reset.service.ts`
+- `libs/features/auth/password-reset/password-reset-token.ts`
+- `libs/features/auth/password-reset/password-reset.job.ts`
+- `libs/features/auth/password-reset/password-reset.jobs.ts`
 - `libs/features/auth/infra/http/auth.controller.ts` handlers:
   - `POST /v1/auth/password/reset/request`
   - `POST /v1/auth/password/reset/confirm`
-- `libs/features/auth/infra/rate-limit/redis-password-reset-rate-limiter.ts`
+- `libs/features/auth/shared/rate-limit/redis-password-reset-rate-limiter.ts`
 - worker imports in `apps/worker/src/jobs/emails.*`
 
 Expected outcome:
@@ -198,10 +216,10 @@ Move current-session push token registration/revocation.
 
 Current files:
 
-- `libs/features/auth/app/auth-push-tokens.service.ts`
-- `libs/features/auth/infra/http/me-push-token.controller.ts`
-- `libs/features/auth/infra/http/dtos/me-push-token.dto.ts`
-- `libs/features/auth/infra/http/me-push-token.controller.spec.ts`
+- `libs/features/auth/push-tokens/push-tokens.service.ts`
+- `libs/features/auth/push-tokens/push-token.controller.ts`
+- `libs/features/auth/push-tokens/push-token.dto.ts`
+- `libs/features/auth/push-tokens/push-token.controller.spec.ts`
 
 Expected outcome:
 
@@ -222,12 +240,12 @@ stable.
 
 Current files:
 
-- `libs/features/auth/app/auth-session-lifecycle.service.ts`
-- `libs/features/auth/app/auth-sessions.service.ts`
-- `libs/features/auth/app/refresh-token.ts`
-- `libs/features/auth/infra/http/me-sessions.controller.ts`
-- `libs/features/auth/infra/http/dtos/me-sessions.dto.ts`
-- `libs/features/auth/infra/http/jwks.controller.ts`
+- `libs/features/auth/sessions/session-lifecycle.service.ts`
+- `libs/features/auth/sessions/sessions.service.ts`
+- `libs/features/auth/shared/refresh-token.ts`
+- `libs/features/auth/sessions/sessions.controller.ts`
+- `libs/features/auth/sessions/sessions.dto.ts`
+- `libs/features/auth/sessions/jwks.controller.ts`
 - refresh/logout handlers currently in `auth.controller.ts`
 
 Expected outcome:
@@ -253,11 +271,11 @@ Move password registration/login/change after session lifecycle is isolated.
 
 Current files:
 
-- `libs/features/auth/app/auth-password-auth.service.ts`
+- `libs/features/auth/password/password-auth.service.ts`
 - password register/login/change handlers currently in `auth.controller.ts`
 - `libs/features/auth/infra/http/dtos/auth.dto.ts` password-related DTOs
-- `libs/features/auth/infra/http/dtos/password-policy.ts`
-- `libs/features/auth/infra/rate-limit/redis-login-rate-limiter.ts`
+- `libs/features/auth/password/password-auth.dto.ts`
+- `libs/features/auth/shared/rate-limit/redis-login-rate-limiter.ts`
 
 Expected outcome:
 
@@ -281,9 +299,9 @@ Move OIDC exchange/connect last among auth entrypoints.
 
 Current files:
 
-- `libs/features/auth/app/auth-oidc-auth.service.ts`
+- `libs/features/auth/oidc/oidc-auth.service.ts`
 - OIDC exchange/connect handlers currently in `auth.controller.ts`
-- `libs/features/auth/infra/security/google-oidc-id-token-verifier.ts`
+- `libs/features/auth/shared/security/google-oidc-id-token-verifier.ts`
 
 Expected outcome:
 
@@ -304,17 +322,24 @@ Risk notes:
 
 After entrypoints are capability-oriented, clean up shared auth internals.
 
-Candidates:
+Resolved (2026-08-08):
 
-- move common DTOs out of old `infra/http/dtos/auth.dto.ts`;
-- split large DTO files by capability if not already done;
-- decide whether the repository facade should remain one class or become
-  capability-specific facades;
-- review whether `AuthService` is still useful as a facade or should disappear;
-- remove obsolete compatibility re-export files after imports settle.
+- common DTOs moved out of `infra/http/dtos/auth.dto.ts` into
+  `shared/auth.dto.ts`;
+- shared contracts, ports, persistence, security, and rate-limit consolidated
+  under `shared/` (flat contract files plus role-based `ports/`, `persistence/`,
+  `security/`, `rate-limit/` subfolders);
+- the repository facade remains one class (`PrismaAuthRepository`) behind the
+  `AuthRepository` port, split into per-aggregate implementation files;
+- `AuthService` was removed as a facade; controllers inject capability services
+  directly;
+- compatibility re-export shims (`time.ts`, `tx.ts`, rate-limit utils
+  re-exports) were removed;
+- `app/`, `infra/`, and `domain/` trees were deleted; `auth.module.ts` lives at
+  the feature root.
 
-Do this last. Shared cleanup is where accidental behavior changes usually sneak
-in.
+This was done last because shared cleanup is where accidental behavior changes
+usually sneak in; each decision was verified with the full auth e2e suite.
 
 ## Per-Phase Execution Plan Requirements
 

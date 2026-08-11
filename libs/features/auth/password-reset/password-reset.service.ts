@@ -1,10 +1,8 @@
-import { normalizeEmail } from '../shared/email';
-import { AuthErrorCode } from '../shared/auth.error-codes';
-import { AuthError } from '../shared/auth.errors';
-import type { AuthConfig } from '../shared/auth.config';
+import { normalizeEmail, type AuthConfig } from '../shared/auth.model';
+import { AuthError, AuthErrorCode } from '../shared/auth.errors';
 import { assertPasswordPolicy } from '../shared/auth.service.helpers';
 import type { AuthRepository } from '../shared/ports/auth.repository';
-import type { PasswordHasher } from '../shared/ports/password-hasher';
+import type { PasswordHasher } from '../shared/ports/auth.ports';
 import type { Clock } from '../../../shared/time';
 import { hashPasswordResetToken } from './password-reset-token';
 

@@ -1,5 +1,4 @@
-import { AuthErrorCode } from '../shared/auth.error-codes';
-import { AuthError } from '../shared/auth.errors';
+import { AuthError, AuthErrorCode } from '../shared/auth.errors';
 import { hashEmailVerificationToken } from './email-verification-token';
 import type { AuthRepository } from '../shared/ports/auth.repository';
 import type { Clock } from '../../../shared/time';

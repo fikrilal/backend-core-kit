@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type {
-  LoginRateLimitContext,
-  LoginRateLimiter,
-} from '../../shared/ports/login-rate-limiter';
+import type { LoginRateLimitContext, LoginRateLimiter } from '../ports/auth.ports';
 import { RedisService } from '../../../../platform/redis/redis.service';
 import { asPositiveInt } from '../../../../platform/config/env-parsing';
 import { asNonEmptyString } from '../../../../shared/string';

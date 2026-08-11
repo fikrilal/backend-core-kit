@@ -1,10 +1,7 @@
 import { Injectable, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID, sign as cryptoSign, type KeyObject } from 'crypto';
-import type {
-  AccessTokenIssuer,
-  SignAccessTokenInput,
-} from '../../shared/ports/access-token-issuer';
+import type { AccessTokenIssuer, SignAccessTokenInput } from '../ports/auth.ports';
 import { AuthKeyRing } from '../../../../platform/auth/auth-keyring.service';
 import type { JwtAlg } from '../../../../platform/auth/auth.types';
 import { asNonEmptyString } from '../../../../shared/string';

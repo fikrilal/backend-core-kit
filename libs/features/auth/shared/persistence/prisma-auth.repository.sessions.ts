@@ -13,7 +13,7 @@ import type {
   UpsertSessionPushTokenResult,
   UserSessionListItem,
   UserSessionsSortField,
-} from '../../shared/ports/auth.repository';
+} from '../ports/auth.repository';
 import { isUniqueConstraintError } from './prisma-auth.repository.prisma-errors';
 import { toPrismaPushPlatform } from './prisma-auth.repository.mappers';
 import {

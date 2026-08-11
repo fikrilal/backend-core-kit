@@ -1,8 +1,7 @@
 import type { ListQuery } from '../../../../shared/list-query';
-import type { Email } from '../email';
-import type { AuthUserRecord } from '../auth.types';
+import type { AuthUserRecord, Email } from '../auth.model';
 import type { AuthMethod } from '../../../../shared/auth/auth-method';
-import type { OidcProvider } from './oidc-id-token-verifier';
+import type { OidcProvider } from './auth.ports';
 
 export type CreateSessionInput = Readonly<{
   userId: string;

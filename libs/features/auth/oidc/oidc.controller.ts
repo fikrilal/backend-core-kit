@@ -15,7 +15,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthOidcAuthService } from './oidc-auth.service';
-import { AuthErrorCode } from '../shared/auth.error-codes';
+import { AuthErrorCode } from '../shared/auth.errors';
 import { AccessTokenGuard } from '../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../platform/auth/auth.types';
