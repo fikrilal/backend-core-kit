@@ -298,15 +298,17 @@ export class ${serviceClass} {
     },
     {
       path: join(base, `${names.kebab}.controller.ts`),
-      content: `import { Controller, Get } from '@nestjs/common';
+      content: `import { Controller, Get, UseFilters } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ErrorCode } from '../../platform/http/errors/error-codes';
+import { AppProblemErrorFilter } from '../../platform/http/filters/app-problem-error.filter';
 import { ApiErrorCodes } from '../../platform/http/openapi/api-error-codes.decorator';
 import { ${dtoClass} } from './${names.kebab}.dto';
 import { ${serviceClass} } from './${names.kebab}.service';
 
 @ApiTags('${names.pascal}')
 @Controller('${names.kebab}')
+@UseFilters(AppProblemErrorFilter)
 export class ${controllerClass} {
   constructor(private readonly service: ${serviceClass}) {}
 
@@ -449,15 +451,17 @@ export class ${dtoClass} {
     },
     {
       path: join(base, 'infra', 'http', `${names.kebab}.controller.ts`),
-      content: `import { Controller, Get } from '@nestjs/common';
+      content: `import { Controller, Get, UseFilters } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
+import { AppProblemErrorFilter } from '../../../../platform/http/filters/app-problem-error.filter';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { ${serviceClass} } from '../../app/${names.kebab}.service';
 import { ${dtoClass} } from './dtos/${names.kebab}.dto';
 
 @ApiTags('${names.pascal}')
 @Controller('${names.kebab}')
+@UseFilters(AppProblemErrorFilter)
 export class ${controllerClass} {
   constructor(private readonly service: ${serviceClass}) {}
 

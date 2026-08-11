@@ -133,6 +133,19 @@ patchMe(@CurrentPrincipal() principal: AuthPrincipal, @Body() body: PatchMeReque
 
 See `docs/engineering/auth/token-refresh-and-request-retry.md` for client retry guidance.
 
+## Simple Endpoint Errors
+
+For simple feature slices, prefer the shared platform error primitive instead of
+creating a feature-specific error class and filter:
+
+- throw `AppProblemError` from `libs/platform/http/errors/app-problem.error.ts`;
+- apply `AppProblemErrorFilter` from
+  `libs/platform/http/filters/app-problem-error.filter.ts` at the controller or
+  handler.
+
+Create feature-specific error enums/classes only when clients need stable
+feature-specific codes or the feature has special mapping behavior.
+
 ## Common Pitfalls
 
 - Returning “raw” objects without the envelope

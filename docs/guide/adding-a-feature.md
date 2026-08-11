@@ -54,6 +54,10 @@ complex features.
 - Put behavior orchestration in services.
 - Add feature-specific error types only when clients need stable branchable
   feature error codes.
+- For simple HTTP failures, throw `AppProblemError` from
+  `libs/platform/http/errors/app-problem.error.ts` and use
+  `AppProblemErrorFilter` from
+  `libs/platform/http/filters/app-problem-error.filter.ts`.
 
 2. Promote only when needed
 
