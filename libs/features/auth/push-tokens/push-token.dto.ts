@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsIn, IsString, MaxLength, MinLength } from 'class-validator';
-import type { SessionPushPlatform } from '../../../app/ports/auth.repository';
+import type { SessionPushPlatform } from '../app/ports/auth.repository';
 
 export const PUSH_PLATFORMS = ['ANDROID', 'IOS', 'WEB'] as const;
 

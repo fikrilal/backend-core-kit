@@ -10,18 +10,18 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthPushTokensService } from '../../app/auth-push-tokens.service';
-import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
-import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
-import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
-import { PUSH_SERVICE } from '../../../../platform/push/push.tokens';
-import type { PushService } from '../../../../platform/push/push.service';
-import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
-import { ErrorCode } from '../../../../platform/http/errors/error-codes';
-import { ProblemException } from '../../../../platform/http/errors/problem.exception';
-import { AuthErrorCode } from '../../app/auth.error-codes';
-import { MePushTokenUpsertRequestDto } from './dtos/me-push-token.dto';
-import { AuthErrorFilter } from './auth-error.filter';
+import { AccessTokenGuard } from '../../../platform/auth/access-token.guard';
+import { CurrentPrincipal } from '../../../platform/auth/current-principal.decorator';
+import type { AuthPrincipal } from '../../../platform/auth/auth.types';
+import { PUSH_SERVICE } from '../../../platform/push/push.tokens';
+import type { PushService } from '../../../platform/push/push.service';
+import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
+import { ErrorCode } from '../../../platform/http/errors/error-codes';
+import { ProblemException } from '../../../platform/http/errors/problem.exception';
+import { AuthErrorCode } from '../app/auth.error-codes';
+import { MePushTokenUpsertRequestDto } from './push-token.dto';
+import { AuthPushTokensService } from './push-tokens.service';
+import { AuthErrorFilter } from '../infra/http/auth-error.filter';
 
 @ApiTags('Users')
 @Controller()

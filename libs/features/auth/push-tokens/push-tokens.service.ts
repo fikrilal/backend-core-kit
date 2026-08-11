@@ -1,8 +1,8 @@
-import { AuthError } from './auth.errors';
-import type { AuthRepository, SessionPushPlatform } from './ports/auth.repository';
-import type { Clock } from './time';
+import { AuthError } from '../app/auth.errors';
+import type { AuthRepository, SessionPushPlatform } from '../app/ports/auth.repository';
+import type { Clock } from '../app/time';
 import { ErrorCode } from '../../../shared/error-codes';
-import { assertAuthUserIsActive } from './auth-user-state';
+import { assertAuthUserIsActive } from '../app/auth-user-state';
 
 export class AuthPushTokensService {
   constructor(

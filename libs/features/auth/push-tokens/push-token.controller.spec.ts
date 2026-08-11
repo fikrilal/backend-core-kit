@@ -1,11 +1,11 @@
 import { HttpStatus } from '@nestjs/common';
-import { AuthErrorCode } from '../../app/auth.error-codes';
-import { AuthPushTokensService } from '../../app/auth-push-tokens.service';
-import { ProblemException } from '../../../../platform/http/errors/problem.exception';
-import { isObject } from '../../../../../test/auth/auth-e2e.harness';
-import type { PushService } from '../../../../platform/push/push.service';
-import { MePushTokenController } from './me-push-token.controller';
-import { createPrototypeStub } from '../../../../../test/support/stubs';
+import { AuthErrorCode } from '../app/auth.error-codes';
+import { AuthPushTokensService } from './push-tokens.service';
+import { ProblemException } from '../../../platform/http/errors/problem.exception';
+import { isObject } from '../../../../test/auth/auth-e2e.harness';
+import type { PushService } from '../../../platform/push/push.service';
+import { MePushTokenController } from './push-token.controller';
+import { createPrototypeStub } from '../../../../test/support/stubs';
 
 describe('MePushTokenController', () => {
   it('upsertMyPushToken throws typed not-configured code when push is disabled', async () => {

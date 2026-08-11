@@ -369,9 +369,9 @@ Stop a phase and reassess if any of these happen:
 
 Phase status:
 
-- [ ] Phase 1 — Email verification
-- [ ] Phase 2 — Password reset
-- [ ] Phase 3 — Push tokens
+- [x] Phase 1 — Email verification
+- [x] Phase 2 — Password reset
+- [x] Phase 3 — Push tokens
 - [ ] Phase 4 — Sessions and JWKS
 - [ ] Phase 5 — Password auth
 - [ ] Phase 6 — OIDC
