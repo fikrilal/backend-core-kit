@@ -4,8 +4,12 @@ This core kit is designed as a **modular monolith** with hard boundaries and a s
 
 ## Architectural Principles
 
-- **Vertical slice / feature-first**: features own their domain, application logic, and infrastructure adapters.
-- **Clean boundaries**:
+- **Vertical slice / feature-first**: features own their product behavior,
+  persistence adapters, HTTP surface, jobs, and feature-specific rules.
+- **Progressive feature architecture**: start with the smallest feature shape
+  that fits the current behavior, then promote to stricter layers only when the
+  feature needs them. See `docs/adr/0018-progressive-feature-architecture.md`.
+- **Clean boundaries when present**:
   - `domain`: pure business rules (no Nest, no Prisma, no Redis, no HTTP)
   - `app`: use-cases (orchestration), ports (interfaces), policies
   - `infra`: adapters (db, http, queue, external services)
@@ -46,27 +50,55 @@ This layout is standardized by ADR: `docs/adr/0011-repository-layout-apps-and-li
 │  │  ├─ db/                    # Prisma client, transaction helpers
 │  │  └─ queue/                 # BullMQ abstraction + wiring
 │  └─ features/
-│     └─ <feature-name>/
-│        ├─ domain/             # pure domain model + invariants
-│        ├─ app/                # use-cases + ports
-│        └─ infra/              # adapters (prisma repos, queue jobs, http controllers)
+│     └─ <feature-name>/        # progressive feature slice
+│        ├─ *.module.ts         # simple endpoint/capability slices may live here
+│        ├─ <capability>/       # grouped endpoint/capability code when useful
+│        └─ domain/app/infra    # only when the feature needs clean boundaries
 └─ package.json
 ```
 
-The exact internal file names can evolve, but the top-level `apps/` + `libs/` structure and the dependency direction are requirements of this core kit.
+The exact internal file names can evolve, but the top-level `apps/` + `libs/`
+structure and the dependency direction are requirements of this core kit.
+
+## Feature Tiers
+
+Use the smallest tier that fits the current behavior.
+
+| Tier                  | Use when                                                                                                      | Typical shape                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Endpoint slice        | Simple CRUD, settings, read/list endpoints, one repository, no complex invariant                              | controller, DTO, service, repository, optional errors, colocated tests                              |
+| Capability slice      | Multiple related endpoints share behavior, policies, or persistence                                           | capability folders with controller/service/repository/policy/types and optional feature-shared code |
+| Clean/hexagonal slice | Auth, money, deletion, queues, transaction-heavy invariants, multiple adapters, framework-free use-case tests | explicit `domain`, `app`, `ports`, and `infra` boundaries                                           |
+
+Promote to a clean/hexagonal slice when one of these is true:
+
+- business rules must be pure and independently unit-tested;
+- one use case needs multiple adapters;
+- external side effects must be orchestrated through ports;
+- transaction boundaries span multiple repositories or aggregates;
+- queue retries, idempotency, or eventual consistency affect correctness;
+- auth/session/RBAC/security-sensitive behavior is changing;
+- the feature is expected to be extracted or reused outside the Nest HTTP
+  process;
+- repository behavior is complex enough that framework-free app tests materially
+  improve confidence.
 
 ## Dependency Direction (Rule)
 
 ```text
-infra  -> app  -> domain
-platform -> (infra/app), but domain must not depend on platform
+platform must not depend on features
+features must not depend on apps
+shared must stay framework-free
+domain, when present, stays pure
+app, when present, stays framework-free and must not import infra
 ```
 
 Examples:
 
 - `domain` must not import `@nestjs/*`, `@prisma/client`, Redis, BullMQ, or HTTP types.
-- `app` defines interfaces (“ports”) that infra implements.
-- `infra` contains Prisma repositories, HTTP controllers, BullMQ processors, external API clients.
+- `app`, when used, defines use cases and interfaces (“ports”) that adapters implement.
+- Simple endpoint slices may use Nest `@Injectable` in feature services.
+- Repository classes remain the persistence boundary; do not put Prisma queries in controllers.
 
 ## Process Model
 

@@ -4,6 +4,7 @@ This guide standardizes the shape of endpoints so clients can be consistent acro
 
 ## Checklist
 
+- [ ] Endpoint lives in the smallest feature tier that fits the behavior
 - [ ] Route is versioned (e.g., `/v1/...`) unless explicitly excluded
 - [ ] DTOs validate input (whitelist + forbid unknown fields)
 - [ ] Response uses `{ data, meta? }` envelope
@@ -12,6 +13,35 @@ This guide standardizes the shape of endpoints so clients can be consistent acro
 - [ ] Pagination/filter/sort follow standard conventions when listing
 - [ ] OpenAPI decorators document request/response and `x-error-codes`
 - [ ] E2E test asserts envelope + error shape + `X-Request-Id`
+
+## Placement
+
+Default to a simple endpoint slice:
+
+```text
+libs/features/<feature>/
+  <feature>.module.ts
+  <feature>.controller.ts
+  <feature>.dto.ts
+  <feature>.service.ts
+  prisma-<feature>.repository.ts
+```
+
+Use capability folders when a feature has multiple related endpoint groups:
+
+```text
+libs/features/<feature>/
+  <feature>.module.ts
+  <capability>/
+    <capability>.controller.ts
+    <capability>.dto.ts
+    <capability>.service.ts
+    prisma-<capability>.repository.ts
+  shared/
+```
+
+Use `domain/app/infra` only when the promotion triggers in
+`docs/guide/adding-a-feature.md` apply.
 
 ## Protecting Endpoints (Access Tokens)
 

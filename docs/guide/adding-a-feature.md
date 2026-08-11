@@ -1,61 +1,85 @@
-# Adding a Feature (Vertical Slice)
+# Adding a Feature
 
-This guide shows the expected structure for new business capabilities.
+This guide shows how to add business capabilities using the progressive feature
+architecture from `docs/adr/0018-progressive-feature-architecture.md`.
 
-## Rule: Feature Owns Its Slice
+## Rule: Feature Owns Its Slice, Layers Are Progressive
 
-A feature should own:
+A feature owns its HTTP surface, service behavior, persistence adapters, jobs,
+and feature-specific rules. Do not create layers before the behavior needs them.
 
-- `domain`: pure rules + invariants
-- `app`: use-cases + ports (interfaces)
-- `infra`: adapters (Prisma repo, BullMQ jobs, HTTP controllers)
+Use the smallest tier that fits:
+
+| Tier                  | Use when                                                                                                      | Typical shape                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Endpoint slice        | Simple CRUD, settings, read/list endpoints, one repository, no complex invariant                              | controller, DTO, service, repository, optional errors, colocated tests                    |
+| Capability slice      | Multiple related endpoints share behavior, policies, or persistence                                           | capability folders with controller/service/repository/policy/types and optional `shared/` |
+| Clean/hexagonal slice | Auth, money, deletion, queues, transaction-heavy invariants, multiple adapters, framework-free use-case tests | explicit `domain`, `app`, `ports`, and `infra`                                            |
 
 ## Steps
 
-0. Scaffold the baseline slice (recommended)
+0. Scaffold the smallest useful slice (recommended)
 
 - Run `npm run scaffold:feature -- --name <feature-name>`.
+- Use `--tier clean` only when the feature needs clean/hexagonal boundaries.
 - Optional: add queue skeleton with `--with-queue`.
 - Optional: preview without writing files via `--dry-run`.
 
 Examples:
 
 ```bash
-npm run scaffold:feature -- --name billing
+npm run scaffold:feature -- --name user-preferences
+npm run scaffold:feature -- --name billing --tier clean
 npm run scaffold:feature -- --name user-preferences --with-queue
 npm run scaffold:feature -- --name reporting --dry-run
 ```
 
-This scaffolds:
+The default scaffold creates a simple endpoint slice:
 
-- `app`: service, error types, port
-- `infra`: module, tokens, controller, dto, error filter, prisma repository
-- optional `infra/jobs` queue files
+- module
+- controller
+- DTO
+- service
+- Prisma repository
+- optional jobs queue files
 - baseline tests (`*.spec.ts`) and `test/<feature>.e2e-spec.ts` TODO skeleton
 
-1. Define the domain model
+The clean scaffold creates the explicit `app` + `infra` shape for high-risk or
+complex features.
 
-- Create domain types and invariants.
-- Keep it pure (no Nest/Prisma/Redis imports).
+1. Start with endpoint/capability code
 
-2. Define use-cases (app layer)
+- Keep route/controller code thin.
+- Put Prisma queries in repositories, not controllers.
+- Put behavior orchestration in services.
+- Add feature-specific error types only when clients need stable branchable
+  feature error codes.
 
-- Create use-case(s) that orchestrate domain + ports.
-- Define repository/service interfaces (“ports”) required by the use-case.
+2. Promote only when needed
 
-3. Implement infra adapters
+Promote to `domain/app/infra` when one of these is true:
 
-- Implement Prisma repositories that satisfy the ports.
-- Implement queue producers/consumers if background work is needed.
+- business rules must be pure and independently unit-tested;
+- one use case needs multiple adapters;
+- external side effects must be orchestrated through ports;
+- transaction boundaries span multiple repositories or aggregates;
+- queue retries, idempotency, or eventual consistency affect correctness;
+- auth/session/RBAC/security-sensitive behavior is changing;
+- the feature is expected to be extracted or reused outside the Nest HTTP
+  process.
 
-4. Expose HTTP endpoints (API app)
+3. Expose HTTP endpoints
 
 - Add controllers/modules in the API app wiring.
 - Use DTOs + validation and follow the response/error standards.
 
-### Module Assembly Pattern (Standard)
+### Module Assembly Pattern
 
-Use provider builders from `libs/platform/di/app-service.provider.ts` for pure app services. This keeps module wiring consistent and removes repeated `useFactory` boilerplate.
+Simple endpoint-slice services may use Nest `@Injectable`.
+
+Use provider builders from `libs/platform/di/app-service.provider.ts` for pure
+app services in clean/hexagonal slices. This keeps module wiring consistent and
+removes repeated `useFactory` boilerplate.
 
 Example:
 
@@ -99,13 +123,13 @@ When a feature exposes protected endpoints, wire RBAC at the route boundary:
 
 See `docs/guide/adding-an-endpoint.md` for copy-paste examples.
 
-5. Tests
+4. Tests
 
-- Unit test domain + use-cases.
-- Add integration tests for repositories (real Postgres).
+- Unit test behavior at the smallest useful boundary.
+- Add integration tests for non-trivial repositories (real Postgres).
 - Add e2e tests for key flows (HTTP).
 
-6. Docs + OpenAPI
+5. Docs + OpenAPI
 
 - Update standards references if you introduce new error codes.
 - Ensure OpenAPI is generated and contract gates pass.

@@ -66,25 +66,46 @@ async function runNpm(
 }
 
 async function main(): Promise<void> {
-  const featureName = `scaffold-smoke-${randomUUID().slice(0, 8)}`;
-  const featureDir = resolve(process.cwd(), 'libs', 'features', featureName);
-  const e2eSpecPath = resolve(process.cwd(), 'test', `${featureName}.e2e-spec.ts`);
+  const runId = randomUUID().slice(0, 8);
+  const simpleFeatureName = `scaffold-smoke-simple-${runId}`;
+  const cleanFeatureName = `scaffold-smoke-clean-${runId}`;
+  const generatedPaths = [
+    resolve(process.cwd(), 'libs', 'features', simpleFeatureName),
+    resolve(process.cwd(), 'libs', 'features', cleanFeatureName),
+    resolve(process.cwd(), 'test', `${simpleFeatureName}.e2e-spec.ts`),
+    resolve(process.cwd(), 'test', `${cleanFeatureName}.e2e-spec.ts`),
+  ];
 
-  process.stdout.write(`[scaffold-smoke] feature=${featureName}\n`);
+  process.stdout.write(`[scaffold-smoke] simple=${simpleFeatureName} clean=${cleanFeatureName}\n`);
 
   try {
     await runNpm(
-      ['run', 'scaffold:feature', '--', '--name', featureName, '--with-queue'],
+      ['run', 'scaffold:feature', '--', '--name', simpleFeatureName, '--with-queue'],
       process.env,
-      'scaffold feature',
+      'scaffold simple feature',
+    );
+    await runNpm(
+      [
+        'run',
+        'scaffold:feature',
+        '--',
+        '--name',
+        cleanFeatureName,
+        '--tier',
+        'clean',
+        '--with-queue',
+      ],
+      process.env,
+      'scaffold clean feature',
     );
     await runNpm(['run', 'lint'], process.env, 'lint');
     await runNpm(['run', 'typecheck'], process.env, 'typecheck');
     await runNpm(['run', 'deps:check'], process.env, 'deps:check');
   } finally {
-    await rm(featureDir, { recursive: true, force: true });
-    await rm(e2eSpecPath, { force: true });
-    process.stdout.write(`[scaffold-smoke] cleaned ${featureName}\n`);
+    for (const path of generatedPaths) {
+      await rm(path, { recursive: true, force: true });
+    }
+    process.stdout.write(`[scaffold-smoke] cleaned ${runId}\n`);
   }
 }
 

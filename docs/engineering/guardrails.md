@@ -118,7 +118,8 @@ npm run audit:prod
 
 Examples:
 
-- feature app/domain layers stay framework-free
+- feature app/domain layers stay framework-free when present
+- simple feature slices stay inside `libs/features/<feature>`
 - platform does not import features
 - forbidden imports and cycles fail the boundary gate
 
