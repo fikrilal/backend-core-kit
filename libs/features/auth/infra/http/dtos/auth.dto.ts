@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 import { AUTH_METHOD_VALUES } from '../../../../../shared/auth/auth-method';
 import { MeDto } from '../../../../users/infra/http/dtos/me.dto';
-import { AUTH_PASSWORD_MIN_LENGTH } from './password-policy';
 
 const OIDC_PROVIDER_VALUES = ['GOOGLE'] as const;
 
@@ -68,48 +67,6 @@ export class AuthResultWithMeEnvelopeDto {
   data!: AuthResultWithMeDto;
 }
 
-export class PasswordRegisterRequestDto {
-  @ApiProperty({ example: 'user@example.com' })
-  @IsEmail()
-  email!: string;
-
-  @ApiProperty({ minLength: AUTH_PASSWORD_MIN_LENGTH })
-  @IsString()
-  @MinLength(AUTH_PASSWORD_MIN_LENGTH)
-  password!: string;
-
-  @ApiProperty({ required: false, description: 'Stable per-device identifier (recommended).' })
-  @IsOptional()
-  @IsString()
-  deviceId?: string;
-
-  @ApiProperty({ required: false, description: 'Human-friendly device name (optional).' })
-  @IsOptional()
-  @IsString()
-  deviceName?: string;
-}
-
-export class PasswordLoginRequestDto {
-  @ApiProperty({ example: 'user@example.com' })
-  @IsEmail()
-  email!: string;
-
-  @ApiProperty({ minLength: 1 })
-  @IsString()
-  @MinLength(1)
-  password!: string;
-
-  @ApiProperty({ required: false, description: 'Stable per-device identifier (recommended).' })
-  @IsOptional()
-  @IsString()
-  deviceId?: string;
-
-  @ApiProperty({ required: false, description: 'Human-friendly device name (optional).' })
-  @IsOptional()
-  @IsString()
-  deviceName?: string;
-}
-
 export class OidcExchangeRequestDto {
   @ApiProperty({ enum: OIDC_PROVIDER_VALUES, example: 'GOOGLE' })
   @IsString()
@@ -142,16 +99,4 @@ export class OidcConnectRequestDto {
   @IsString()
   @MinLength(1)
   idToken!: string;
-}
-
-export class ChangePasswordRequestDto {
-  @ApiProperty({ minLength: 1 })
-  @IsString()
-  @MinLength(1)
-  currentPassword!: string;
-
-  @ApiProperty({ minLength: AUTH_PASSWORD_MIN_LENGTH })
-  @IsString()
-  @MinLength(AUTH_PASSWORD_MIN_LENGTH)
-  newPassword!: string;
 }

@@ -19,6 +19,7 @@ import { AuthPasswordResetJobs } from '../password-reset/password-reset.jobs';
 import { AuthPasswordResetService } from '../password-reset/password-reset.service';
 import { MePushTokenController } from '../push-tokens/push-token.controller';
 import { AuthPushTokensService } from '../push-tokens/push-tokens.service';
+import { PasswordAuthController } from '../password/password-auth.controller';
 import { JwksController } from '../sessions/jwks.controller';
 import { AuthSessionsController, MeSessionsController } from '../sessions/sessions.controller';
 import { AuthSessionsService } from '../sessions/sessions.service';
@@ -53,6 +54,7 @@ import { AUTH_CONFIG, AUTH_DUMMY_PASSWORD_HASH } from './auth.tokens';
     AuthController,
     EmailVerificationController,
     PasswordResetController,
+    PasswordAuthController,
     JwksController,
     MeSessionsController,
     AuthSessionsController,
