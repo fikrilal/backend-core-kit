@@ -1,9 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsEmail, IsIn, IsOptional, IsString } from 'class-validator';
 import { AUTH_METHOD_VALUES } from '../../../../../shared/auth/auth-method';
 import { MeDto } from '../../../../users/infra/http/dtos/me.dto';
-
-const OIDC_PROVIDER_VALUES = ['GOOGLE'] as const;
 
 export class AuthUserDto {
   @ApiProperty({ example: '3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0' })
@@ -65,38 +63,4 @@ export class AuthResultWithMeDto {
 export class AuthResultWithMeEnvelopeDto {
   @ApiProperty({ type: AuthResultWithMeDto })
   data!: AuthResultWithMeDto;
-}
-
-export class OidcExchangeRequestDto {
-  @ApiProperty({ enum: OIDC_PROVIDER_VALUES, example: 'GOOGLE' })
-  @IsString()
-  @IsIn(OIDC_PROVIDER_VALUES)
-  provider!: (typeof OIDC_PROVIDER_VALUES)[number];
-
-  @ApiProperty({ example: '<oidc-id-token>' })
-  @IsString()
-  @MinLength(1)
-  idToken!: string;
-
-  @ApiProperty({ required: false, description: 'Stable per-device identifier (recommended).' })
-  @IsOptional()
-  @IsString()
-  deviceId?: string;
-
-  @ApiProperty({ required: false, description: 'Human-friendly device name (optional).' })
-  @IsOptional()
-  @IsString()
-  deviceName?: string;
-}
-
-export class OidcConnectRequestDto {
-  @ApiProperty({ enum: OIDC_PROVIDER_VALUES, example: 'GOOGLE' })
-  @IsString()
-  @IsIn(OIDC_PROVIDER_VALUES)
-  provider!: (typeof OIDC_PROVIDER_VALUES)[number];
-
-  @ApiProperty({ example: '<oidc-id-token>' })
-  @IsString()
-  @MinLength(1)
-  idToken!: string;
 }

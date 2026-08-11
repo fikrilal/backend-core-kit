@@ -20,10 +20,10 @@ import { AuthPasswordResetService } from '../password-reset/password-reset.servi
 import { MePushTokenController } from '../push-tokens/push-token.controller';
 import { AuthPushTokensService } from '../push-tokens/push-tokens.service';
 import { PasswordAuthController } from '../password/password-auth.controller';
+import { OidcController } from '../oidc/oidc.controller';
 import { JwksController } from '../sessions/jwks.controller';
 import { AuthSessionsController, MeSessionsController } from '../sessions/sessions.controller';
 import { AuthSessionsService } from '../sessions/sessions.service';
-import { AuthController } from './http/auth.controller';
 import { PrismaAuthRepository } from './persistence/prisma-auth.repository';
 import { RedisEmailVerificationRateLimiter } from './rate-limit/redis-email-verification-rate-limiter';
 import { RedisLoginRateLimiter } from './rate-limit/redis-login-rate-limiter';
@@ -51,7 +51,7 @@ import { AUTH_CONFIG, AUTH_DUMMY_PASSWORD_HASH } from './auth.tokens';
     UsersModule,
   ],
   controllers: [
-    AuthController,
+    OidcController,
     EmailVerificationController,
     PasswordResetController,
     PasswordAuthController,

@@ -14,31 +14,28 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { AuthService } from '../../app/auth.service';
-import { AuthErrorCode } from '../../app/auth.error-codes';
-import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
-import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
-import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
-import { ErrorCode } from '../../../../platform/http/errors/error-codes';
+import { AuthService } from '../app/auth.service';
+import { AuthErrorCode } from '../app/auth.error-codes';
+import { AccessTokenGuard } from '../../../platform/auth/access-token.guard';
+import { CurrentPrincipal } from '../../../platform/auth/current-principal.decorator';
+import type { AuthPrincipal } from '../../../platform/auth/auth.types';
+import { ErrorCode } from '../../../platform/http/errors/error-codes';
 import {
   ClientContext,
   type ClientContextValue,
-} from '../../../../platform/http/request-context.decorator';
-import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
-import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
-import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
-import { UsersService } from '../../../users/app/users.service';
-import {
-  AuthResultWithMeEnvelopeDto,
-  OidcConnectRequestDto,
-  OidcExchangeRequestDto,
-} from './dtos/auth.dto';
-import { AuthErrorFilter } from './auth-error.filter';
+} from '../../../platform/http/request-context.decorator';
+import { Idempotent } from '../../../platform/http/idempotency/idempotency.decorator';
+import { ApiIdempotencyKeyHeader } from '../../../platform/http/openapi/api-idempotency-key.decorator';
+import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
+import { UsersService } from '../../users/app/users.service';
+import { AuthResultWithMeEnvelopeDto } from '../infra/http/dtos/auth.dto';
+import { OidcConnectRequestDto, OidcExchangeRequestDto } from './oidc.dto';
+import { AuthErrorFilter } from '../infra/http/auth-error.filter';
 
 @ApiTags('Auth')
 @Controller('auth')
 @UseFilters(AuthErrorFilter)
-export class AuthController {
+export class OidcController {
   constructor(
     private readonly auth: AuthService,
     private readonly users: UsersService,

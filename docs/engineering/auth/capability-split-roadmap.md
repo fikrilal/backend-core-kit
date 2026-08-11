@@ -374,5 +374,5 @@ Phase status:
 - [x] Phase 3 — Push tokens
 - [x] Phase 4 — Sessions and JWKS
 - [x] Phase 5 — Password auth
-- [ ] Phase 6 — OIDC
+- [x] Phase 6 — OIDC
 - [ ] Phase 7 — Shared cleanup
