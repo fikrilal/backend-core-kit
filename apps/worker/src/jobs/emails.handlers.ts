@@ -8,9 +8,9 @@ import {
   generatePasswordResetToken,
   hashPasswordResetToken,
 } from '../../../../libs/features/auth/password-reset/password-reset-token';
-import { asNonEmptyString } from '../../../../libs/platform/auth/auth.utils';
 import type { PrismaService } from '../../../../libs/platform/db/prisma.service';
 import type { EmailService } from '../../../../libs/platform/email/email.service';
+import { asNonEmptyString } from '../../../../libs/shared/string';
 import { buildVerifyEmailUrl, getBrandName, renderVerificationEmailHtml } from './emails.templates';
 import type {
   AuthSendPasswordResetEmailJobResult,

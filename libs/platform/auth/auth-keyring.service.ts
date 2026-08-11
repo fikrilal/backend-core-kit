@@ -8,9 +8,10 @@ import {
 } from 'crypto';
 import { Injectable, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { asNonEmptyString } from '../../shared/string';
 import { NodeEnv } from '../config/env.validation';
 import type { JwtAlg } from './auth.types';
-import { asNonEmptyString, getNodeEnv, isObject, normalizeJwtAlg } from './auth.utils';
+import { getNodeEnv, isObject, normalizeJwtAlg } from './auth.utils';
 
 type JsonWebKey = webcrypto.JsonWebKey;
 type JwksKey = JsonWebKey & { kid: string; use?: string; alg?: string };
