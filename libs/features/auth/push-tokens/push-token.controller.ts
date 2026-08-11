@@ -18,10 +18,10 @@ import type { PushService } from '../../../platform/push/push.service';
 import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
 import { ErrorCode } from '../../../platform/http/errors/error-codes';
 import { ProblemException } from '../../../platform/http/errors/problem.exception';
-import { AuthErrorCode } from '../app/auth.error-codes';
+import { AuthErrorCode } from '../shared/auth.error-codes';
 import { MePushTokenUpsertRequestDto } from './push-token.dto';
 import { AuthPushTokensService } from './push-tokens.service';
-import { AuthErrorFilter } from '../infra/http/auth-error.filter';
+import { AuthErrorFilter } from '../shared/auth-error.filter';
 
 @ApiTags('Users')
 @Controller()

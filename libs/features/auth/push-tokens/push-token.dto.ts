@@ -1,19 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsIn, IsString, MaxLength, MinLength } from 'class-validator';
-import type { SessionPushPlatform } from '../app/ports/auth.repository';
-
-export const PUSH_PLATFORMS = ['ANDROID', 'IOS', 'WEB'] as const;
+import { SESSION_PUSH_PLATFORMS, type SessionPushPlatform } from '../shared/ports/auth.repository';
 
 export class MePushTokenUpsertRequestDto {
   @ApiProperty({
-    enum: PUSH_PLATFORMS,
+    enum: SESSION_PUSH_PLATFORMS,
     example: 'ANDROID',
     description: 'Client platform where the push token was minted.',
   })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
   @IsString()
-  @IsIn(PUSH_PLATFORMS)
+  @IsIn(SESSION_PUSH_PLATFORMS)
   platform!: SessionPushPlatform;
 
   @ApiProperty({

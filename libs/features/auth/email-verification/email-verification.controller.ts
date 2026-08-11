@@ -8,8 +8,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthErrorCode } from '../app/auth.error-codes';
-import { AuthError } from '../app/auth.errors';
+import { AuthErrorCode } from '../shared/auth.error-codes';
+import { AuthError } from '../shared/auth.errors';
 import { AccessTokenGuard } from '../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../platform/auth/auth.types';
@@ -19,8 +19,8 @@ import {
   type ClientContextValue,
 } from '../../../platform/http/request-context.decorator';
 import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
-import { RedisEmailVerificationRateLimiter } from '../infra/rate-limit/redis-email-verification-rate-limiter';
-import { AuthErrorFilter } from '../infra/http/auth-error.filter';
+import { RedisEmailVerificationRateLimiter } from '../shared/rate-limit/redis-email-verification-rate-limiter';
+import { AuthErrorFilter } from '../shared/auth-error.filter';
 import { VerifyEmailRequestDto } from './email-verification.dto';
 import { AuthEmailVerificationJobs } from './email-verification.jobs';
 import { AuthEmailVerificationService } from './email-verification.service';

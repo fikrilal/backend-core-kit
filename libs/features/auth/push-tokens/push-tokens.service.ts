@@ -1,8 +1,8 @@
-import { AuthError } from '../app/auth.errors';
-import type { AuthRepository, SessionPushPlatform } from '../app/ports/auth.repository';
-import type { Clock } from '../app/time';
+import { AuthError } from '../shared/auth.errors';
+import type { AuthRepository, SessionPushPlatform } from '../shared/ports/auth.repository';
+import type { Clock } from '../../../shared/time';
 import { ErrorCode } from '../../../shared/error-codes';
-import { assertAuthUserIsActive } from '../app/auth-user-state';
+import { requireExistingNonDeletedUser } from '../shared/auth.service.helpers';
 
 export class AuthPushTokensService {
   constructor(
@@ -16,7 +16,7 @@ export class AuthPushTokensService {
     platform: SessionPushPlatform;
     token: string;
   }): Promise<void> {
-    await assertAuthUserIsActive(this.repo, input.userId);
+    await requireExistingNonDeletedUser(this.repo, input.userId);
 
     const now = this.clock.now();
     const res = await this.repo.upsertSessionPushToken({ ...input, now });
@@ -26,7 +26,7 @@ export class AuthPushTokensService {
   }
 
   async revokeMyPushToken(input: { userId: string; sessionId: string }): Promise<void> {
-    await assertAuthUserIsActive(this.repo, input.userId);
+    await requireExistingNonDeletedUser(this.repo, input.userId);
 
     const now = this.clock.now();
     await this.repo.revokeSessionPushToken({ ...input, now });

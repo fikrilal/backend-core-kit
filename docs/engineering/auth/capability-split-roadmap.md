@@ -375,4 +375,4 @@ Phase status:
 - [x] Phase 4 — Sessions and JWKS
 - [x] Phase 5 — Password auth
 - [x] Phase 6 — OIDC
-- [ ] Phase 7 — Shared cleanup
+- [x] Phase 7 — Shared cleanup

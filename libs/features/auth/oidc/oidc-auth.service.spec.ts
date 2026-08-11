@@ -1,0 +1,461 @@
+import { AuthErrorCode } from '../shared/auth.error-codes';
+import { EmailAlreadyExistsError, ExternalIdentityAlreadyExistsError } from '../shared/auth.errors';
+import type {
+  AuthRepository,
+  RefreshTokenRecord,
+  SessionRecord,
+} from '../shared/ports/auth.repository';
+import type { AccessTokenIssuer } from '../shared/ports/access-token-issuer';
+import type { OidcIdTokenVerifier } from '../shared/ports/oidc-id-token-verifier';
+import type { Clock } from '../../../shared/time';
+import { normalizeEmail } from '../shared/email';
+import type { AuthUserRecord } from '../shared/auth.types';
+import { AuthSessionLifecycleService } from '../sessions/session-lifecycle.service';
+import { AuthOidcAuthService } from './oidc-auth.service';
+import type { AuthConfig } from '../shared/auth.config';
+
+function unimplemented(): never {
+  throw new Error('Not implemented');
+}
+
+function fixedClock(now: Date): Clock {
+  return { now: () => now };
+}
+
+function makeUser(partial?: Partial<AuthUserRecord>): AuthUserRecord {
+  return {
+    id: 'user-1',
+    email: normalizeEmail('user@example.com'),
+    emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
+    role: 'USER',
+    status: 'ACTIVE',
+    ...partial,
+  };
+}
+
+const accessTokens: AccessTokenIssuer = {
+  signAccessToken: async () => 'access-token',
+  getPublicJwks: async () => ({}),
+};
+
+const now = new Date('2026-01-11T14:00:00.000Z');
+const clock = fixedClock(now);
+
+function makeRepo(overrides: Partial<AuthRepository>): AuthRepository {
+  return {
+    createUserWithPassword: async () => unimplemented(),
+    findUserIdByEmail: async () => null,
+    findUserForLogin: async () => unimplemented(),
+    findUserById: async () => makeUser(),
+    getAuthMethods: async () => ['GOOGLE'],
+    findUserByExternalIdentity: async () => null,
+    createUserWithExternalIdentity: async () => unimplemented(),
+    linkExternalIdentityToUser: async () => unimplemented(),
+    listUserSessions: async () => unimplemented(),
+    revokeSessionById: async () => unimplemented(),
+    upsertSessionPushToken: async () => unimplemented(),
+    revokeSessionPushToken: async () => undefined,
+    findPasswordCredential: async () => unimplemented(),
+    verifyEmailByTokenHash: async () => unimplemented(),
+    resetPasswordByTokenHash: async () => unimplemented(),
+    changePasswordAndRevokeOtherSessions: async () => unimplemented(),
+    findRefreshTokenWithSession: async () => unimplemented(),
+    revokeActiveSessionForDevice: async () => undefined,
+    createSession: async (input): Promise<SessionRecord> => ({
+      id: 'session-1',
+      expiresAt: input.sessionExpiresAt,
+    }),
+    createRefreshToken: async (
+      sessionId: string,
+      tokenHash: string,
+      expiresAt: Date,
+    ): Promise<RefreshTokenRecord> => ({
+      id: 'refresh-1',
+      tokenHash,
+      expiresAt,
+      revokedAt: null,
+      sessionId,
+      replacedById: null,
+    }),
+    rotateRefreshToken: async () => unimplemented(),
+    revokeSessionByRefreshTokenHash: async () => unimplemented(),
+    ...overrides,
+  };
+}
+
+function makeService(params: {
+  repo: AuthRepository;
+  oidcVerifier: OidcIdTokenVerifier;
+}): AuthOidcAuthService {
+  const config: AuthConfig = {
+    accessTokenTtlSeconds: 900,
+    refreshTokenTtlSeconds: 60 * 60 * 24 * 30,
+    passwordMinLength: 10,
+  };
+  const sessions = new AuthSessionLifecycleService(params.repo, accessTokens, clock, config);
+
+  return new AuthOidcAuthService(params.repo, params.oidcVerifier, clock, sessions);
+}
+
+describe('AuthOidcAuthService.exchangeOidc', () => {
+  it('returns 500 AUTH_OIDC_NOT_CONFIGURED when provider is not configured', async () => {
+    const repo = makeRepo({});
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({ kind: 'not_configured' }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.exchangeOidc({
+        provider: 'GOOGLE',
+        idToken: 'token',
+        deviceId: 'd1',
+        deviceName: 'Device',
+      }),
+    ).rejects.toMatchObject({
+      status: 500,
+      code: AuthErrorCode.AUTH_OIDC_NOT_CONFIGURED,
+    });
+  });
+
+  it('returns 401 AUTH_OIDC_TOKEN_INVALID when token is invalid', async () => {
+    const repo = makeRepo({});
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({ kind: 'invalid' }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(svc.exchangeOidc({ provider: 'GOOGLE', idToken: 'token' })).rejects.toMatchObject({
+      status: 401,
+      code: AuthErrorCode.AUTH_OIDC_TOKEN_INVALID,
+    });
+  });
+
+  it('returns 400 AUTH_OIDC_EMAIL_NOT_VERIFIED when email_verified is false', async () => {
+    const repo = makeRepo({});
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'User@Example.com',
+          emailVerified: false,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(svc.exchangeOidc({ provider: 'GOOGLE', idToken: 'token' })).rejects.toMatchObject({
+      status: 400,
+      code: AuthErrorCode.AUTH_OIDC_EMAIL_NOT_VERIFIED,
+    });
+  });
+
+  it('logs in when external identity is already linked', async () => {
+    const user = makeUser({ email: normalizeEmail('linked@example.com') });
+    const repo = makeRepo({
+      findUserByExternalIdentity: async () => user,
+    });
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'linked@example.com',
+          emailVerified: true,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+    const result = await svc.exchangeOidc({
+      provider: 'GOOGLE',
+      idToken: 'token',
+      deviceId: 'device-1',
+      deviceName: 'My Device',
+    });
+
+    expect(result.accessToken).toBe('access-token');
+    expect(result.refreshToken).toEqual(expect.any(String));
+    expect(result.user.email).toBe('linked@example.com');
+  });
+
+  it('returns 409 AUTH_OIDC_LINK_REQUIRED when email exists but identity not linked', async () => {
+    const repo = makeRepo({
+      findUserByExternalIdentity: async () => null,
+      findUserIdByEmail: async () => 'existing-user-id',
+    });
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'Existing@Example.com',
+          emailVerified: true,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(svc.exchangeOidc({ provider: 'GOOGLE', idToken: 'token' })).rejects.toMatchObject({
+      status: 409,
+      code: AuthErrorCode.AUTH_OIDC_LINK_REQUIRED,
+    });
+  });
+
+  it('creates a new user + external identity when email is unused', async () => {
+    const created = makeUser({
+      id: 'created-user-id',
+      email: normalizeEmail('new@example.com'),
+      emailVerifiedAt: now,
+    });
+    const repo = makeRepo({
+      findUserByExternalIdentity: async () => null,
+      findUserIdByEmail: async () => null,
+      createUserWithExternalIdentity: async () => created,
+    });
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'New@Example.com',
+          emailVerified: true,
+          displayName: 'New User',
+          givenName: 'New',
+          familyName: 'User',
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+    const result = await svc.exchangeOidc({ provider: 'GOOGLE', idToken: 'token' });
+
+    expect(result.user.id).toBe('created-user-id');
+    expect(result.user.email).toBe('new@example.com');
+  });
+
+  it('recovers when external identity is created concurrently', async () => {
+    const linked = makeUser({ id: 'linked-id', email: normalizeEmail('user@example.com') });
+    let attempts = 0;
+
+    const repo = makeRepo({
+      findUserByExternalIdentity: async () => (attempts > 0 ? linked : null),
+      findUserIdByEmail: async () => null,
+      createUserWithExternalIdentity: async () => {
+        attempts += 1;
+        throw new ExternalIdentityAlreadyExistsError();
+      },
+    });
+
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'User@Example.com',
+          emailVerified: true,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+    const result = await svc.exchangeOidc({ provider: 'GOOGLE', idToken: 'token' });
+
+    expect(result.user.id).toBe('linked-id');
+  });
+
+  it('maps email uniqueness to AUTH_OIDC_LINK_REQUIRED during create race', async () => {
+    const repo = makeRepo({
+      findUserByExternalIdentity: async () => null,
+      findUserIdByEmail: async () => null,
+      createUserWithExternalIdentity: async () => {
+        throw new EmailAlreadyExistsError();
+      },
+    });
+
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'User@Example.com',
+          emailVerified: true,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(svc.exchangeOidc({ provider: 'GOOGLE', idToken: 'token' })).rejects.toMatchObject({
+      status: 409,
+      code: AuthErrorCode.AUTH_OIDC_LINK_REQUIRED,
+    });
+  });
+});
+
+describe('AuthOidcAuthService.connectOidc', () => {
+  it('returns 500 AUTH_OIDC_NOT_CONFIGURED when provider is not configured', async () => {
+    const repo = makeRepo({});
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({ kind: 'not_configured' }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).rejects.toMatchObject({
+      status: 500,
+      code: AuthErrorCode.AUTH_OIDC_NOT_CONFIGURED,
+    });
+  });
+
+  it('returns 401 AUTH_OIDC_TOKEN_INVALID when token is invalid', async () => {
+    const repo = makeRepo({});
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({ kind: 'invalid' }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).rejects.toMatchObject({
+      status: 401,
+      code: AuthErrorCode.AUTH_OIDC_TOKEN_INVALID,
+    });
+  });
+
+  it('returns 400 AUTH_OIDC_EMAIL_NOT_VERIFIED when email_verified is false', async () => {
+    const repo = makeRepo({});
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'User@Example.com',
+          emailVerified: false,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).rejects.toMatchObject({
+      status: 400,
+      code: AuthErrorCode.AUTH_OIDC_EMAIL_NOT_VERIFIED,
+    });
+  });
+
+  it('returns 409 AUTH_OIDC_IDENTITY_ALREADY_LINKED when identity is linked to another user', async () => {
+    const repo = makeRepo({
+      linkExternalIdentityToUser: async () => ({ kind: 'identity_linked_to_other_user' }),
+    });
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'User@Example.com',
+          emailVerified: true,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).rejects.toMatchObject({
+      status: 409,
+      code: AuthErrorCode.AUTH_OIDC_IDENTITY_ALREADY_LINKED,
+    });
+  });
+
+  it('returns 409 AUTH_OIDC_PROVIDER_ALREADY_LINKED when provider is already linked', async () => {
+    const repo = makeRepo({
+      linkExternalIdentityToUser: async () => ({ kind: 'provider_already_linked' }),
+    });
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'User@Example.com',
+          emailVerified: true,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).rejects.toMatchObject({
+      status: 409,
+      code: AuthErrorCode.AUTH_OIDC_PROVIDER_ALREADY_LINKED,
+    });
+  });
+
+  it('succeeds when linking is ok', async () => {
+    const repo = makeRepo({
+      linkExternalIdentityToUser: async () => ({ kind: 'ok' }),
+    });
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'User@Example.com',
+          emailVerified: true,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('succeeds when identity is already linked', async () => {
+    const repo = makeRepo({
+      linkExternalIdentityToUser: async () => ({ kind: 'already_linked' }),
+    });
+    const oidcVerifier: OidcIdTokenVerifier = {
+      verifyIdToken: async () => ({
+        kind: 'verified',
+        identity: {
+          provider: 'GOOGLE',
+          subject: 'sub',
+          email: 'User@Example.com',
+          emailVerified: true,
+        },
+      }),
+    };
+
+    const svc = makeService({ repo, oidcVerifier });
+
+    await expect(
+      svc.connectOidc({ userId: 'user-1', provider: 'GOOGLE', idToken: 'token' }),
+    ).resolves.toBeUndefined();
+  });
+});

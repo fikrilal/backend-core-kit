@@ -17,8 +17,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthSessionsService } from './sessions.service';
-import { AuthSessionLifecycleService } from '../app/auth-session-lifecycle.service';
-import { AuthError } from '../app/auth.errors';
+import { AuthSessionLifecycleService } from '../sessions/session-lifecycle.service';
+import { AuthError } from '../shared/auth.errors';
 import { AccessTokenGuard } from '../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../platform/auth/auth.types';
@@ -28,20 +28,20 @@ import { ApiListQuery } from '../../../platform/http/list-query/api-list-query.d
 import { ListQueryParam } from '../../../platform/http/list-query/list-query.decorator';
 import type { ListQuery } from '../../../shared/list-query';
 import type { ListQueryPipeOptions } from '../../../platform/http/list-query/list-query.pipe';
-import type { UserSessionsSortField } from '../app/ports/auth.repository';
+import type { UserSessionsSortField } from '../shared/ports/auth.repository';
 import {
   ClientContext,
   type ClientContextValue,
 } from '../../../platform/http/request-context.decorator';
-import { AuthResultEnvelopeDto } from '../infra/http/dtos/auth.dto';
+import { AuthResultEnvelopeDto } from '../shared/auth.dto';
 import {
   LogoutRequestDto,
   MeSessionIdParamDto,
   MeSessionsListEnvelopeDto,
   RefreshRequestDto,
 } from './sessions.dto';
-import { AuthErrorFilter } from '../infra/http/auth-error.filter';
-import { AuthErrorCode } from '../app/auth.error-codes';
+import { AuthErrorFilter } from '../shared/auth-error.filter';
+import { AuthErrorCode } from '../shared/auth.error-codes';
 
 const listSessionsQueryOptions = {
   defaultLimit: 25,

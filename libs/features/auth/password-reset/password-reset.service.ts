@@ -1,11 +1,11 @@
-import { normalizeEmail } from '../domain/email';
-import { AuthErrorCode } from '../app/auth.error-codes';
-import { AuthError } from '../app/auth.errors';
-import type { AuthConfig } from '../app/auth.config';
-import { assertPasswordPolicy } from '../app/auth.service.helpers';
-import type { AuthRepository } from '../app/ports/auth.repository';
-import type { PasswordHasher } from '../app/ports/password-hasher';
-import type { Clock } from '../app/time';
+import { normalizeEmail } from '../shared/email';
+import { AuthErrorCode } from '../shared/auth.error-codes';
+import { AuthError } from '../shared/auth.errors';
+import type { AuthConfig } from '../shared/auth.config';
+import { assertPasswordPolicy } from '../shared/auth.service.helpers';
+import type { AuthRepository } from '../shared/ports/auth.repository';
+import type { PasswordHasher } from '../shared/ports/password-hasher';
+import type { Clock } from '../../../shared/time';
 import { hashPasswordResetToken } from './password-reset-token';
 
 export class AuthPasswordResetService {

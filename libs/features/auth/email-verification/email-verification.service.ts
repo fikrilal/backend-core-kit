@@ -1,9 +1,9 @@
-import { AuthErrorCode } from '../app/auth.error-codes';
-import { AuthError } from '../app/auth.errors';
+import { AuthErrorCode } from '../shared/auth.error-codes';
+import { AuthError } from '../shared/auth.errors';
 import { hashEmailVerificationToken } from './email-verification-token';
-import type { AuthRepository } from '../app/ports/auth.repository';
-import type { Clock } from '../app/time';
-import { requireExistingNonDeletedUser } from '../app/auth.service.helpers';
+import type { AuthRepository } from '../shared/ports/auth.repository';
+import type { Clock } from '../../../shared/time';
+import { requireExistingNonDeletedUser } from '../shared/auth.service.helpers';
 
 export class AuthEmailVerificationService {
   constructor(

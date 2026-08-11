@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthSessionLifecycleService } from '../app/auth-session-lifecycle.service';
+import { AuthSessionLifecycleService } from '../sessions/session-lifecycle.service';
 import { SkipEnvelope } from '../../../platform/http/decorators/skip-envelope.decorator';
 import { ErrorCode } from '../../../platform/http/errors/error-codes';
 import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';

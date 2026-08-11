@@ -1,8 +1,8 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, UseFilters } from '@nestjs/common';
 import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PinoLogger } from 'nestjs-pino';
-import { AuthErrorCode } from '../app/auth.error-codes';
-import { AuthError } from '../app/auth.errors';
+import { AuthErrorCode } from '../shared/auth.error-codes';
+import { AuthError } from '../shared/auth.errors';
 import { ErrorCode } from '../../../platform/http/errors/error-codes';
 import {
   ClientContext,
@@ -10,8 +10,8 @@ import {
 } from '../../../platform/http/request-context.decorator';
 import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
 import { runBestEffort } from '../../../platform/logging/best-effort';
-import { RedisPasswordResetRateLimiter } from '../infra/rate-limit/redis-password-reset-rate-limiter';
-import { AuthErrorFilter } from '../infra/http/auth-error.filter';
+import { RedisPasswordResetRateLimiter } from '../shared/rate-limit/redis-password-reset-rate-limiter';
+import { AuthErrorFilter } from '../shared/auth-error.filter';
 import { PasswordResetConfirmRequestDto, PasswordResetRequestDto } from './password-reset.dto';
 import { AuthPasswordResetJobs } from './password-reset.jobs';
 import { AuthPasswordResetService } from './password-reset.service';

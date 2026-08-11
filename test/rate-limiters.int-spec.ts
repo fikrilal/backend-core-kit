@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from 'crypto';
-import { AuthError } from '../libs/features/auth/app/auth.errors';
-import { RedisEmailVerificationRateLimiter } from '../libs/features/auth/infra/rate-limit/redis-email-verification-rate-limiter';
-import { RedisLoginRateLimiter } from '../libs/features/auth/infra/rate-limit/redis-login-rate-limiter';
-import { RedisPasswordResetRateLimiter } from '../libs/features/auth/infra/rate-limit/redis-password-reset-rate-limiter';
+import { AuthError } from '../libs/features/auth/shared/auth.errors';
+import { RedisEmailVerificationRateLimiter } from '../libs/features/auth/shared/rate-limit/redis-email-verification-rate-limiter';
+import { RedisLoginRateLimiter } from '../libs/features/auth/shared/rate-limit/redis-login-rate-limiter';
+import { RedisPasswordResetRateLimiter } from '../libs/features/auth/shared/rate-limit/redis-password-reset-rate-limiter';
 import { RedisProfileImageUploadRateLimiter } from '../libs/features/users/infra/rate-limit/redis-profile-image-upload-rate-limiter';
 import { UsersError } from '../libs/features/users/app/users.errors';
 import { RedisService } from '../libs/platform/redis/redis.service';

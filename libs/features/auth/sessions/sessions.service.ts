@@ -3,9 +3,9 @@ import type {
   AuthRepository,
   UserSessionsSortField,
   UserSessionListItem,
-} from '../app/ports/auth.repository';
-import type { Clock } from '../app/time';
-import { assertAuthUserIsActive } from '../app/auth-user-state';
+} from '../shared/ports/auth.repository';
+import type { Clock } from '../../../shared/time';
+import { requireExistingNonDeletedUser } from '../shared/auth.service.helpers';
 
 export type SessionStatus = 'active' | 'revoked' | 'expired';
 
@@ -50,7 +50,7 @@ export class AuthSessionsService {
     currentSessionId: string,
     query: ListQuery<UserSessionsSortField, never>,
   ): Promise<ListMySessionsResult> {
-    await assertAuthUserIsActive(this.repo, userId);
+    await requireExistingNonDeletedUser(this.repo, userId);
 
     const now = this.clock.now();
     const res = await this.repo.listUserSessions(userId, query);
@@ -76,7 +76,7 @@ export class AuthSessionsService {
     userId: string,
     sessionId: string,
   ): Promise<Readonly<{ kind: 'ok' } | { kind: 'not_found' }>> {
-    await assertAuthUserIsActive(this.repo, userId);
+    await requireExistingNonDeletedUser(this.repo, userId);
 
     const ok = await this.repo.revokeSessionById(userId, sessionId, this.clock.now());
     return ok ? { kind: 'ok' } : { kind: 'not_found' };

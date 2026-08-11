@@ -15,8 +15,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { PinoLogger } from 'nestjs-pino';
-import { AuthService } from '../app/auth.service';
-import { AuthErrorCode } from '../app/auth.error-codes';
+import { AuthPasswordAuthService } from './password-auth.service';
+import { AuthErrorCode } from '../shared/auth.error-codes';
 import { AccessTokenGuard } from '../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../platform/auth/auth.types';
@@ -30,13 +30,13 @@ import { ApiIdempotencyKeyHeader } from '../../../platform/http/openapi/api-idem
 import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
 import { AuthEmailVerificationJobs } from '../email-verification/email-verification.jobs';
 import { UsersService } from '../../users/app/users.service';
-import { AuthResultWithMeEnvelopeDto } from '../infra/http/dtos/auth.dto';
+import { AuthResultWithMeEnvelopeDto } from '../shared/auth.dto';
 import {
   ChangePasswordRequestDto,
   PasswordLoginRequestDto,
   PasswordRegisterRequestDto,
 } from './password-auth.dto';
-import { AuthErrorFilter } from '../infra/http/auth-error.filter';
+import { AuthErrorFilter } from '../shared/auth-error.filter';
 import { runBestEffort } from '../../../platform/logging/best-effort';
 
 @ApiTags('Auth')
@@ -44,7 +44,7 @@ import { runBestEffort } from '../../../platform/logging/best-effort';
 @UseFilters(AuthErrorFilter)
 export class PasswordAuthController {
   constructor(
-    private readonly auth: AuthService,
+    private readonly auth: AuthPasswordAuthService,
     private readonly users: UsersService,
     private readonly emailVerificationJobs: AuthEmailVerificationJobs,
     private readonly logger: PinoLogger,
