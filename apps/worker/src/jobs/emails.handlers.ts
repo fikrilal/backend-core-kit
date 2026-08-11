@@ -3,7 +3,7 @@ import type { PinoLogger } from 'nestjs-pino';
 import {
   hashEmailVerificationToken,
   generateEmailVerificationToken,
-} from '../../../../libs/features/auth/app/email-verification-token';
+} from '../../../../libs/features/auth/email-verification/email-verification-token';
 import {
   generatePasswordResetToken,
   hashPasswordResetToken,

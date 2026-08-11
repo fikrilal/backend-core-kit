@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { EmailService } from '../../../../platform/email/email.service';
-import { QueueProducer } from '../../../../platform/queue/queue.producer';
+import { EmailService } from '../../../platform/email/email.service';
+import { QueueProducer } from '../../../platform/queue/queue.producer';
 import {
   AUTH_SEND_VERIFICATION_EMAIL_JOB,
   EMAIL_QUEUE,
   type AuthSendVerificationEmailJobData,
-} from './auth-email-verification.job';
+} from './email-verification.job';
 
 @Injectable()
 export class AuthEmailVerificationJobs {

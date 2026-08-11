@@ -12,7 +12,6 @@ import { ErrorCode } from '../../../shared/error-codes';
 import { AuthSessionLifecycleService } from './auth-session-lifecycle.service';
 import { AuthPasswordAuthService } from './auth-password-auth.service';
 import { AuthOidcAuthService } from './auth-oidc-auth.service';
-import { AuthEmailVerificationService } from './auth-email-verification.service';
 import { AuthPasswordResetService } from './auth-password-reset.service';
 import type { AuthConfig } from './auth.config';
 
@@ -92,7 +91,6 @@ function makeService(params: {
     sessions,
   );
   const oidcAuth = new AuthOidcAuthService(params.repo, params.oidcVerifier, clock, sessions);
-  const emailVerification = new AuthEmailVerificationService(params.repo, clock);
   const passwordReset = new AuthPasswordResetService(
     params.repo,
     params.passwordHasher,
@@ -100,7 +98,7 @@ function makeService(params: {
     config,
   );
 
-  return new AuthService(sessions, passwordAuth, oidcAuth, emailVerification, passwordReset);
+  return new AuthService(sessions, passwordAuth, oidcAuth, passwordReset);
 }
 
 describe('AuthService (deleted user semantics)', () => {

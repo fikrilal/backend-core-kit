@@ -8,7 +8,7 @@ import { QueueWorkerFactory } from '../../../../libs/platform/queue/queue.worker
 import {
   AUTH_SEND_VERIFICATION_EMAIL_JOB,
   EMAIL_QUEUE,
-} from '../../../../libs/features/auth/infra/jobs/auth-email-verification.job';
+} from '../../../../libs/features/auth/email-verification/email-verification.job';
 import { AUTH_SEND_PASSWORD_RESET_EMAIL_JOB } from '../../../../libs/features/auth/infra/jobs/auth-password-reset.job';
 import {
   USERS_SEND_ACCOUNT_DELETION_REMINDER_EMAIL_JOB,

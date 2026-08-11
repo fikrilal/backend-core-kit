@@ -5,9 +5,9 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import Redis from 'ioredis';
 import { Queue } from 'bullmq';
 import { CreateBucketCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import type { AuthSendVerificationEmailJobData } from '../../libs/features/auth/infra/jobs/auth-email-verification.job';
+import type { AuthSendVerificationEmailJobData } from '../../libs/features/auth/email-verification/email-verification.job';
 import type { AuthSendPasswordResetEmailJobData } from '../../libs/features/auth/infra/jobs/auth-password-reset.job';
-import { EMAIL_QUEUE } from '../../libs/features/auth/infra/jobs/auth-email-verification.job';
+import { EMAIL_QUEUE } from '../../libs/features/auth/email-verification/email-verification.job';
 import type {
   UsersSendAccountDeletionReminderEmailJobData,
   UsersSendAccountDeletionRequestedEmailJobData,

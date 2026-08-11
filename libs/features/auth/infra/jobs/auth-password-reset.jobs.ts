@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { asNonEmptyString } from '../../../../shared/string';
 import { EmailService } from '../../../../platform/email/email.service';
 import { QueueProducer } from '../../../../platform/queue/queue.producer';
-import { EMAIL_QUEUE } from './auth-email-verification.job';
+import { EMAIL_QUEUE } from '../../email-verification/email-verification.job';
 import {
   AUTH_SEND_PASSWORD_RESET_EMAIL_JOB,
   type AuthSendPasswordResetEmailJobData,

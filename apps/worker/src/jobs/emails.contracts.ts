@@ -1,5 +1,5 @@
 import type { JsonObject } from '../../../../libs/platform/queue/json.types';
-import type { AuthSendVerificationEmailJobData } from '../../../../libs/features/auth/infra/jobs/auth-email-verification.job';
+import type { AuthSendVerificationEmailJobData } from '../../../../libs/features/auth/email-verification/email-verification.job';
 import type { AuthSendPasswordResetEmailJobData } from '../../../../libs/features/auth/infra/jobs/auth-password-reset.job';
 import type {
   UsersSendAccountDeletionReminderEmailJobData,

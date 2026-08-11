@@ -13,14 +13,15 @@ import { AuthPushTokensService } from '../app/auth-push-tokens.service';
 import { AuthSessionLifecycleService } from '../app/auth-session-lifecycle.service';
 import { AuthPasswordAuthService } from '../app/auth-password-auth.service';
 import { AuthOidcAuthService } from '../app/auth-oidc-auth.service';
-import { AuthEmailVerificationService } from '../app/auth-email-verification.service';
 import { AuthPasswordResetService } from '../app/auth-password-reset.service';
+import { EmailVerificationController } from '../email-verification/email-verification.controller';
+import { AuthEmailVerificationJobs } from '../email-verification/email-verification.jobs';
+import { AuthEmailVerificationService } from '../email-verification/email-verification.service';
 import { AuthController } from './http/auth.controller';
 import { JwksController } from './http/jwks.controller';
 import { MeSessionsController } from './http/me-sessions.controller';
 import { MePushTokenController } from './http/me-push-token.controller';
 import { PrismaAuthRepository } from './persistence/prisma-auth.repository';
-import { AuthEmailVerificationJobs } from './jobs/auth-email-verification.jobs';
 import { AuthPasswordResetJobs } from './jobs/auth-password-reset.jobs';
 import { RedisEmailVerificationRateLimiter } from './rate-limit/redis-email-verification-rate-limiter';
 import { RedisLoginRateLimiter } from './rate-limit/redis-login-rate-limiter';
@@ -47,7 +48,13 @@ import { AUTH_CONFIG, AUTH_DUMMY_PASSWORD_HASH } from './auth.tokens';
     QueueModule,
     UsersModule,
   ],
-  controllers: [AuthController, JwksController, MeSessionsController, MePushTokenController],
+  controllers: [
+    AuthController,
+    EmailVerificationController,
+    JwksController,
+    MeSessionsController,
+    MePushTokenController,
+  ],
   providers: [
     PrismaAuthRepository,
     AuthEmailVerificationJobs,
@@ -173,7 +180,6 @@ import { AUTH_CONFIG, AUTH_DUMMY_PASSWORD_HASH } from './auth.tokens';
         AuthSessionLifecycleService,
         AuthPasswordAuthService,
         AuthOidcAuthService,
-        AuthEmailVerificationService,
         AuthPasswordResetService,
       ],
       useClass: AuthService,

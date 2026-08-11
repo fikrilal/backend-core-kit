@@ -3,7 +3,6 @@ import type { AuthResult } from './auth.types';
 import type { AuthSessionLifecycleService } from './auth-session-lifecycle.service';
 import type { AuthPasswordAuthService } from './auth-password-auth.service';
 import type { AuthOidcAuthService } from './auth-oidc-auth.service';
-import type { AuthEmailVerificationService } from './auth-email-verification.service';
 import type { AuthPasswordResetService } from './auth-password-reset.service';
 
 export class AuthService {
@@ -11,7 +10,6 @@ export class AuthService {
     private readonly sessionLifecycle: AuthSessionLifecycleService,
     private readonly passwordAuth: AuthPasswordAuthService,
     private readonly oidcAuth: AuthOidcAuthService,
-    private readonly emailVerification: AuthEmailVerificationService,
     private readonly passwordReset: AuthPasswordResetService,
   ) {}
 
@@ -75,14 +73,6 @@ export class AuthService {
 
   async logout(input: { refreshToken: string }): Promise<void> {
     await this.sessionLifecycle.logout(input);
-  }
-
-  async verifyEmail(input: { token: string }): Promise<void> {
-    await this.emailVerification.verifyEmail(input);
-  }
-
-  async getEmailVerificationStatus(userId: string): Promise<'verified' | 'unverified'> {
-    return await this.emailVerification.getEmailVerificationStatus(userId);
   }
 
   async requestPasswordReset(input: {

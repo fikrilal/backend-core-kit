@@ -170,13 +170,6 @@ export class ChangePasswordRequestDto {
   newPassword!: string;
 }
 
-export class VerifyEmailRequestDto {
-  @ApiProperty({ example: '<verification-token>' })
-  @IsString()
-  @MinLength(1)
-  token!: string;
-}
-
 export class PasswordResetRequestDto {
   @ApiProperty({ example: 'user@example.com' })
   @IsEmail()

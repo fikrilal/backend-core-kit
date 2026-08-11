@@ -143,44 +143,6 @@ paths:
         - AUTH_OIDC_IDENTITY_ALREADY_LINKED
         - AUTH_OIDC_PROVIDER_ALREADY_LINKED
         - INTERNAL
-  /v1/auth/email/verify:
-    post:
-      description: Verifies a user email using a token sent via email.
-      operationId: auth.email.verify
-      parameters: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/VerifyEmailRequestDto"
-      responses:
-        "204":
-          description: ""
-      summary: Verify email
-      tags: *a1
-      x-error-codes:
-        - VALIDATION_FAILED
-        - AUTH_EMAIL_VERIFICATION_TOKEN_INVALID
-        - AUTH_EMAIL_VERIFICATION_TOKEN_EXPIRED
-        - INTERNAL
-  /v1/auth/email/verification/resend:
-    post:
-      description: Enqueues a new verification email for the authenticated user (rate
-        limited).
-      operationId: auth.email.verification.resend
-      parameters: []
-      responses:
-        "204":
-          description: ""
-      security:
-        - access-token: []
-      summary: Resend verification email (current user)
-      tags: *a1
-      x-error-codes:
-        - UNAUTHORIZED
-        - RATE_LIMITED
-        - INTERNAL
   /v1/auth/password/reset/request:
     post:
       description: Enqueues a password reset email for an existing user. Returns 204
@@ -334,6 +296,45 @@ paths:
         - VALIDATION_FAILED
         - AUTH_REFRESH_TOKEN_INVALID
         - INTERNAL
+  /v1/auth/email/verify:
+    post:
+      description: Verifies a user email using a token sent via email.
+      operationId: auth.email.verify
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailRequestDto"
+      responses:
+        "204":
+          description: ""
+      summary: Verify email
+      tags: &a2
+        - Auth
+      x-error-codes:
+        - VALIDATION_FAILED
+        - AUTH_EMAIL_VERIFICATION_TOKEN_INVALID
+        - AUTH_EMAIL_VERIFICATION_TOKEN_EXPIRED
+        - INTERNAL
+  /v1/auth/email/verification/resend:
+    post:
+      description: Enqueues a new verification email for the authenticated user (rate
+        limited).
+      operationId: auth.email.verification.resend
+      parameters: []
+      responses:
+        "204":
+          description: ""
+      security:
+        - access-token: []
+      summary: Resend verification email (current user)
+      tags: *a2
+      x-error-codes:
+        - UNAUTHORIZED
+        - RATE_LIMITED
+        - INTERNAL
   /.well-known/jwks.json:
     get:
       description: Publishes public keys used to verify access tokens.
@@ -398,7 +399,7 @@ paths:
       security:
         - access-token: []
       summary: List current user sessions
-      tags: &a2
+      tags: &a3
         - Users
       x-error-codes:
         - VALIDATION_FAILED
@@ -421,7 +422,7 @@ paths:
       security:
         - access-token: []
       summary: Revoke a session (current user)
-      tags: *a2
+      tags: *a3
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -445,7 +446,7 @@ paths:
       security:
         - access-token: []
       summary: Register/update push token (current session)
-      tags: &a3
+      tags: &a4
         - Users
       x-error-codes:
         - VALIDATION_FAILED
@@ -462,7 +463,7 @@ paths:
       security:
         - access-token: []
       summary: Revoke push token (current session)
-      tags: *a3
+      tags: *a4
       x-error-codes:
         - UNAUTHORIZED
         - INTERNAL
@@ -481,7 +482,7 @@ paths:
       security:
         - access-token: []
       summary: Get current user
-      tags: &a4
+      tags: &a5
         - Users
       x-error-codes:
         - UNAUTHORIZED
@@ -517,7 +518,7 @@ paths:
       security:
         - access-token: []
       summary: Update current user profile
-      tags: *a4
+      tags: *a5
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -556,7 +557,7 @@ paths:
       security:
         - access-token: []
       summary: Create a profile image upload plan (presigned URL)
-      tags: &a5
+      tags: &a6
         - Users
       x-error-codes:
         - VALIDATION_FAILED
@@ -583,7 +584,7 @@ paths:
       security:
         - access-token: []
       summary: Finalize a profile image upload
-      tags: *a5
+      tags: *a6
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -605,7 +606,7 @@ paths:
       security:
         - access-token: []
       summary: Clear current profile image
-      tags: *a5
+      tags: *a6
       x-error-codes:
         - UNAUTHORIZED
         - INTERNAL
@@ -627,7 +628,7 @@ paths:
       security:
         - access-token: []
       summary: Get current profile image URL
-      tags: *a5
+      tags: *a6
       x-error-codes:
         - UNAUTHORIZED
         - USERS_OBJECT_STORAGE_NOT_CONFIGURED
@@ -656,7 +657,7 @@ paths:
       security:
         - access-token: []
       summary: Request account deletion (30-day grace)
-      tags: &a6
+      tags: &a7
         - Users
       x-error-codes:
         - UNAUTHORIZED
@@ -685,7 +686,7 @@ paths:
       security:
         - access-token: []
       summary: Cancel account deletion
-      tags: *a6
+      tags: *a7
       x-error-codes:
         - UNAUTHORIZED
         - IDEMPOTENCY_IN_PROGRESS
@@ -792,10 +793,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUsersListEnvelopeDto"
-      security: &a7
+      security: &a8
         - access-token: []
       summary: List users
-      tags: &a8
+      tags: &a9
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -838,9 +839,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a7
+      security: *a8
       summary: Set user role
-      tags: *a8
+      tags: *a9
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -885,9 +886,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserEnvelopeDto"
-      security: *a7
+      security: *a8
       summary: Set user status
-      tags: *a8
+      tags: *a9
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -992,10 +993,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserRoleChangeAuditsListEnvelopeDto"
-      security: &a9
+      security: &a10
         - access-token: []
       summary: List user role changes
-      tags: &a10
+      tags: &a11
         - Admin
       x-error-codes:
         - VALIDATION_FAILED
@@ -1084,9 +1085,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserAccountDeletionAuditsListEnvelopeDto"
-      security: *a9
+      security: *a10
       summary: List user account deletion events
-      tags: *a10
+      tags: *a11
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHORIZED
@@ -1194,7 +1195,7 @@ components:
           description: Linked authentication methods on this account.
           items:
             type: string
-            enum: &a12
+            enum: &a13
               - PASSWORD
               - GOOGLE
         profile:
@@ -1240,7 +1241,7 @@ components:
       properties:
         provider:
           type: string
-          enum: &a11
+          enum: &a12
             - GOOGLE
           example: GOOGLE
         idToken:
@@ -1260,7 +1261,7 @@ components:
       properties:
         provider:
           type: string
-          enum: *a11
+          enum: *a12
           example: GOOGLE
         idToken:
           type: string
@@ -1268,14 +1269,6 @@ components:
       required:
         - provider
         - idToken
-    VerifyEmailRequestDto:
-      type: object
-      properties:
-        token:
-          type: string
-          example: <verification-token>
-      required:
-        - token
     PasswordResetRequestDto:
       type: object
       properties:
@@ -1355,7 +1348,7 @@ components:
             refresh responses.
           items:
             type: string
-            enum: *a12
+            enum: *a13
       required:
         - id
         - email
@@ -1390,6 +1383,14 @@ components:
           example: <refresh-token>
       required:
         - refreshToken
+    VerifyEmailRequestDto:
+      type: object
+      properties:
+        token:
+          type: string
+          example: <verification-token>
+      required:
+        - token
     MeSessionDto:
       type: object
       properties:
@@ -1761,13 +1762,13 @@ components:
           example: 9d8c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0
         oldRole:
           type: string
-          enum: &a13
+          enum: &a14
             - USER
             - ADMIN
           example: USER
         newRole:
           type: string
-          enum: *a13
+          enum: *a14
           example: ADMIN
         traceId:
           type: string
