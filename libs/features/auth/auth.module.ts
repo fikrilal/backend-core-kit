@@ -6,6 +6,7 @@ import { PlatformAuthModule } from '../../platform/auth/auth.module';
 import { PlatformEmailModule } from '../../platform/email/email.module';
 import { PlatformPushModule } from '../../platform/push/push.module';
 import { QueueModule } from '../../platform/queue/queue.module';
+import { AUTH_CONFIG_DEFAULTS } from '../../platform/config/env.defaults';
 import { UsersModule } from '../users/infra/users.module';
 import { EmailVerificationController } from './email-verification/email-verification.controller';
 import { AuthEmailVerificationJobs } from './email-verification/email-verification.jobs';
@@ -82,10 +83,15 @@ import { AUTH_CONFIG, AUTH_DUMMY_PASSWORD_HASH } from './shared/auth.tokens';
       provide: AUTH_CONFIG,
       inject: [ConfigService],
       factory: (config: ConfigService): AuthConfig => ({
-        accessTokenTtlSeconds: config.get<number>('AUTH_ACCESS_TOKEN_TTL_SECONDS') ?? 900,
+        accessTokenTtlSeconds:
+          config.get<number>('AUTH_ACCESS_TOKEN_TTL_SECONDS') ??
+          AUTH_CONFIG_DEFAULTS.AUTH_ACCESS_TOKEN_TTL_SECONDS,
         refreshTokenTtlSeconds:
-          config.get<number>('AUTH_REFRESH_TOKEN_TTL_SECONDS') ?? 60 * 60 * 24 * 30,
-        passwordMinLength: config.get<number>('AUTH_PASSWORD_MIN_LENGTH') ?? 10,
+          config.get<number>('AUTH_REFRESH_TOKEN_TTL_SECONDS') ??
+          AUTH_CONFIG_DEFAULTS.AUTH_REFRESH_TOKEN_TTL_SECONDS,
+        passwordMinLength:
+          config.get<number>('AUTH_PASSWORD_MIN_LENGTH') ??
+          AUTH_CONFIG_DEFAULTS.AUTH_PASSWORD_MIN_LENGTH,
       }),
     }),
     provideAppService({

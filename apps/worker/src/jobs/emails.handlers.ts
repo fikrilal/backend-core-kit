@@ -8,6 +8,7 @@ import {
   generatePasswordResetToken,
   hashPasswordResetToken,
 } from '../../../../libs/features/auth/password-reset/password-reset-token';
+import { AUTH_CONFIG_DEFAULTS } from '../../../../libs/platform/config/env.defaults';
 import type { PrismaService } from '../../../../libs/platform/db/prisma.service';
 import type { EmailService } from '../../../../libs/platform/email/email.service';
 import { asNonEmptyString } from '../../../../libs/shared/string';
@@ -31,7 +32,9 @@ export async function runVerificationEmailJob(
   userId: string,
 ): Promise<AuthSendVerificationEmailJobResult> {
   const now = new Date();
-  const ttlSeconds = deps.config.get<number>('AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS') ?? 86400;
+  const ttlSeconds =
+    deps.config.get<number>('AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS') ??
+    AUTH_CONFIG_DEFAULTS.AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS;
   const expiresAt = new Date(now.getTime() + ttlSeconds * 1000);
 
   const client = deps.prisma.getClient();
@@ -108,7 +111,9 @@ export async function runPasswordResetEmailJob(
   userId: string,
 ): Promise<AuthSendPasswordResetEmailJobResult> {
   const now = new Date();
-  const ttlSeconds = deps.config.get<number>('AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS') ?? 1800;
+  const ttlSeconds =
+    deps.config.get<number>('AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS') ??
+    AUTH_CONFIG_DEFAULTS.AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS;
   const expiresAt = new Date(now.getTime() + ttlSeconds * 1000);
 
   const client = deps.prisma.getClient();

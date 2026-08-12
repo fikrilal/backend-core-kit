@@ -96,7 +96,7 @@ This is the typical minimal set (exact keys may evolve):
     - Containers (recommended): `FCM_SERVICE_ACCOUNT_JSON_PATH=/run/secrets/...` (mounted secret file)
     - Heroku/CI (recommended): `FCM_SERVICE_ACCOUNT_JSON_BASE64=...` (base64-encoded service account JSON)
     - Local-only fallback: `FCM_SERVICE_ACCOUNT_JSON=...` (raw JSON string; avoid in prod)
-  - Note: use only one of `FCM_SERVICE_ACCOUNT_JSON_PATH`, `FCM_SERVICE_ACCOUNT_JSON_BASE64`, `FCM_SERVICE_ACCOUNT_JSON`.
+  - Note: use exactly one credential strategy: `FCM_USE_APPLICATION_DEFAULT=true`, `FCM_SERVICE_ACCOUNT_JSON_PATH`, `FCM_SERVICE_ACCOUNT_JSON_BASE64`, or `FCM_SERVICE_ACCOUNT_JSON`.
 - Object storage (S3-compatible; optional)
   - `STORAGE_S3_ENDPOINT`
   - `STORAGE_S3_REGION`

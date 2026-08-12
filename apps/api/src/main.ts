@@ -1,12 +1,7 @@
 import { initTelemetry } from '../../../libs/platform/otel/telemetry';
 import { loadDotEnvOnce } from '../../../libs/platform/config/dotenv';
-
-function getEnvNumber(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : fallback;
-}
+import { HTTP_CONFIG_DEFAULTS } from '../../../libs/platform/config/env.defaults';
+import { asEnvNumber } from '../../../libs/platform/config/env-parsing';
 
 async function bootstrap() {
   await loadDotEnvOnce();
@@ -27,7 +22,7 @@ async function bootstrap() {
       setupSwaggerUi(app, document);
     }
 
-    const port = getEnvNumber('PORT', 4000);
+    const port = asEnvNumber(process.env.PORT, HTTP_CONFIG_DEFAULTS.PORT);
     const nodeEnv = process.env.NODE_ENV ?? 'development';
     const host = process.env.HOST ?? (nodeEnv === 'production' ? '0.0.0.0' : '127.0.0.1');
 

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
+import { USERS_CONFIG_DEFAULTS } from '../../../../platform/config/env.defaults';
 import { RedisService } from '../../../../platform/redis/redis.service';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
 import { UsersError } from '../../app/users.errors';
@@ -36,19 +37,27 @@ export class RedisProfileImageUploadRateLimiter {
     private readonly redis: RedisService,
   ) {
     this.userConfig = {
-      maxAttempts: this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_USER_MAX_ATTEMPTS') ?? 20,
+      maxAttempts:
+        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_USER_MAX_ATTEMPTS') ??
+        USERS_CONFIG_DEFAULTS.USERS_PROFILE_IMAGE_UPLOAD_USER_MAX_ATTEMPTS,
       windowSeconds:
-        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_USER_WINDOW_SECONDS') ?? 60 * 60,
+        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_USER_WINDOW_SECONDS') ??
+        USERS_CONFIG_DEFAULTS.USERS_PROFILE_IMAGE_UPLOAD_USER_WINDOW_SECONDS,
       blockSeconds:
-        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_USER_BLOCK_SECONDS') ?? 15 * 60,
+        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_USER_BLOCK_SECONDS') ??
+        USERS_CONFIG_DEFAULTS.USERS_PROFILE_IMAGE_UPLOAD_USER_BLOCK_SECONDS,
     };
 
     this.ipConfig = {
-      maxAttempts: this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_IP_MAX_ATTEMPTS') ?? 60,
+      maxAttempts:
+        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_IP_MAX_ATTEMPTS') ??
+        USERS_CONFIG_DEFAULTS.USERS_PROFILE_IMAGE_UPLOAD_IP_MAX_ATTEMPTS,
       windowSeconds:
-        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_IP_WINDOW_SECONDS') ?? 5 * 60,
+        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_IP_WINDOW_SECONDS') ??
+        USERS_CONFIG_DEFAULTS.USERS_PROFILE_IMAGE_UPLOAD_IP_WINDOW_SECONDS,
       blockSeconds:
-        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_IP_BLOCK_SECONDS') ?? 15 * 60,
+        this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_IP_BLOCK_SECONDS') ??
+        USERS_CONFIG_DEFAULTS.USERS_PROFILE_IMAGE_UPLOAD_IP_BLOCK_SECONDS,
     };
   }
 

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { normalizeEmail } from '../auth.model';
+import { AUTH_CONFIG_DEFAULTS } from '../../../../platform/config/env.defaults';
 import { RedisService } from '../../../../platform/redis/redis.service';
 import { asPositiveInt } from '../../../../platform/config/env-parsing';
 import { asNonEmptyString } from '../../../../shared/string';
@@ -28,20 +29,20 @@ export class RedisPasswordResetRateLimiter {
   ) {
     this.cooldownSeconds = asPositiveInt(
       this.config.get('AUTH_PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS'),
-      60,
+      AUTH_CONFIG_DEFAULTS.AUTH_PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS,
     );
     this.ipConfig = {
       maxAttempts: asPositiveInt(
         this.config.get('AUTH_PASSWORD_RESET_REQUEST_IP_MAX_ATTEMPTS'),
-        20,
+        AUTH_CONFIG_DEFAULTS.AUTH_PASSWORD_RESET_REQUEST_IP_MAX_ATTEMPTS,
       ),
       windowSeconds: asPositiveInt(
         this.config.get('AUTH_PASSWORD_RESET_REQUEST_IP_WINDOW_SECONDS'),
-        5 * 60,
+        AUTH_CONFIG_DEFAULTS.AUTH_PASSWORD_RESET_REQUEST_IP_WINDOW_SECONDS,
       ),
       blockSeconds: asPositiveInt(
         this.config.get('AUTH_PASSWORD_RESET_REQUEST_IP_BLOCK_SECONDS'),
-        15 * 60,
+        AUTH_CONFIG_DEFAULTS.AUTH_PASSWORD_RESET_REQUEST_IP_BLOCK_SECONDS,
       ),
     };
   }

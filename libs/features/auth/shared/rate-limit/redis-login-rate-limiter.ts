@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { LoginRateLimitContext, LoginRateLimiter } from '../ports/auth.ports';
+import { AUTH_CONFIG_DEFAULTS } from '../../../../platform/config/env.defaults';
 import { RedisService } from '../../../../platform/redis/redis.service';
 import { asPositiveInt } from '../../../../platform/config/env-parsing';
 import { asNonEmptyString } from '../../../../shared/string';
@@ -20,9 +21,18 @@ export class RedisLoginRateLimiter implements LoginRateLimiter {
     private readonly redis: RedisService,
   ) {
     this.configValues = {
-      maxAttempts: asPositiveInt(this.config.get('AUTH_LOGIN_MAX_ATTEMPTS'), 10),
-      windowSeconds: asPositiveInt(this.config.get('AUTH_LOGIN_WINDOW_SECONDS'), 60),
-      blockSeconds: asPositiveInt(this.config.get('AUTH_LOGIN_BLOCK_SECONDS'), 15 * 60),
+      maxAttempts: asPositiveInt(
+        this.config.get('AUTH_LOGIN_MAX_ATTEMPTS'),
+        AUTH_CONFIG_DEFAULTS.AUTH_LOGIN_MAX_ATTEMPTS,
+      ),
+      windowSeconds: asPositiveInt(
+        this.config.get('AUTH_LOGIN_WINDOW_SECONDS'),
+        AUTH_CONFIG_DEFAULTS.AUTH_LOGIN_WINDOW_SECONDS,
+      ),
+      blockSeconds: asPositiveInt(
+        this.config.get('AUTH_LOGIN_BLOCK_SECONDS'),
+        AUTH_CONFIG_DEFAULTS.AUTH_LOGIN_BLOCK_SECONDS,
+      ),
     };
   }
 

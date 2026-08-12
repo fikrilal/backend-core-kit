@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { USERS_CONFIG_DEFAULTS } from '../../../../platform/config/env.defaults';
 import { QueueProducer } from '../../../../platform/queue/queue.producer';
 import { ObjectStorageService } from '../../../../platform/storage/object-storage.service';
 import type { Clock } from '../../app/time';
@@ -27,7 +28,8 @@ export class ProfileImageCleanupJobs {
     @Inject(USERS_CLOCK) private readonly clock: Clock,
   ) {
     this.expireDelaySeconds =
-      this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_EXPIRE_DELAY_SECONDS') ?? 2 * 60 * 60;
+      this.config.get<number>('USERS_PROFILE_IMAGE_UPLOAD_EXPIRE_DELAY_SECONDS') ??
+      USERS_CONFIG_DEFAULTS.USERS_PROFILE_IMAGE_UPLOAD_EXPIRE_DELAY_SECONDS;
   }
 
   isEnabled(): boolean {
