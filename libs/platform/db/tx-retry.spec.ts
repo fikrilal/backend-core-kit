@@ -166,4 +166,21 @@ describe('tx-retry', () => {
     ).rejects.toBe(err);
     expect(sleep).not.toHaveBeenCalled();
   });
+
+  it('clamps maxAttempts to at least 1', async () => {
+    let attempts = 0;
+    const err = new Error('deadlock detected');
+    const client = createPrismaClient(async () => {
+      attempts += 1;
+      throw err;
+    });
+
+    await expect(
+      withTransactionRetry(client, async () => 'ok', {
+        maxAttempts: 0,
+        shouldRetry: () => true,
+      }),
+    ).rejects.toBe(err);
+    expect(attempts).toBe(1);
+  });
 });

@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { NodeEnv } from '../config/env.enums';
 import { PrismaService } from '../db/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { NodeEnv } from '../config/env.validation';
 import { ProblemException } from '../http/errors/problem.exception';
 import { ErrorCode } from '../http/errors/error-codes';
 

@@ -77,7 +77,7 @@ export async function withTransactionRetry<T>(
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
   options?: TxRetryOptions,
 ): Promise<T> {
-  const maxAttempts = options?.maxAttempts ?? 3;
+  const maxAttempts = Math.max(1, options?.maxAttempts ?? 3);
   const shouldRetry = options?.shouldRetry ?? isRetryableTransactionError;
   const backoffSettings = getBackoffSettings(options?.backoff);
 
