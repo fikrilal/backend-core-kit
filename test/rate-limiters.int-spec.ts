@@ -4,7 +4,7 @@ import { RedisEmailVerificationRateLimiter } from '../libs/features/auth/shared/
 import { RedisLoginRateLimiter } from '../libs/features/auth/shared/rate-limit/redis-login-rate-limiter';
 import { RedisPasswordResetRateLimiter } from '../libs/features/auth/shared/rate-limit/redis-password-reset-rate-limiter';
 import { RedisProfileImageUploadRateLimiter } from '../libs/features/users/infra/rate-limit/redis-profile-image-upload-rate-limiter';
-import { UsersError } from '../libs/features/users/app/users.errors';
+import { UsersError } from '../libs/features/users/shared/users.errors';
 import { RedisService } from '../libs/platform/redis/redis.service';
 import { createConfigService } from './support/stubs';
 

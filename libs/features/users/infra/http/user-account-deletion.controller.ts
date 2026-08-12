@@ -9,10 +9,10 @@ import { Idempotent } from '../../../../platform/http/idempotency/idempotency.de
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { RequestTraceId } from '../../../../platform/http/request-context.decorator';
-import { UsersErrorCode } from '../../app/users.error-codes';
+import { UsersErrorCode } from '../../shared/users.errors';
 import { UsersService } from '../../app/users.service';
 import { UserAccountDeletionEmailJobs } from '../jobs/user-account-deletion-email.jobs';
-import { UsersErrorFilter } from './users-error.filter';
+import { UsersErrorFilter } from '../../shared/users-error.filter';
 import { runBestEffort } from '../../../../platform/logging/best-effort';
 
 @ApiTags('Users')

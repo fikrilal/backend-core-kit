@@ -1,20 +1,23 @@
 import { UserProfileImageService } from './user-profile-image.service';
-import { UserNotFoundError, type UsersError } from './users.errors';
-import { UsersErrorCode } from './users.error-codes';
-import type { ProfileImageRepository, StoredFileRecord } from './ports/profile-image.repository';
+import { UserNotFoundError, type UsersError } from '../shared/users.errors';
+import { UsersErrorCode } from '../shared/users.errors';
+import type {
+  ProfileImageRepository,
+  StoredFileRecord,
+} from '../shared/ports/profile-image.repository';
 import type {
   ProfileImageHeadObjectResult,
   ProfileImagePresignedGetObject,
   ProfileImagePresignedPutObject,
   ProfileImageStoragePort,
-} from './ports/profile-image.storage';
+} from '../shared/ports/profile-image.storage';
 import { ErrorCode } from '../../../shared/error-codes';
 import {
   PROFILE_IMAGE_GET_URL_TTL_SECONDS,
   PROFILE_IMAGE_MAX_BYTES,
   PROFILE_IMAGE_PRESIGN_TTL_SECONDS,
 } from './profile-image.policy';
-import type { Clock } from './time';
+import type { Clock } from '../../../shared/time';
 
 function unimplemented(): never {
   throw new Error('Not implemented');

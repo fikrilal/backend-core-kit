@@ -1,12 +1,12 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
-import { ErrorCode } from '../../../../platform/http/errors/error-codes';
-import { ProblemException } from '../../../../platform/http/errors/problem.exception';
+import { ErrorCode } from '../../../platform/http/errors/error-codes';
+import { ProblemException } from '../../../platform/http/errors/problem.exception';
 import {
   applyRetryAfterHeader,
   mapFeatureErrorToProblem,
-} from '../../../../platform/http/filters/feature-error.mapper';
-import { ProblemDetailsFilter } from '../../../../platform/http/filters/problem-details.filter';
-import { UserNotFoundError, UsersError } from '../../app/users.errors';
+} from '../../../platform/http/filters/feature-error.mapper';
+import { ProblemDetailsFilter } from '../../../platform/http/filters/problem-details.filter';
+import { UserNotFoundError, UsersError } from './users.errors';
 
 @Catch(UserNotFoundError, UsersError)
 export class UsersErrorFilter implements ExceptionFilter {

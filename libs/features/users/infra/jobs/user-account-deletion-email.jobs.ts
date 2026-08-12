@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EmailService } from '../../../../platform/email/email.service';
 import { QueueProducer } from '../../../../platform/queue/queue.producer';
-import type { Clock } from '../../app/time';
+import type { Clock } from '../../../../shared/time';
 import {
   accountDeletionReminderEmailJobId,
   accountDeletionRequestedEmailJobId,
@@ -11,7 +11,7 @@ import {
   type UsersSendAccountDeletionReminderEmailJobData,
   type UsersSendAccountDeletionRequestedEmailJobData,
 } from './user-account-deletion-email.job';
-import { USERS_CLOCK } from '../users.tokens';
+import { USERS_CLOCK } from '../../shared/users.tokens';
 
 const ACCOUNT_DELETION_REMINDER_BEFORE_MS = 24 * 60 * 60 * 1000;
 

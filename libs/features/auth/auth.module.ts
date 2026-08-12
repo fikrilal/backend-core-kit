@@ -7,7 +7,7 @@ import { PlatformEmailModule } from '../../platform/email/email.module';
 import { PlatformPushModule } from '../../platform/push/push.module';
 import { QueueModule } from '../../platform/queue/queue.module';
 import { AUTH_CONFIG_DEFAULTS } from '../../platform/config/env.defaults';
-import { UsersModule } from '../users/infra/users.module';
+import { UsersModule } from '../users/users.module';
 import { EmailVerificationController } from './email-verification/email-verification.controller';
 import { AuthEmailVerificationJobs } from './email-verification/email-verification.jobs';
 import { AuthEmailVerificationService } from './email-verification/email-verification.service';

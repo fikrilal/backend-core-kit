@@ -12,7 +12,7 @@ import type {
   CurrentProfileImageFileResult,
   ProfileImageRepository,
   StoredFileRecord,
-} from '../../app/ports/profile-image.repository';
+} from '../ports/profile-image.repository';
 
 type PrismaStoredFile = Readonly<{
   id: string;

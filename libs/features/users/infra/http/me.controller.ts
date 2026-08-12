@@ -9,7 +9,7 @@ import { Idempotent } from '../../../../platform/http/idempotency/idempotency.de
 import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
 import { MeEnvelopeDto, PatchMeRequestDto } from './dtos/me.dto';
-import { UsersErrorFilter } from './users-error.filter';
+import { UsersErrorFilter } from '../../shared/users-error.filter';
 
 @ApiTags('Users')
 @Controller()

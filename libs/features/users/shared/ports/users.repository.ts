@@ -1,4 +1,4 @@
-import type { UpdateMeProfilePatch, UserRecord } from '../users.types';
+import type { UpdateMeProfilePatch, UserRecord } from '../users.model';
 
 export type RequestAccountDeletionResult =
   | Readonly<{ kind: 'ok'; user: UserRecord }>

@@ -34,7 +34,7 @@ import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes
 import { PROFILE_IMAGE_PRESIGN_TTL_SECONDS } from '../../app/profile-image.policy';
 import type { ProfileImageUrlView } from '../../app/user-profile-image.service';
 import { UserProfileImageService } from '../../app/user-profile-image.service';
-import { UsersErrorCode } from '../../app/users.error-codes';
+import { UsersErrorCode } from '../../shared/users.errors';
 import { ProfileImageCleanupJobs } from '../jobs/profile-image-cleanup.jobs';
 import { RedisProfileImageUploadRateLimiter } from '../rate-limit/redis-profile-image-upload-rate-limiter';
 import {
@@ -43,7 +43,7 @@ import {
   ProfileImageUploadPlanEnvelopeDto,
   ProfileImageUrlEnvelopeDto,
 } from './dtos/profile-image.dto';
-import { UsersErrorFilter } from './users-error.filter';
+import { UsersErrorFilter } from '../../shared/users-error.filter';
 import { runBestEffort } from '../../../../platform/logging/best-effort';
 
 @ApiTags('Users')

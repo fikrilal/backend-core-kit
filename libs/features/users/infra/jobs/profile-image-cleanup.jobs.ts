@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { USERS_CONFIG_DEFAULTS } from '../../../../platform/config/env.defaults';
 import { QueueProducer } from '../../../../platform/queue/queue.producer';
 import { ObjectStorageService } from '../../../../platform/storage/object-storage.service';
-import type { Clock } from '../../app/time';
+import type { Clock } from '../../../../shared/time';
 import {
   deleteStoredFileJobId,
   expireUploadJobId,
@@ -13,8 +13,8 @@ import {
   type UsersProfileImageDeleteStoredFileJobData,
   type UsersProfileImageExpireUploadJobData,
 } from './profile-image-cleanup.job';
-import { PrismaProfileImageRepository } from '../persistence/prisma-profile-image.repository';
-import { USERS_CLOCK } from '../users.tokens';
+import { PrismaProfileImageRepository } from '../../shared/persistence/prisma-profile-image.repository';
+import { USERS_CLOCK } from '../../shared/users.tokens';
 
 @Injectable()
 export class ProfileImageCleanupJobs {

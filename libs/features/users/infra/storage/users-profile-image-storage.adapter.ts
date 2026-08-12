@@ -5,7 +5,7 @@ import type {
   ProfileImagePresignedGetObject,
   ProfileImagePresignedPutObject,
   ProfileImageStoragePort,
-} from '../../app/ports/profile-image.storage';
+} from '../../shared/ports/profile-image.storage';
 
 @Injectable()
 export class UsersProfileImageStorageAdapter implements ProfileImageStoragePort {

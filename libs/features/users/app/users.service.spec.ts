@@ -1,14 +1,14 @@
 import { UsersService } from './users.service';
-import { UserNotFoundError, type UsersError } from './users.errors';
-import { UsersErrorCode } from './users.error-codes';
-import type { AccountDeletionScheduler } from './ports/account-deletion.scheduler';
+import { UserNotFoundError, type UsersError } from '../shared/users.errors';
+import { UsersErrorCode } from '../shared/users.errors';
+import type { AccountDeletionScheduler } from '../shared/ports/account-deletion.scheduler';
 import type {
   CancelAccountDeletionResult,
   RequestAccountDeletionResult,
   UsersRepository,
-} from './ports/users.repository';
-import type { MeView, UpdateMeProfilePatch, UserRecord } from './users.types';
-import type { Clock } from './time';
+} from '../shared/ports/users.repository';
+import type { MeView, UpdateMeProfilePatch, UserRecord } from '../shared/users.model';
+import type { Clock } from '../../../shared/time';
 
 function unimplemented(): never {
   throw new Error('Not implemented');

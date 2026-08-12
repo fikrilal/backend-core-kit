@@ -9,7 +9,7 @@ import { ResponseEnvelopeInterceptor } from '../../../libs/platform/http/interce
 import { ProblemDetailsFilter } from '../../../libs/platform/http/filters/problem-details.filter';
 import { validateEnv } from '../../../libs/platform/config/env.validation';
 import { AuthModule } from '../../../libs/features/auth/auth.module';
-import { UsersModule } from '../../../libs/features/users/infra/users.module';
+import { UsersModule } from '../../../libs/features/users/users.module';
 import { AdminModule } from '../../../libs/features/admin/infra/admin.module';
 import { IdempotencyInterceptor } from '../../../libs/platform/http/idempotency/idempotency.interceptor';
 

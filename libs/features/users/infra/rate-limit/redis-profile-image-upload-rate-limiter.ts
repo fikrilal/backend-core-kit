@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { USERS_CONFIG_DEFAULTS } from '../../../../platform/config/env.defaults';
 import { RedisService } from '../../../../platform/redis/redis.service';
 import { ErrorCode } from '../../../../platform/http/errors/error-codes';
-import { UsersError } from '../../app/users.errors';
+import { UsersError } from '../../shared/users.errors';
 
 type RateLimitConfig = Readonly<{
   maxAttempts: number;

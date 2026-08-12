@@ -1,13 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { ErrorCode } from '../../../shared/error-codes';
-import { UserNotFoundError, UsersError } from './users.errors';
-import { UsersErrorCode } from './users.error-codes';
-import type { ProfileImageRepository, StoredFileRecord } from './ports/profile-image.repository';
+import { UserNotFoundError, UsersError } from '../shared/users.errors';
+import { UsersErrorCode } from '../shared/users.errors';
+import type {
+  ProfileImageRepository,
+  StoredFileRecord,
+} from '../shared/ports/profile-image.repository';
 import type {
   ProfileImagePresignedPutObject,
   ProfileImageStoragePort,
-} from './ports/profile-image.storage';
-import { addSeconds, type Clock } from './time';
+} from '../shared/ports/profile-image.storage';
+import { addSeconds, type Clock } from '../../../shared/time';
 
 import {
   PROFILE_IMAGE_ALLOWED_CONTENT_TYPES,

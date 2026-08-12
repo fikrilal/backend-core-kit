@@ -9,19 +9,19 @@ import {
   type User,
   type UserProfile,
 } from '@prisma/client';
-import type { UsersRepository } from '../../app/ports/users.repository';
+import type { UsersRepository } from '../ports/users.repository';
 import type {
   UpdateMeProfilePatch,
   UserProfileRecord,
   UserRecord,
   UserRole,
   UserStatus,
-} from '../../app/users.types';
+} from '../users.model';
 import { PrismaService } from '../../../../platform/db/prisma.service';
 import { lockActiveAdminInvariant } from '../../../../platform/db/row-locks';
 import { withTransactionRetry } from '../../../../platform/db/tx-retry';
 import type { AuthMethod } from '../../../../shared/auth/auth-method';
-import type { Clock } from '../../app/time';
+import type { Clock } from '../../../../shared/time';
 import { USERS_CLOCK } from '../users.tokens';
 
 type PrismaUserWithProfile = Pick<

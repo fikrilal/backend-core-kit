@@ -1,10 +1,10 @@
-import type { UsersRepository } from './ports/users.repository';
-import type { AccountDeletionScheduler } from './ports/account-deletion.scheduler';
-import { UserNotFoundError, UsersError } from './users.errors';
-import { UsersErrorCode } from './users.error-codes';
-import type { MeView } from './users.types';
-import type { UpdateMeProfilePatch, UserProfileRecord, UserRecord } from './users.types';
-import { addDays, type Clock } from './time';
+import type { UsersRepository } from '../shared/ports/users.repository';
+import type { AccountDeletionScheduler } from '../shared/ports/account-deletion.scheduler';
+import { UserNotFoundError, UsersError } from '../shared/users.errors';
+import { UsersErrorCode } from '../shared/users.errors';
+import type { MeView } from '../shared/users.model';
+import type { UpdateMeProfilePatch, UserProfileRecord, UserRecord } from '../shared/users.model';
+import { addDays, type Clock } from '../../../shared/time';
 
 const ACCOUNT_DELETION_GRACE_PERIOD_DAYS = 30;
 

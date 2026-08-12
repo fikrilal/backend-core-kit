@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { UserRole as PrismaUserRole, UserStatus as PrismaUserStatus } from '@prisma/client';
 import { PrismaService } from '../../../../platform/db/prisma.service';
-import type { Clock } from '../../app/time';
+import type { Clock } from '../../../../shared/time';
 import { PrismaUsersRepository } from './prisma-users.repository';
 import { createPrototypeStub } from '../../../../../test/support/stubs';
 

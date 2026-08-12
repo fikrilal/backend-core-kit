@@ -1,5 +1,6 @@
+export { UsersErrorCode } from '../../../shared/users/users-error-codes';
+import type { UsersErrorCode } from '../../../shared/users/users-error-codes';
 import type { ErrorCode } from '../../../shared/error-codes';
-import type { UsersErrorCode } from './users.error-codes';
 
 export class UserNotFoundError extends Error {
   constructor() {
