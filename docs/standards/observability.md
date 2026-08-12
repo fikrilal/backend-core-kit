@@ -60,6 +60,8 @@ Implementation (current):
 
 - Traces are initialized early in `apps/api/src/main.ts` and `apps/worker/src/main.ts` via `libs/platform/otel/telemetry.ts`.
 - Export: OTLP HTTP traces (`OTEL_EXPORTER_OTLP_ENDPOINT` + `OTEL_EXPORTER_OTLP_HEADERS`).
+- Metrics export is not wired yet; treat metrics below as the target baseline,
+  not current runtime behavior.
 - Noise/safety:
   - `/health` and `/ready` are excluded from tracing.
   - Querystrings are stripped from URL span attributes; requestId is attached as `app.request_id` for correlation.
@@ -87,7 +89,10 @@ Baseline metrics (minimum):
 - DB query durations (if supported)
 - BullMQ job duration + success/failure counts
 
-Export metrics via OTLP where supported in Grafana Cloud Free; otherwise export to Prometheus-compatible endpoints and scrape.
+Current implementation: not wired yet.
+
+Target implementation: export metrics via OTLP where supported in Grafana Cloud
+Free; otherwise export to Prometheus-compatible endpoints and scrape.
 
 ## Health Endpoints
 

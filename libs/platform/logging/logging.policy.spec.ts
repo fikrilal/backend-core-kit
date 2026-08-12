@@ -1,4 +1,4 @@
-import { NodeEnv } from '../config/env.validation';
+import { NodeEnv } from '../config/env.enums';
 import { LogLevel } from '../config/log-level';
 import { defaultLogLevel, isPrettyLogsEnabled, resolveLogLevel } from './logging.policy';
 

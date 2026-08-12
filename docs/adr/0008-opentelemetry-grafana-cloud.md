@@ -16,8 +16,8 @@ The organization uses Grafana Cloud Free.
 
 ## Decision
 
-- Use OpenTelemetry for traces and metrics.
-- Export via OTLP to Grafana Cloud.
+- Use OpenTelemetry for traces now and metrics when the platform metrics lane is added.
+- Export traces via OTLP to Grafana Cloud.
 - Use structured JSON logs with correlation IDs; logs complement traces/metrics.
 
 ## Rationale
@@ -27,7 +27,7 @@ The organization uses Grafana Cloud Free.
 
 ## Consequences
 
-- Projects must configure OTLP endpoint/headers per environment.
+- Projects must configure OTLP trace endpoint/headers per environment.
 - Some metrics export paths may differ depending on Grafana Cloud capabilities; docs must remain accurate.
 
 ## Alternatives Considered
