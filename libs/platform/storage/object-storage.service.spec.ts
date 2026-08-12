@@ -131,6 +131,14 @@ describe('ObjectStorageService', () => {
     });
   });
 
+  it('validates keys for HEAD and DELETE operations', async () => {
+    const service = new ObjectStorageService(createConfigService(configuredStorageConfig()));
+
+    await expect(service.headObject('users//u1')).rejects.toThrow(/Invalid object key/i);
+    await expect(service.deleteObject('users//u1')).rejects.toThrow(/Invalid object key/i);
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
   it('headObject returns exists=false for 404 errors', async () => {
     const service = new ObjectStorageService(createConfigService(configuredStorageConfig()));
     sendMock.mockRejectedValueOnce({ $metadata: { httpStatusCode: 404 } });

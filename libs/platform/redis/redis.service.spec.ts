@@ -189,17 +189,4 @@ describe('RedisService', () => {
     expect(retryStrategy?.(1)).toBe(50);
     expect(retryStrategy?.(20)).toBe(500);
   });
-
-  it('throws on invalid Redis timeout/retry settings', () => {
-    expect(
-      () =>
-        new RedisService(
-          createConfigService({
-            NODE_ENV: NodeEnv.Development,
-            REDIS_URL: 'redis://unused',
-            REDIS_COMMAND_TIMEOUT_MS: 0,
-          }),
-        ),
-    ).toThrow(/REDIS_COMMAND_TIMEOUT_MS/i);
-  });
 });

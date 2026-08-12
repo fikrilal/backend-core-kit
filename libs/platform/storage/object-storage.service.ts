@@ -37,7 +37,6 @@ function isNotFoundError(err: unknown): boolean {
 
 @Injectable()
 export class ObjectStorageService {
-  private readonly enabled: boolean;
   private readonly client?: S3Client;
   private readonly bucket?: string;
 
@@ -58,7 +57,6 @@ export class ObjectStorageService {
       accessKeyId !== undefined &&
       secretAccessKey !== undefined;
 
-    this.enabled = configured;
     this.bucket = bucket;
 
     if (configured) {
@@ -75,7 +73,7 @@ export class ObjectStorageService {
   }
 
   isEnabled(): boolean {
-    return this.enabled;
+    return this.client !== undefined;
   }
 
   getBucketName(): string {
@@ -142,12 +140,13 @@ export class ObjectStorageService {
 
   async headObject(key: string): Promise<HeadObjectResult> {
     const { client, bucket } = this.assertConfigured();
+    const objectKey = assertObjectKey(key);
 
     try {
       const res = await client.send(
         new HeadObjectCommand({
           Bucket: bucket,
-          Key: key,
+          Key: objectKey,
         }),
       );
 
@@ -165,12 +164,13 @@ export class ObjectStorageService {
 
   async deleteObject(key: string): Promise<void> {
     const { client, bucket } = this.assertConfigured();
+    const objectKey = assertObjectKey(key);
 
     try {
       await client.send(
         new DeleteObjectCommand({
           Bucket: bucket,
-          Key: key,
+          Key: objectKey,
         }),
       );
     } catch (err: unknown) {
