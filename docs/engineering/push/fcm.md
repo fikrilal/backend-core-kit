@@ -13,6 +13,7 @@ Environment variables:
 - Credentials (choose one):
   - `FCM_USE_APPLICATION_DEFAULT=true` (ADC)
   - `FCM_SERVICE_ACCOUNT_JSON_PATH` (preferred in production; mounted secret file)
+  - `FCM_SERVICE_ACCOUNT_JSON_BASE64` (recommended for Heroku/CI; avoids quoting/newline issues)
   - `FCM_SERVICE_ACCOUNT_JSON` (dev convenience; not recommended for production)
 
 Notes:
@@ -28,7 +29,7 @@ Code lives in `libs/platform/push/`.
 - Provider:
   - `libs/platform/push/fcm-push.service.ts:1` (`FcmPushService`)
   - `libs/platform/push/disabled-push.service.ts:1` (`DisabledPushService`)
-- Job helper: `libs/platform/push/push.jobs.ts:1` (`PushJobs`)
+- Job contract: `libs/platform/push/push.job.ts:1`
 
 ## Payload guidance (keep it small)
 

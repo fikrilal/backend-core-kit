@@ -13,8 +13,7 @@ import { ApiBearerAuth, ApiNoContentResponse, ApiOperation, ApiTags } from '@nes
 import { AccessTokenGuard } from '../../../platform/auth/access-token.guard';
 import { CurrentPrincipal } from '../../../platform/auth/current-principal.decorator';
 import type { AuthPrincipal } from '../../../platform/auth/auth.types';
-import { PUSH_SERVICE } from '../../../platform/push/push.tokens';
-import type { PushService } from '../../../platform/push/push.service';
+import { PUSH_SERVICE, type PushService } from '../../../platform/push/push.service';
 import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
 import { ErrorCode } from '../../../platform/http/errors/error-codes';
 import { ProblemException } from '../../../platform/http/errors/problem.exception';

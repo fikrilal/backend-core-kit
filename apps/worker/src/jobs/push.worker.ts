@@ -9,8 +9,7 @@ import {
   PUSH_SEND_JOB,
   type PushSendJobData,
 } from '../../../../libs/platform/push/push.job';
-import { PUSH_SERVICE } from '../../../../libs/platform/push/push.tokens';
-import type { PushService } from '../../../../libs/platform/push/push.service';
+import { PUSH_SERVICE, type PushService } from '../../../../libs/platform/push/push.service';
 import { PushErrorCode, PushSendError } from '../../../../libs/platform/push/push.types';
 
 type PushSendJobResult = Readonly<{
