@@ -93,12 +93,11 @@ listUsers() {
 }
 ```
 
-Note: for `/v1/admin/*` endpoints, `RbacGuard` hydrates roles from the database on each request to ensure immediate demotion/promotion. You can also opt-in explicitly via `@UseDbRoles()` on other controllers/handlers if needed.
+Note: endpoints that need immediate role changes, such as admin endpoints, should declare `@UseDbRoles()` so `RbacGuard` hydrates roles from the database before permission checks.
 
-Escape hatches (when needed):
+Escape hatch:
 
 - `@Public()` marks an endpoint as unauthenticated (skips access-token guard and RBAC when present).
-- `@SkipRbac()` skips RBAC checks (rare; use for migrations/internal endpoints).
 
 ## Write Safety (Idempotency-Key)
 

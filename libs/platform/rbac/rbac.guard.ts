@@ -5,14 +5,10 @@ import type { FastifyRequest } from 'fastify';
 import { IS_PUBLIC_KEY } from '../auth/public.decorator';
 import { ErrorCode } from '../http/errors/error-codes';
 import { ProblemException } from '../http/errors/problem.exception';
-import type { Permission } from './permissions';
-import { hasAllPermissions, normalizePermissions } from './permissions';
-import type { PermissionsProvider } from './permissions.provider';
-import { getRequiredPermissions } from './rbac.decorator';
-import { RBAC_PERMISSIONS_PROVIDER } from './rbac.tokens';
-import { SKIP_RBAC_KEY } from './skip-rbac.decorator';
+import type { Permission, PermissionsProvider } from './permissions';
+import { RBAC_PERMISSIONS_PROVIDER, hasAllPermissions, normalizePermissions } from './permissions';
+import { getRequiredPermissions, USE_DB_ROLES_KEY } from './rbac.decorator';
 import { DbRoleHydrator } from './db-role-hydrator.service';
-import { USE_DB_ROLES_KEY } from './use-db-roles.decorator';
 
 @Injectable()
 export class RbacGuard implements CanActivate {
@@ -29,9 +25,6 @@ export class RbacGuard implements CanActivate {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [handler, cls]);
     if (isPublic) return true;
 
-    const skipRbac = this.reflector.getAllAndOverride<boolean>(SKIP_RBAC_KEY, [handler, cls]);
-    if (skipRbac) return true;
-
     const required: Permission[] = getRequiredPermissions(this.reflector, [cls, handler]);
     if (required.length === 0) return true;
 
@@ -41,9 +34,7 @@ export class RbacGuard implements CanActivate {
       throw new ProblemException(401, { title: 'Unauthorized', code: ErrorCode.UNAUTHORIZED });
     }
 
-    const useDbRoles =
-      this.isAdminPath(req.url) ||
-      this.reflector.getAllAndOverride<boolean>(USE_DB_ROLES_KEY, [handler, cls]) === true;
+    const useDbRoles = this.reflector.getAllAndOverride<boolean>(USE_DB_ROLES_KEY, [handler, cls]);
 
     if (useDbRoles) {
       principal = await this.dbRoleHydrator.hydrate(principal);
@@ -58,10 +49,5 @@ export class RbacGuard implements CanActivate {
     }
 
     return true;
-  }
-
-  private isAdminPath(url: string): boolean {
-    const path = url.split('?', 1)[0] ?? '';
-    return path === '/v1/admin' || path.startsWith('/v1/admin/');
   }
 }

@@ -12,8 +12,7 @@ import { ListQueryParam } from '../../../../platform/http/list-query/list-query.
 import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
 import type { ListQuery } from '../../../../shared/list-query';
 import { RbacGuard } from '../../../../platform/rbac/rbac.guard';
-import { RequirePermissions } from '../../../../platform/rbac/rbac.decorator';
-import { UseDbRoles } from '../../../../platform/rbac/use-db-roles.decorator';
+import { RequirePermissions, UseDbRoles } from '../../../../platform/rbac/rbac.decorator';
 import type { ListQueryPipeOptions } from '../../../../platform/http/list-query/list-query.pipe';
 import { RequestTraceId } from '../../../../platform/http/request-context.decorator';
 import type { AdminUsersFilterField, AdminUsersSortField } from '../../app/admin-users.types';
@@ -80,7 +79,7 @@ export class AdminUsersController {
     operationId: 'admin.users.role.patch',
     summary: 'Set user role',
     description:
-      'Sets the user role. For /v1/admin/* endpoints, RBAC roles are hydrated from the database on every request (promotion/demotion takes effect immediately).',
+      'Sets the user role. This admin controller hydrates RBAC roles from the database on every request, so promotion/demotion takes effect immediately.',
   })
   @ApiErrorCodes([
     ErrorCode.VALIDATION_FAILED,
@@ -117,7 +116,7 @@ export class AdminUsersController {
     operationId: 'admin.users.status.patch',
     summary: 'Set user status',
     description:
-      'Sets the user status (ACTIVE/SUSPENDED). Suspended users cannot refresh tokens and are blocked from /v1/admin/* endpoints immediately.',
+      'Sets the user status (ACTIVE/SUSPENDED). Suspended users cannot refresh tokens and are blocked from DB-hydrated admin endpoints immediately.',
   })
   @ApiErrorCodes([
     ErrorCode.VALIDATION_FAILED,

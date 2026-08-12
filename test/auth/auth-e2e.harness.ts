@@ -211,8 +211,13 @@ export function describeAuthE2eSuite(
       process.env.PUBLIC_APP_URL ??= 'http://localhost:3000';
 
       // Enable push token endpoints in e2e tests without requiring real FCM credentials.
+      // Pin the other credential strategies to empty so loadDotEnvOnce will not restore
+      // them from .env (dotenv.config never overwrites an already-set variable).
       process.env.PUSH_PROVIDER ??= 'FCM';
       process.env.FCM_PROJECT_ID ??= 'test-project';
+      process.env.FCM_USE_APPLICATION_DEFAULT = '';
+      process.env.FCM_SERVICE_ACCOUNT_JSON_PATH = '';
+      process.env.FCM_SERVICE_ACCOUNT_JSON_BASE64 = '';
       process.env.FCM_SERVICE_ACCOUNT_JSON ??= (() => {
         const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
         return JSON.stringify({

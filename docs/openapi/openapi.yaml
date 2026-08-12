@@ -696,9 +696,8 @@ paths:
         - INTERNAL
   /v1/admin/whoami:
     get:
-      description: Returns the authenticated principal. For /v1/admin/* endpoints,
-        roles are hydrated from the database to ensure immediate
-        demotion/promotion.
+      description: Returns the authenticated principal. This admin controller hydrates
+        roles from the database to ensure immediate demotion/promotion.
       operationId: admin.whoami.get
       parameters: []
       responses:
@@ -808,9 +807,9 @@ paths:
         - INTERNAL
   /v1/admin/users/{userId}/role:
     patch:
-      description: Sets the user role. For /v1/admin/* endpoints, RBAC roles are
-        hydrated from the database on every request (promotion/demotion takes
-        effect immediately).
+      description: Sets the user role. This admin controller hydrates RBAC roles from
+        the database on every request, so promotion/demotion takes effect
+        immediately.
       operationId: admin.users.role.patch
       parameters:
         - name: userId
@@ -857,7 +856,8 @@ paths:
   /v1/admin/users/{userId}/status:
     patch:
       description: Sets the user status (ACTIVE/SUSPENDED). Suspended users cannot
-        refresh tokens and are blocked from /v1/admin/* endpoints immediately.
+        refresh tokens and are blocked from DB-hydrated admin endpoints
+        immediately.
       operationId: admin.users.status.patch
       parameters:
         - name: userId

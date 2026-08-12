@@ -7,8 +7,7 @@ import { ApiListQuery } from '../../../../platform/http/list-query/api-list-quer
 import { ListQueryParam } from '../../../../platform/http/list-query/list-query.decorator';
 import type { ListQueryPipeOptions } from '../../../../platform/http/list-query/list-query.pipe';
 import { RbacGuard } from '../../../../platform/rbac/rbac.guard';
-import { RequirePermissions } from '../../../../platform/rbac/rbac.decorator';
-import { UseDbRoles } from '../../../../platform/rbac/use-db-roles.decorator';
+import { RequirePermissions, UseDbRoles } from '../../../../platform/rbac/rbac.decorator';
 import type { ListQuery } from '../../../../shared/list-query';
 import type {
   AdminUserAccountDeletionAuditsFilterField,
