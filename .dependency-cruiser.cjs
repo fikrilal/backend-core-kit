@@ -26,7 +26,7 @@ module.exports = {
       severity: 'error',
       from: { path: '^libs/features/[^/]+/app' },
       to: {
-        path: '^(apps/|libs/platform|libs/features/[^/]+/(?!app(?:/|$)|domain(?:/|$)))|node_modules/(?:@nestjs|@prisma|fastify|bullmq|ioredis|redis)',
+        path: '^(apps/|libs/platform|libs/features/[^/]+/(?!app(?:/|$)|domain(?:/|$)|shared(?:/|$)))|node_modules/(?:@nestjs|@prisma|fastify|bullmq|ioredis|redis)',
       },
     },
     {
