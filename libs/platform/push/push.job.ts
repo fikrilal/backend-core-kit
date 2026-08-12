@@ -1,6 +1,4 @@
-import { jobName } from '../queue/job-name';
-import { queueName } from '../queue/queue-name';
-import type { JsonObject } from '../queue/json.types';
+import { jobName, queueName, type JsonObject } from '../queue/queue.types';
 
 export const PUSH_QUEUE = queueName('push');
 

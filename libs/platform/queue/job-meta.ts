@@ -1,4 +1,4 @@
-import type { JsonObject } from './json.types';
+import type { JsonObject } from './queue.types';
 
 export type JobOtelMeta = Readonly<{
   traceparent: string;

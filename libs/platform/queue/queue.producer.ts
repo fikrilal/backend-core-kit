@@ -8,9 +8,7 @@ import {
   trace as otelTrace,
 } from '@opentelemetry/api';
 import { DEFAULT_JOB_OPTIONS } from './queue.defaults';
-import type { QueueName } from './queue-name';
-import type { JobName } from './job-name';
-import type { JsonObject } from './json.types';
+import type { JobName, JsonObject, QueueName } from './queue.types';
 import { withJobOtelMeta } from './job-meta';
 import { getActiveJobOtelMeta, QUEUE_TRACER, toOtelException } from './queue-otel';
 import { buildQueueRedisConnection } from './queue-redis';
@@ -29,7 +27,7 @@ export class QueueProducer implements OnModuleDestroy {
     return this.redis !== undefined;
   }
 
-  getQueue(name: QueueName): Queue<JsonObject, JsonObject, string> {
+  private getQueue(name: QueueName): Queue<JsonObject, JsonObject, string> {
     if (!this.redis) {
       throw new Error('REDIS_URL is not configured');
     }

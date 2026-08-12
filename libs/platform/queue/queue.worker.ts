@@ -7,8 +7,7 @@ import {
   context as otelContext,
   trace as otelTrace,
 } from '@opentelemetry/api';
-import type { JsonObject } from './json.types';
-import type { QueueName } from './queue-name';
+import type { JsonObject, QueueName } from './queue.types';
 import { DEFAULT_WORKER_OPTIONS } from './queue.defaults';
 import { extractJobContextFromData, QUEUE_TRACER, toOtelException } from './queue-otel';
 import { buildQueueRedisConnection } from './queue-redis';

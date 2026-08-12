@@ -1,5 +1,4 @@
-import { jobName } from '../../../platform/queue/job-name';
-import type { JsonObject } from '../../../platform/queue/json.types';
+import { jobName, type JsonObject } from '../../../platform/queue/queue.types';
 export { EMAIL_QUEUE } from '../../../platform/email/email.queue';
 
 export const AUTH_SEND_VERIFICATION_EMAIL_JOB = jobName('auth.sendVerificationEmail');

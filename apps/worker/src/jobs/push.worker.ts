@@ -3,7 +3,7 @@ import type { Job } from 'bullmq';
 import { PinoLogger } from 'nestjs-pino';
 import { PrismaService } from '../../../../libs/platform/db/prisma.service';
 import { QueueWorkerFactory } from '../../../../libs/platform/queue/queue.worker';
-import type { JsonObject } from '../../../../libs/platform/queue/json.types';
+import type { JsonObject } from '../../../../libs/platform/queue/queue.types';
 import {
   PUSH_QUEUE,
   PUSH_SEND_JOB,

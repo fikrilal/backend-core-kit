@@ -6,7 +6,8 @@ This core kit uses BullMQ (Redis-backed) for background work. A separate worker 
 
 - At-least-once delivery is assumed; jobs must be idempotent.
 - Retries use backoff and only for safe operations.
-- Job execution is observable (logs + traces + metrics).
+- Job execution is observable. Current platform wiring covers logs + traces;
+  metrics are a target baseline, not current runtime behavior.
 
 ## Queue Naming
 
@@ -21,7 +22,7 @@ Avoid environment-specific names; environment is handled by Redis configuration 
 
 Implementation (current):
 
-- Define queue names with `queueName()` from `libs/platform/queue/queue-name.ts`.
+- Define queue names with `queueName()` from `libs/platform/queue/queue.types.ts`.
 - Prefer one worker per queue per process; scale out by running more worker processes.
 
 ## Job Naming
@@ -34,7 +35,7 @@ Jobs must include a clear name:
 
 Implementation (current):
 
-- Define job names with `jobName()` from `libs/platform/queue/job-name.ts`.
+- Define job names with `jobName()` from `libs/platform/queue/queue.types.ts`.
 
 ## Retry Policy
 

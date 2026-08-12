@@ -174,9 +174,7 @@ function buildQueueFiles(names: FeatureNames, options: { clean: boolean }): Scaf
   return [
     {
       path: join(jobsDir, `${names.kebab}.job.ts`),
-      content: `import { jobName } from '${platformPrefix}/queue/job-name';
-import type { JsonObject } from '${platformPrefix}/queue/json.types';
-import { queueName } from '${platformPrefix}/queue/queue-name';
+      content: `import { jobName, queueName, type JsonObject } from '${platformPrefix}/queue/queue.types';
 
 export const ${queueNameConst} = queueName('${names.kebab}');
 export const ${queueJobConst} = jobName('${names.camel}.sync');

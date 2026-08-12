@@ -3,9 +3,8 @@ import { QueueEvents } from 'bullmq';
 import request from 'supertest';
 import { createApiApp } from '../apps/api/src/bootstrap';
 import { createWorkerApp } from '../apps/worker/src/bootstrap';
-import { jobName } from '../libs/platform/queue/job-name';
 import { QueueProducer } from '../libs/platform/queue/queue.producer';
-import { queueName } from '../libs/platform/queue/queue-name';
+import { jobName, queueName } from '../libs/platform/queue/queue.types';
 import { PrismaService } from '../libs/platform/db/prisma.service';
 import {
   CreateBucketCommand,

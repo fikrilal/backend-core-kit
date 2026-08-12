@@ -1,5 +1,4 @@
-import { jobName } from '../../../../platform/queue/job-name';
-import type { JsonObject } from '../../../../platform/queue/json.types';
+import { jobName, type JsonObject } from '../../../../platform/queue/queue.types';
 export { USERS_QUEUE } from './users.queue';
 
 export const USERS_FINALIZE_ACCOUNT_DELETION_JOB = jobName('users.finalizeAccountDeletion');

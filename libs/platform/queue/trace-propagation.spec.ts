@@ -13,8 +13,7 @@ import {
   SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
 import { createConfigService } from '../../../test/support/stubs';
-import { jobName } from './job-name';
-import { queueName } from './queue-name';
+import { jobName, queueName } from './queue.types';
 import { QueueProducer } from './queue.producer';
 import { QueueWorkerFactory } from './queue.worker';
 import { DEFAULT_WORKER_OPTIONS } from './queue.defaults';
