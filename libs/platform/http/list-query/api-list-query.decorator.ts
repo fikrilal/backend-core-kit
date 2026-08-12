@@ -1,6 +1,11 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiQuery } from '@nestjs/swagger';
-import type { FilterFieldConfig, FilterOperator, SortSpec } from '../../../shared/list-query';
+import {
+  hasOwnField,
+  type FilterFieldConfig,
+  type FilterOperator,
+  type SortSpec,
+} from '../../../shared/list-query';
 import type { ListQueryPipeOptions } from './list-query.pipe';
 
 export type ApiListQueryOptions<
@@ -34,13 +39,6 @@ function formatType(config: FilterFieldConfig): { type: string; format?: string;
 
 function filterParamName(field: string, op?: FilterOperator): string {
   return op ? `filter[${field}][${op}]` : `filter[${field}]`;
-}
-
-function hasOwnField<T extends object>(
-  value: T,
-  field: PropertyKey,
-): field is Extract<keyof T, string> {
-  return Object.prototype.hasOwnProperty.call(value, field);
 }
 
 export function ApiListQuery<SortField extends string, FilterField extends string>(

@@ -25,21 +25,6 @@ describe('parseFilters', () => {
     ]);
   });
 
-  it('parses bracketed keys (legacy)', () => {
-    const res = parseFilters(
-      {
-        'filter[status]': 'ACTIVE',
-        'filter[createdAt][lte]': '2026-01-31T23:59:59.999Z',
-      },
-      FILTERS,
-    );
-
-    expect(res).toEqual([
-      { field: 'status', op: 'eq', value: 'ACTIVE' },
-      { field: 'createdAt', op: 'lte', value: '2026-01-31T23:59:59.999Z' },
-    ]);
-  });
-
   it('rejects unsupported fields', () => {
     expect(() => parseFilters({ unknown: 'x' }, FILTERS)).toThrow(ListQueryValidationError);
   });
@@ -68,9 +53,6 @@ describe('parseFilters', () => {
 
   it('rejects unsupported operators', () => {
     expect(() => parseFilters({ status: { gte: 'ACTIVE' } }, FILTERS)).toThrow(
-      ListQueryValidationError,
-    );
-    expect(() => parseFilters({ 'filter[status][gte]': 'ACTIVE' }, FILTERS)).toThrow(
       ListQueryValidationError,
     );
   });

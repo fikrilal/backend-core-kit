@@ -8,6 +8,7 @@ export class ListQueryValidationError extends Error {
 
   constructor(issues: ReadonlyArray<ListQueryIssue>) {
     super('Invalid list query');
+    this.name = 'ListQueryValidationError';
     this.issues = issues;
   }
 }

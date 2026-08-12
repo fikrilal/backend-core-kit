@@ -1,8 +1,11 @@
 import type { Prisma } from '@prisma/client';
 import {
   buildCursorAfterWhere,
+  createCursorAfterBuilders,
   encodeCursorV1,
   type ListQuery,
+  parseCursorDateValue,
+  parseCursorStringValue,
 } from '../../../../shared/list-query';
 import type { PrismaService } from '../../../../platform/db/prisma.service';
 import type {
@@ -33,43 +36,28 @@ function sortSessionFieldOrderBy(
   }
 }
 
-function equalsSessionForCursor(
-  field: UserSessionsSortField,
-  value: string | number | boolean,
-): Prisma.SessionWhereInput {
-  switch (field) {
-    case 'createdAt': {
-      if (typeof value !== 'string') {
-        throw new Error('Cursor value for createdAt must be an ISO datetime string');
-      }
-      return { createdAt: { equals: new Date(value) } };
-    }
-    case 'id': {
-      if (typeof value !== 'string') throw new Error('Cursor value for id must be a string');
-      return { id: { equals: value } };
-    }
-  }
-}
-
-function compareSessionForCursor(
-  field: UserSessionsSortField,
-  direction: 'asc' | 'desc',
-  value: string | number | boolean,
-): Prisma.SessionWhereInput {
-  switch (field) {
-    case 'createdAt': {
-      if (typeof value !== 'string') {
-        throw new Error('Cursor value for createdAt must be an ISO datetime string');
-      }
-      const date = new Date(value);
-      return direction === 'asc' ? { createdAt: { gt: date } } : { createdAt: { lt: date } };
-    }
-    case 'id': {
-      if (typeof value !== 'string') throw new Error('Cursor value for id must be a string');
-      return direction === 'asc' ? { id: { gt: value } } : { id: { lt: value } };
-    }
-  }
-}
+const sessionAfterCursorBuilders = createCursorAfterBuilders<
+  UserSessionsSortField,
+  Prisma.SessionWhereInput
+>({
+  fieldOps: {
+    createdAt: {
+      equals: (value) => ({ createdAt: { equals: parseCursorDateValue('createdAt', value) } }),
+      gt: (value) => ({ createdAt: { gt: parseCursorDateValue('createdAt', value) } }),
+      lt: (value) => ({ createdAt: { lt: parseCursorDateValue('createdAt', value) } }),
+    },
+    id: {
+      equals: (value) => ({ id: { equals: parseCursorStringValue('id', value) } }),
+      gt: (value) => ({ id: { gt: parseCursorStringValue('id', value) } }),
+      lt: (value) => ({ id: { lt: parseCursorStringValue('id', value) } }),
+    },
+  },
+  combiners: {
+    and: (clauses) => ({ AND: [...clauses] }),
+    or: (clauses) => ({ OR: [...clauses] }),
+    empty: () => ({}),
+  },
+});
 
 export async function listUserSessions(
   prisma: PrismaService,
@@ -83,13 +71,7 @@ export async function listUserSessions(
       ? buildCursorAfterWhere({
           sort: query.sort,
           after: query.cursor.after,
-          builders: {
-            equals: equalsSessionForCursor,
-            compare: compareSessionForCursor,
-            and: (clauses) => ({ AND: clauses }),
-            or: (clauses) => ({ OR: clauses }),
-            empty: () => ({}),
-          },
+          builders: sessionAfterCursorBuilders,
         })
       : {};
 

@@ -58,20 +58,20 @@ describe('parseListQuery', () => {
     expect(q.q).toBe('hello');
   });
 
-  it('falls back to default limit for non-numeric input', () => {
-    const q = parseListQuery(
-      { limit: 'nope' },
-      {
-        defaultLimit: 10,
-        sort: {
-          allowed: SORT_ALLOWED,
-          default: [{ field: 'createdAt', direction: 'desc' }],
-          tieBreaker: { field: 'id', direction: 'asc' },
+  it('rejects non-numeric limit input', () => {
+    expect(() =>
+      parseListQuery(
+        { limit: 'nope' },
+        {
+          defaultLimit: 10,
+          sort: {
+            allowed: SORT_ALLOWED,
+            default: [{ field: 'createdAt', direction: 'desc' }],
+            tieBreaker: { field: 'id', direction: 'asc' },
+          },
         },
-      },
-    );
-
-    expect(q.limit).toBe(10);
+      ),
+    ).toThrow(ListQueryValidationError);
   });
 
   it('rejects filtering when unsupported (but allows empty filter)', () => {

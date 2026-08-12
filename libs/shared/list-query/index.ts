@@ -3,5 +3,7 @@ export * from './cursor-after';
 export * from './errors';
 export * from './filter';
 export * from './list-query';
+export * from './object';
 export * from './sort';
 export * from './types';
+export * from './where';

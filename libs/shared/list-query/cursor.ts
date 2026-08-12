@@ -1,6 +1,6 @@
 import { ListQueryValidationError, type ListQueryIssue } from './errors';
 import { parseScalar } from './scalars';
-import { isPlainObject } from './object';
+import { hasOwnField, isPlainObject } from './object';
 import type { CursorPayloadV1, SortAllowlist, Scalar } from './types';
 
 function base64UrlEncode(input: string): string {
@@ -22,13 +22,6 @@ export type DecodeCursorV1Options<Field extends string> = Readonly<{
   sortFields: ReadonlyArray<Field>;
   allowed: SortAllowlist<Field>;
 }>;
-
-function hasOwnField<T extends object>(
-  value: T,
-  field: PropertyKey,
-): field is Extract<keyof T, string> {
-  return Object.prototype.hasOwnProperty.call(value, field);
-}
 
 export function decodeCursorV1<Field extends string>(
   cursor: string,

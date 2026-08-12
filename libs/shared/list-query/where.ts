@@ -1,4 +1,5 @@
-import type { CursorAfterBuilders, Scalar } from '../../../../shared/list-query';
+import type { CursorAfterBuilders } from './cursor-after';
+import type { Scalar } from './types';
 
 type CursorFieldOps<Where> = Readonly<{
   equals: (value: Scalar) => Where;

@@ -126,9 +126,9 @@ export class UsersController {
 
 ### Shared parsing (`libs/shared/list-query`)
 
-`parseListQuery(...)` is a lower-level parser intended for already-validated inputs (e.g., after DTO validation).
+`parseListQuery(...)` is a lower-level parser intended for already-normalized inputs (for example, after Fastify `qs` query parsing and DTO validation).
 
 Notes:
 
 - It accepts `unknown` inputs so it can be used by non-HTTP callers.
-- Some fields are permissive by design (for example, a non-parseable `limit` can fall back to the default). This is why HTTP code should go through `ListQueryParam` / `ListQueryPipe`, which fails fast and returns consistent `VALIDATION_FAILED` problem details.
+- It still rejects invalid values with `ListQueryValidationError`. HTTP code should go through `ListQueryParam` / `ListQueryPipe`, which maps those errors to consistent `VALIDATION_FAILED` problem details.

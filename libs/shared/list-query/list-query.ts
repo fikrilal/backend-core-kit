@@ -20,14 +20,14 @@ export type ListQueryOptions<SortField extends string, FilterField extends strin
   filters?: FilterAllowlist<FilterField>;
 }>;
 
-function parseLimit(raw: unknown, defaultLimit: number): number {
+function parseLimit(raw: unknown, defaultLimit: number): number | undefined {
   if (raw === undefined || raw === null || raw === '') return defaultLimit;
   if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
   if (typeof raw === 'string' && raw.trim() !== '') {
     const n = Number(raw.trim());
     if (Number.isFinite(n)) return n;
   }
-  return defaultLimit;
+  return undefined;
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -42,13 +42,14 @@ export function parseListQuery<SortField extends string, FilterField extends str
 
   const defaultLimit = options.defaultLimit ?? 25;
   const maxLimit = options.maxLimit ?? 250;
-  const limit = parseLimit(input.limit, defaultLimit);
+  const parsedLimit = parseLimit(input.limit, defaultLimit);
 
-  if (!Number.isInteger(limit) || limit < 1) {
+  if (parsedLimit === undefined || !Number.isInteger(parsedLimit) || parsedLimit < 1) {
     issues.push({ field: 'limit', message: 'limit must be a positive integer' });
-  } else if (limit > maxLimit) {
+  } else if (parsedLimit > maxLimit) {
     issues.push({ field: 'limit', message: `limit must be at most ${maxLimit}` });
   }
+  const limit = parsedLimit ?? defaultLimit;
 
   const { sort, normalizedSort } = parseSort(input.sort, {
     ...options.sort,

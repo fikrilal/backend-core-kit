@@ -1,4 +1,5 @@
 import { ListQueryValidationError, type ListQueryIssue } from './errors';
+import { hasOwnField } from './object';
 import type { SortAllowlist, SortDirection, SortSpec } from './types';
 
 export type ParseSortOptions<Field extends string> = Readonly<{
@@ -17,13 +18,6 @@ function hasField<Field extends string>(
   field: Field,
 ): boolean {
   return sort.some((s) => s.field === field);
-}
-
-function hasOwnField<T extends object>(
-  value: T,
-  field: PropertyKey,
-): field is Extract<keyof T, string> {
-  return Object.prototype.hasOwnProperty.call(value, field);
 }
 
 export function parseSort<Field extends string>(
