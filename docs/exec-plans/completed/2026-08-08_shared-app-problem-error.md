@@ -1,16 +1,22 @@
-# Shared App Problem Error Primitive
+# Superseded Shared Simple Problem Primitive
 
 Date: 2026-08-08  
 Owner: Codex  
-Status: completed  
+Status: superseded  
 Risk class: medium  
 Related issue/PR: N/A
 
 ## Objective
 
-Add a shared HTTP/app error primitive and filter so simple feature slices can
-return RFC7807 problem details without generating feature-specific error classes
-and filters by default. Update scaffold templates to use the shared filter.
+Historical record: this batch added a shared simple HTTP error primitive and
+filter so generated feature slices could return RFC7807 problem details without
+feature-specific error classes and filters by default.
+
+Superseded on 2026-08-09: the primitive stayed unused outside scaffold/docs and
+added another concept on top of `ProblemException` plus the global
+`ProblemDetailsFilter`. Current guidance is to throw `ProblemException` for
+simple HTTP failures and add feature-specific filters only when clients need
+stable branchable feature codes or special mapping behavior.
 
 ## Constraints
 
@@ -41,13 +47,15 @@ and filters by default. Update scaffold templates to use the shared filter.
 
 ## Acceptance Criteria
 
-1. Platform exposes a typed shared error class for app/feature HTTP failures.
-2. Platform exposes a reusable exception filter that maps the shared error to
-   existing problem-details responses and supports `Retry-After`.
-3. Unit tests cover status/code/detail/issues/retry-after behavior.
-4. Simple and clean scaffold controllers use the shared filter instead of
+Historical acceptance criteria:
+
+1. Platform exposed a typed shared error class for app/feature HTTP failures.
+2. Platform exposed a reusable exception filter that mapped the shared error to
+   existing problem-details responses and supported `Retry-After`.
+3. Unit tests covered status/code/detail/issues/retry-after behavior.
+4. Simple and clean scaffold controllers used the shared filter instead of
    feature-specific generated filters.
-5. Scaffold smoke still validates simple and clean generated features.
+5. Scaffold smoke still validated simple and clean generated features.
 
 ## Implementation Checklist
 
@@ -66,20 +74,20 @@ and filters by default. Update scaffold templates to use the shared filter.
 
 ## Verification
 
-Commands to run:
+Historical commands run in the original batch:
 
 ```bash
 npm run format:check
 npm run lint
 npm run typecheck
-npm test -- --runTestsByPath libs/platform/http/filters/app-problem-error.filter.spec.ts
+targeted simple problem primitive unit test
 npm run scaffold:smoke
 npm run deps:check
 ```
 
 Outcomes:
 
-- `npm test -- --runTestsByPath libs/platform/http/filters/app-problem-error.filter.spec.ts`: passed.
+- targeted simple problem primitive unit test: passed.
 - `npm run scaffold:smoke`: passed. Generated temporary simple and clean features with queues, ran lint/typecheck/deps, then cleaned generated files.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
@@ -104,16 +112,15 @@ existing endpoint wiring changes.
 
 ## Completion Notes
 
-Implemented the shared app problem primitive batch:
+Implemented the historical shared simple problem primitive batch:
 
-- added `AppProblemError` as a typed shared platform error for simple feature
-  HTTP failures;
-- added `AppProblemErrorFilter` that delegates to existing problem-details
-  mapping and supports `Retry-After`;
+- added a typed shared platform error for simple feature HTTP failures;
+- added a small filter that delegated to existing problem-details mapping and
+  supported `Retry-After`;
 - added focused unit tests for status/code/detail/issues/retry-after behavior;
 - updated simple and clean scaffold controller templates to use the shared
   filter;
-- documented when endpoint authors should use `AppProblemError` instead of
+- documented when endpoint authors should use the shared primitive instead of
   feature-specific error classes/filters.
 
 ## Follow-Ups

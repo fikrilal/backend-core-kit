@@ -159,4 +159,22 @@ describe('ProblemDetailsFilter', () => {
     });
     expect(state.body).not.toHaveProperty('detail');
   });
+
+  it('generates a safe request id when request candidates are invalid', () => {
+    const filter = new ProblemDetailsFilter();
+    const { reply, headers, state } = createReply();
+    const req = { id: 'bad id', headers: { 'x-request-id': 'bad:id' } };
+
+    filter.catch(new Error('boom'), hostFor(req, reply));
+
+    expect(headers['x-request-id']).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+    expect(req.id).toBe(headers['x-request-id']);
+    expect(state.body).toMatchObject({
+      status: 500,
+      code: ErrorCode.INTERNAL,
+      traceId: headers['x-request-id'],
+    });
+  });
 });

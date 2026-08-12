@@ -2,8 +2,8 @@ import { FastifyAdapter } from '@nestjs/platform-fastify';
 import qs from 'qs';
 import { parseOptionalBooleanOrThrow, parsePositiveIntOrThrow } from '../config/env-parsing';
 import { HTTP_CONFIG_DEFAULTS } from '../config/env.defaults';
-
-type NodeEnv = 'development' | 'test' | 'staging' | 'production';
+import { NodeEnv } from '../config/env.enums';
+import { normalizeNodeEnv } from '../config/env.runtime';
 
 type HttpServerPolicy = Readonly<{
   connectionTimeoutMs: number;
@@ -25,13 +25,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function getNodeEnv(): NodeEnv {
-  const raw = typeof process.env.NODE_ENV === 'string' ? process.env.NODE_ENV : undefined;
-  const env = raw?.trim().toLowerCase();
-  if (env === 'production' || env === 'staging' || env === 'test') return env;
-  return 'development';
-}
-
 function parseQueryString(str: string): Record<string, unknown> {
   const parsed = qs.parse(str, {
     allowPrototypes: false,
@@ -44,10 +37,10 @@ function parseQueryString(str: string): Record<string, unknown> {
 }
 
 export function createFastifyAdapter(): FastifyAdapter {
-  const nodeEnv = getNodeEnv();
+  const nodeEnv = normalizeNodeEnv(process.env.NODE_ENV);
 
   const trustProxy = parseOptionalBooleanOrThrow('HTTP_TRUST_PROXY', process.env.HTTP_TRUST_PROXY);
-  const productionLike = nodeEnv === 'production' || nodeEnv === 'staging';
+  const productionLike = nodeEnv === NodeEnv.Production || nodeEnv === NodeEnv.Staging;
   if (productionLike && trustProxy === undefined) {
     throw new Error(`Missing required HTTP_TRUST_PROXY for NODE_ENV=${nodeEnv}`);
   }

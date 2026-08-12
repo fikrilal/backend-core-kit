@@ -1,9 +1,10 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
-import { ErrorCode } from '../errors/error-codes';
 import type { AppErrorCode } from '../../../shared/app-error-codes';
 import { isAppErrorCode } from '../../../shared/app-error-codes';
+import { getOrCreateRequestId } from '../request-id';
+import { defaultProblemCode, statusTitle } from './problem-details.mapping';
 
 type ProblemValidationError = Readonly<{ field?: string; message: string }>;
 
@@ -18,12 +19,6 @@ type ProblemResponseShape = Readonly<{
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
-}
-
-function getHeaderValue(value: string | string[] | undefined): string | undefined {
-  if (typeof value === 'string') return value;
-  if (Array.isArray(value)) return value[0];
-  return undefined;
 }
 
 function isProblemValidationError(value: unknown): value is ProblemValidationError {
@@ -60,8 +55,13 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     const req = ctx.getRequest<FastifyRequest>();
     const reply = ctx.getResponse<FastifyReply>();
 
-    const traceId: string | undefined =
-      req.requestId || req.id || getHeaderValue(req.headers['x-request-id']);
+    const traceId = getOrCreateRequestId({
+      headerValue: req.headers['x-request-id'],
+      existingRequestId: req.requestId,
+      existingId: req.id,
+    });
+    req.requestId = traceId;
+    req.id = traceId;
     const otelTraceId = otelTrace.getSpan(otelContext.active())?.spanContext().traceId;
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -80,9 +80,9 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       } else if (isRecord(resp)) {
         const r = parseProblemResponseShape(resp);
         if (!r) {
-          title = this.statusTitle(status);
+          title = statusTitle(status);
         } else {
-          title = r.title ?? this.statusTitle(status);
+          title = r.title ?? statusTitle(status);
 
           if (Array.isArray(r.message)) {
             // Nest validation can return message arrays; map to a single detail string.
@@ -98,12 +98,12 @@ export class ProblemDetailsFilter implements ExceptionFilter {
           errors = r.errors ?? errors;
         }
       } else {
-        title = this.statusTitle(status);
+        title = statusTitle(status);
       }
     }
 
     if (!code) {
-      code = this.defaultCode(status);
+      code = defaultProblemCode(status);
     }
 
     const problem: Record<string, unknown> = {
@@ -117,48 +117,8 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       ...(otelTraceId ? { otelTraceId } : {}),
     };
 
-    reply.header('X-Request-Id', traceId ?? '');
+    reply.header('X-Request-Id', traceId);
     reply.header('Content-Type', 'application/problem+json');
     reply.status(status).send(problem);
-  }
-
-  private defaultCode(status: number): ErrorCode {
-    if (status >= 500) return ErrorCode.INTERNAL;
-
-    switch (status) {
-      case HttpStatus.BAD_REQUEST:
-      case HttpStatus.UNPROCESSABLE_ENTITY:
-        return ErrorCode.VALIDATION_FAILED;
-      case HttpStatus.UNAUTHORIZED:
-        return ErrorCode.UNAUTHORIZED;
-      case HttpStatus.FORBIDDEN:
-        return ErrorCode.FORBIDDEN;
-      case HttpStatus.NOT_FOUND:
-        return ErrorCode.NOT_FOUND;
-      case HttpStatus.CONFLICT:
-        return ErrorCode.CONFLICT;
-      case HttpStatus.TOO_MANY_REQUESTS:
-        return ErrorCode.RATE_LIMITED;
-      default:
-        return ErrorCode.VALIDATION_FAILED;
-    }
-  }
-
-  private statusTitle(status: number): string {
-    const map: Record<number, string> = {
-      [HttpStatus.BAD_REQUEST]: 'Bad Request',
-      [HttpStatus.UNAUTHORIZED]: 'Unauthorized',
-      [HttpStatus.FORBIDDEN]: 'Forbidden',
-      [HttpStatus.NOT_FOUND]: 'Not Found',
-      [HttpStatus.CONFLICT]: 'Conflict',
-      [HttpStatus.UNPROCESSABLE_ENTITY]: 'Unprocessable Entity',
-      [HttpStatus.TOO_MANY_REQUESTS]: 'Too Many Requests',
-      [HttpStatus.INTERNAL_SERVER_ERROR]: 'Internal Server Error',
-      [HttpStatus.NOT_IMPLEMENTED]: 'Not Implemented',
-      [HttpStatus.BAD_GATEWAY]: 'Bad Gateway',
-      [HttpStatus.SERVICE_UNAVAILABLE]: 'Service Unavailable',
-      [HttpStatus.GATEWAY_TIMEOUT]: 'Gateway Timeout',
-    };
-    return map[status] ?? 'Error';
   }
 }

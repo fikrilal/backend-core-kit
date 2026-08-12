@@ -135,13 +135,12 @@ See `docs/engineering/auth/token-refresh-and-request-retry.md` for client retry 
 
 ## Simple Endpoint Errors
 
-For simple feature slices, prefer the shared platform error primitive instead of
-creating a feature-specific error class and filter:
+For simple feature slices, prefer the shared platform problem exception instead
+of creating a feature-specific error class and filter:
 
-- throw `AppProblemError` from `libs/platform/http/errors/app-problem.error.ts`;
-- apply `AppProblemErrorFilter` from
-  `libs/platform/http/filters/app-problem-error.filter.ts` at the controller or
-  handler.
+- throw `ProblemException` from `libs/platform/http/errors/problem.exception.ts`;
+- keep generated controllers on the global `ProblemDetailsFilter` unless the
+  feature needs custom error-to-problem mapping.
 
 Create feature-specific error enums/classes only when clients need stable
 feature-specific codes or the feature has special mapping behavior.

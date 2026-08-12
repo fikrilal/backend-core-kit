@@ -165,8 +165,10 @@ Add platform helpers so simple controllers do not repeat the same decorators and
 
 Recommended primitives:
 
-- `FeatureHttpError` or `AppProblemError` base class with typed `AppErrorCode`, status, issues, and optional retry-after seconds.
-- A reusable `AppProblemErrorFilter` that catches the base class and delegates to `ProblemDetailsFilter`.
+- `ProblemException` for simple HTTP failures with typed `AppErrorCode`, status,
+  issues, and optional retry-after handling in feature-specific filters only
+  when needed.
+- The global `ProblemDetailsFilter` handles the common RFC7807 response shape.
 - Decorator helpers for common protected endpoints:
   - auth + bearer + standard errors;
   - idempotency header + idempotency error codes;
