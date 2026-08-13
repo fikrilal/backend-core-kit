@@ -9,8 +9,8 @@ import {
 import type {
   AdminUserAccountDeletionAction,
   AdminUserRoleChangeAuditListItem,
-} from '../../app/admin-audit.types';
-import type { AdminUserRole, AdminUserStatus } from '../../app/admin-users.types';
+} from '../admin.model';
+import type { AdminUserRole, AdminUserStatus } from '../admin.model';
 
 export function toAdminUserRole(role: UserRole): AdminUserRole {
   switch (role) {

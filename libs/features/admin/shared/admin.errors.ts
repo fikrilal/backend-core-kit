@@ -1,5 +1,6 @@
+export { AdminErrorCode } from '../../../shared/admin/admin-error-codes';
+import type { AdminErrorCode } from '../../../shared/admin/admin-error-codes';
 import type { ErrorCode } from '../../../shared/error-codes';
-import type { AdminErrorCode } from './admin.error-codes';
 
 export type AdminIssue = Readonly<{ field?: string; message: string }>;
 

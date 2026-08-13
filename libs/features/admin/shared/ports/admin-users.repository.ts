@@ -6,7 +6,7 @@ import type {
   AdminUserListItem,
   AdminUsersListResult,
   AdminUsersSortField,
-} from '../admin-users.types';
+} from '../admin.model';
 
 export type SetUserRoleInput = Readonly<{
   actorUserId: string;

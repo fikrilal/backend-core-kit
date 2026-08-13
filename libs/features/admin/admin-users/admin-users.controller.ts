@@ -1,26 +1,26 @@
 import { Body, Controller, Get, Param, Patch, UseFilters, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
-import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
-import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
-import { AdminErrorCode } from '../../app/admin.error-codes';
-import { ErrorCode } from '../../../../platform/http/errors/error-codes';
-import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
-import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
-import { ApiListQuery } from '../../../../platform/http/list-query/api-list-query.decorator';
-import { ListQueryParam } from '../../../../platform/http/list-query/list-query.decorator';
-import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
-import type { ListQuery } from '../../../../shared/list-query';
-import { RbacGuard } from '../../../../platform/rbac/rbac.guard';
-import { RequirePermissions, UseDbRoles } from '../../../../platform/rbac/rbac.decorator';
-import type { ListQueryPipeOptions } from '../../../../platform/http/list-query/list-query.pipe';
-import { RequestTraceId } from '../../../../platform/http/request-context.decorator';
-import type { AdminUsersFilterField, AdminUsersSortField } from '../../app/admin-users.types';
-import { AdminUsersService } from '../../app/admin-users.service';
-import { AdminErrorFilter } from './admin-error.filter';
-import { AdminUserEnvelopeDto, AdminUsersListEnvelopeDto } from './dtos/admin-users.dto';
-import { AdminUserIdParamDto, SetAdminUserRoleRequestDto } from './dtos/admin-user-role.dto';
-import { SetAdminUserStatusRequestDto } from './dtos/admin-user-status.dto';
+import { AccessTokenGuard } from '../../../platform/auth/access-token.guard';
+import { CurrentPrincipal } from '../../../platform/auth/current-principal.decorator';
+import type { AuthPrincipal } from '../../../platform/auth/auth.types';
+import { AdminErrorCode } from '../shared/admin.errors';
+import { ErrorCode } from '../../../platform/http/errors/error-codes';
+import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
+import { ApiIdempotencyKeyHeader } from '../../../platform/http/openapi/api-idempotency-key.decorator';
+import { ApiListQuery } from '../../../platform/http/list-query/api-list-query.decorator';
+import { ListQueryParam } from '../../../platform/http/list-query/list-query.decorator';
+import { Idempotent } from '../../../platform/http/idempotency/idempotency.decorator';
+import type { ListQuery } from '../../../shared/list-query';
+import { RbacGuard } from '../../../platform/rbac/rbac.guard';
+import { RequirePermissions, UseDbRoles } from '../../../platform/rbac/rbac.decorator';
+import type { ListQueryPipeOptions } from '../../../platform/http/list-query/list-query.pipe';
+import { RequestTraceId } from '../../../platform/http/request-context.decorator';
+import type { AdminUsersFilterField, AdminUsersSortField } from '../shared/admin.model';
+import { AdminUsersService } from './admin-users.service';
+import { AdminErrorFilter } from '../shared/admin-error.filter';
+import { AdminUserEnvelopeDto, AdminUsersListEnvelopeDto } from './admin-users.dto';
+import { AdminUserIdParamDto, SetAdminUserRoleRequestDto } from './admin-users.dto';
+import { SetAdminUserStatusRequestDto } from './admin-users.dto';
 
 const listUsersQueryOptions = {
   search: true,

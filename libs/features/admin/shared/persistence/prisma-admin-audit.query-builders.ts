@@ -19,7 +19,7 @@ import type {
   AdminUserRoleChangeAuditListItem,
   AdminUserRoleChangeAuditsFilterField,
   AdminUserRoleChangeAuditsSortField,
-} from '../../app/admin-audit.types';
+} from '../admin.model';
 import {
   toAdminRoleChangeAuditRole,
   toAdminUserAccountDeletionAction,

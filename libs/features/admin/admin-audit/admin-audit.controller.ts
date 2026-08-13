@@ -1,23 +1,23 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
-import { ErrorCode } from '../../../../platform/http/errors/error-codes';
-import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
-import { ApiListQuery } from '../../../../platform/http/list-query/api-list-query.decorator';
-import { ListQueryParam } from '../../../../platform/http/list-query/list-query.decorator';
-import type { ListQueryPipeOptions } from '../../../../platform/http/list-query/list-query.pipe';
-import { RbacGuard } from '../../../../platform/rbac/rbac.guard';
-import { RequirePermissions, UseDbRoles } from '../../../../platform/rbac/rbac.decorator';
-import type { ListQuery } from '../../../../shared/list-query';
+import { AccessTokenGuard } from '../../../platform/auth/access-token.guard';
+import { ErrorCode } from '../../../platform/http/errors/error-codes';
+import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
+import { ApiListQuery } from '../../../platform/http/list-query/api-list-query.decorator';
+import { ListQueryParam } from '../../../platform/http/list-query/list-query.decorator';
+import type { ListQueryPipeOptions } from '../../../platform/http/list-query/list-query.pipe';
+import { RbacGuard } from '../../../platform/rbac/rbac.guard';
+import { RequirePermissions, UseDbRoles } from '../../../platform/rbac/rbac.decorator';
+import type { ListQuery } from '../../../shared/list-query';
 import type {
   AdminUserAccountDeletionAuditsFilterField,
   AdminUserAccountDeletionAuditsSortField,
   AdminUserRoleChangeAuditsFilterField,
   AdminUserRoleChangeAuditsSortField,
-} from '../../app/admin-audit.types';
-import { AdminAuditService } from '../../app/admin-audit.service';
-import { AdminUserAccountDeletionAuditsListEnvelopeDto } from './dtos/admin-user-account-deletion-audit.dto';
-import { AdminUserRoleChangeAuditsListEnvelopeDto } from './dtos/admin-user-role-change-audit.dto';
+} from '../shared/admin.model';
+import { AdminAuditService } from './admin-audit.service';
+import { AdminUserAccountDeletionAuditsListEnvelopeDto } from './admin-audit.dto';
+import { AdminUserRoleChangeAuditsListEnvelopeDto } from './admin-audit.dto';
 
 const listUserRoleChangeAuditsQueryOptions = {
   sort: {

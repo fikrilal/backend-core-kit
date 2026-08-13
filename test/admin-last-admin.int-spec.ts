@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../libs/platform/db/prisma.service';
-import { PrismaAdminUsersRepository } from '../libs/features/admin/infra/persistence/prisma-admin-users.repository';
+import { PrismaAdminUsersRepository } from '../libs/features/admin/shared/persistence/prisma-admin-users.repository';
 import { createConfigService } from './support/stubs';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();

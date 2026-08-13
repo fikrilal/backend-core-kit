@@ -1,7 +1,7 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
-import { mapFeatureErrorToProblem } from '../../../../platform/http/filters/feature-error.mapper';
-import { ProblemDetailsFilter } from '../../../../platform/http/filters/problem-details.filter';
-import { AdminError } from '../../app/admin.errors';
+import { mapFeatureErrorToProblem } from '../../../platform/http/filters/feature-error.mapper';
+import { ProblemDetailsFilter } from '../../../platform/http/filters/problem-details.filter';
+import { AdminError } from './admin.errors';
 
 @Catch(AdminError)
 export class AdminErrorFilter implements ExceptionFilter {

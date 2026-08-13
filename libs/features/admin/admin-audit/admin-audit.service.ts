@@ -1,5 +1,5 @@
 import type { ListQuery } from '../../../shared/list-query';
-import type { AdminAuditRepository } from './ports/admin-audit.repository';
+import type { AdminAuditRepository } from '../shared/ports/admin-audit.repository';
 import type {
   AdminUserAccountDeletionAuditsFilterField,
   AdminUserAccountDeletionAuditsSortField,
@@ -7,7 +7,7 @@ import type {
   AdminUserRoleChangeAuditsFilterField,
   AdminUserRoleChangeAuditsSortField,
   AdminUserRoleChangeAuditListResult,
-} from './admin-audit.types';
+} from '../shared/admin.model';
 
 export class AdminAuditService {
   constructor(private readonly audit: AdminAuditRepository) {}

@@ -11,11 +11,7 @@ import {
   parseCursorDateValue,
   parseCursorStringValue,
 } from '../../../../shared/list-query';
-import type {
-  AdminUserListItem,
-  AdminUsersFilterField,
-  AdminUsersSortField,
-} from '../../app/admin-users.types';
+import type { AdminUserListItem, AdminUsersFilterField, AdminUsersSortField } from '../admin.model';
 import { toAdminUserRole, toAdminUserStatus } from './prisma-admin.mappers';
 
 export const ADMIN_USER_LIST_SELECT = {

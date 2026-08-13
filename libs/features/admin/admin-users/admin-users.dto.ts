@@ -1,10 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsIn, IsOptional, IsString } from 'class-validator';
-import type { AdminUserRole } from '../../../app/admin-users.types';
-import { CursorPaginationMetaDto } from '../../../../../platform/http/list-query/cursor-pagination-meta.dto';
+import { IsArray, IsBoolean, IsIn, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import type { AdminUserRole, AdminUserMutableStatus } from '../shared/admin.model';
+import { CursorPaginationMetaDto } from '../../../platform/http/list-query/cursor-pagination-meta.dto';
 
 const ADMIN_USER_ROLE_VALUES = ['USER', 'ADMIN'] as const;
 const ADMIN_USER_STATUS_VALUES = ['ACTIVE', 'SUSPENDED', 'DELETED'] as const;
+const ADMIN_USER_MUTABLE_STATUS_VALUES = ['ACTIVE', 'SUSPENDED'] as const;
 
 export class AdminUserDto {
   @ApiProperty({ example: '3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0' })
@@ -65,4 +66,35 @@ export class AdminUsersListEnvelopeDto {
 export class AdminUserEnvelopeDto {
   @ApiProperty({ type: AdminUserDto })
   data!: AdminUserDto;
+}
+
+export class AdminUserIdParamDto {
+  @ApiProperty({ example: '3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0' })
+  @IsUUID()
+  userId!: string;
+}
+
+export class SetAdminUserRoleRequestDto {
+  @ApiProperty({ enum: ADMIN_USER_ROLE_VALUES, example: 'USER' })
+  @IsString()
+  @IsIn(ADMIN_USER_ROLE_VALUES)
+  role!: AdminUserRole;
+}
+
+export class SetAdminUserStatusRequestDto {
+  @ApiProperty({ enum: ADMIN_USER_MUTABLE_STATUS_VALUES, example: 'SUSPENDED' })
+  @IsString()
+  @IsIn(ADMIN_USER_MUTABLE_STATUS_VALUES)
+  status!: AdminUserMutableStatus;
+
+  @ApiPropertyOptional({
+    type: String,
+    example: 'Abuse detected',
+    nullable: true,
+    description: 'Internal-only admin note for why the user is suspended.',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  reason?: string | null;
 }

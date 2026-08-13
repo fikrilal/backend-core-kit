@@ -7,14 +7,14 @@ import type {
   AdminUsersFilterField,
   AdminUsersListResult,
   AdminUsersSortField,
-} from '../../app/admin-users.types';
+} from '../admin.model';
 import type {
   AdminUsersRepository,
   SetUserRoleInput,
   SetUserRoleResult,
   SetUserStatusInput,
   SetUserStatusResult,
-} from '../../app/ports/admin-users.repository';
+} from '../ports/admin-users.repository';
 import { PrismaService } from '../../../../platform/db/prisma.service';
 import { lockActiveAdminInvariant } from '../../../../platform/db/row-locks';
 import { withTransactionRetry } from '../../../../platform/db/tx-retry';
@@ -131,10 +131,8 @@ export class PrismaAdminUsersRepository implements AdminUsersRepository {
           return PrismaUserStatus.ACTIVE;
         case 'SUSPENDED':
           return PrismaUserStatus.SUSPENDED;
-        default: {
-          const unreachable: never = input.status;
-          throw new Error(`Unexpected user status: ${String(unreachable)}`);
-        }
+        default:
+          throw new Error(`Unexpected user status: ${String(input.status)}`);
       }
     })();
 

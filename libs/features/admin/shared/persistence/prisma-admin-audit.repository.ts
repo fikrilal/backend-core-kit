@@ -7,8 +7,8 @@ import type {
   AdminUserRoleChangeAuditListResult,
   AdminUserRoleChangeAuditsFilterField,
   AdminUserRoleChangeAuditsSortField,
-} from '../../app/admin-audit.types';
-import type { AdminAuditRepository } from '../../app/ports/admin-audit.repository';
+} from '../admin.model';
+import type { AdminAuditRepository } from '../ports/admin-audit.repository';
 import { PrismaService } from '../../../../platform/db/prisma.service';
 import {
   ACCOUNT_DELETION_AUDIT_LIST_SELECT,

@@ -7,7 +7,7 @@ import type {
   AdminUserAccountDeletionAuditsSortField,
   AdminUserRoleChangeAuditsFilterField,
   AdminUserRoleChangeAuditsSortField,
-} from '../../app/admin-audit.types';
+} from '../admin.model';
 import { PrismaService } from '../../../../platform/db/prisma.service';
 import { PrismaAdminAuditRepository } from './prisma-admin-audit.repository';
 import { createPrototypeStub } from '../../../../../test/support/stubs';

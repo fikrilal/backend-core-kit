@@ -6,7 +6,7 @@ import type {
   AdminUserRoleChangeAuditsFilterField,
   AdminUserRoleChangeAuditsSortField,
   AdminUserRoleChangeAuditListResult,
-} from '../admin-audit.types';
+} from '../admin.model';
 
 export interface AdminAuditRepository {
   listUserRoleChangeAudits(

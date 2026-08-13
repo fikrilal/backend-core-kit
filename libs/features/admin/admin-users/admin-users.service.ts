@@ -1,14 +1,14 @@
 import type { ListQuery } from '../../../shared/list-query';
-import type { AdminUsersRepository } from './ports/admin-users.repository';
-import type { SetUserRoleInput } from './ports/admin-users.repository';
-import type { SetUserStatusInput } from './ports/admin-users.repository';
+import type { AdminUsersRepository } from '../shared/ports/admin-users.repository';
+import type { SetUserRoleInput } from '../shared/ports/admin-users.repository';
+import type { SetUserStatusInput } from '../shared/ports/admin-users.repository';
 import type {
   AdminUsersFilterField,
   AdminUsersListResult,
   AdminUsersSortField,
-} from './admin-users.types';
-import { AdminError } from './admin.errors';
-import { AdminErrorCode } from './admin.error-codes';
+} from '../shared/admin.model';
+import { AdminError } from '../shared/admin.errors';
+import { AdminErrorCode } from '../shared/admin.errors';
 import { ErrorCode } from '../../../shared/error-codes';
 
 export class AdminUsersService {

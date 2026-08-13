@@ -10,7 +10,7 @@ import { ProblemDetailsFilter } from '../../../libs/platform/http/filters/proble
 import { validateEnv } from '../../../libs/platform/config/env.validation';
 import { AuthModule } from '../../../libs/features/auth/auth.module';
 import { UsersModule } from '../../../libs/features/users/users.module';
-import { AdminModule } from '../../../libs/features/admin/infra/admin.module';
+import { AdminModule } from '../../../libs/features/admin/admin.module';
 import { IdempotencyInterceptor } from '../../../libs/platform/http/idempotency/idempotency.interceptor';
 
 @Module({
