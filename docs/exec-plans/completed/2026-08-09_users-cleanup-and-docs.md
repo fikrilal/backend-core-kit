@@ -2,7 +2,7 @@
 
 Date: 2026-08-09  
 Owner: Codex  
-Status: active  
+Status: completed  
 Risk class: medium  
 Related issue/PR: N/A
 
@@ -97,8 +97,33 @@ tree deletion.
 
 ## Completion Notes
 
-To be filled after execution.
+Phase 4 implemented and verified:
+
+- Removed the now-empty `app/` and `infra/` trees from `libs/features/users`.
+  The feature is now `me/`, `account-deletion/`, `profile-image/`, and `shared/`
+  plus `users.module.ts` at the root.
+- Updated the `docs/engineering/duplication-harness.md` example allowlist paths
+  (`auth/shared/auth.dto.ts`, `users/me/me.dto.ts`).
+- `docs/engineering/users/*` (README, account-deletion, profile-images) describe
+  behavior only; no path updates needed.
+
+Verification outcomes:
+
+- `npm run typecheck`: passed (0 errors).
+- `npm run deps:check`: passed (285 modules, 743 deps, no violations).
+- `npm run format:check`: passed.
+- `npm run lint`: passed.
+- `npm run verify:project-map`: passed.
+- `npm test`: 263 passed, 5 pre-existing platform env failures (unchanged).
+- Auth e2e (4 suites, 53 tests): passed.
+- Queue-smoke + rate-limiters int (10 tests): passed.
+- OpenAPI check + lint: passed (snapshot unchanged).
+
+The users progressive feature refactor is complete (phases 1-4).
 
 ## Follow-Ups
+
+- No outstanding users refactor debt. The 5 pre-existing platform env failures
+  remain tracked separately.
 
 - [ ] Add any unresolved debt to `docs/exec-plans/tech-debt-tracker.md`.

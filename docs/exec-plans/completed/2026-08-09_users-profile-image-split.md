@@ -109,7 +109,7 @@ Phase 3 implemented and verified:
     `UserProfileImageService` kept) + `profile-image.service.spec.ts`;
   - `profile-image.policy.ts`, `profile-image.controller.ts`, `profile-image.dto.ts`;
   - `profile-image.storage.ts` (was `infra/storage/users-profile-image-storage.adapter.ts`)
-    + spec;
+    - spec;
   - `redis-profile-image-upload-rate-limiter.ts`;
   - `profile-image-cleanup.job.ts` / `.jobs.ts`.
 - `users.module.ts` rewired to the new paths.
