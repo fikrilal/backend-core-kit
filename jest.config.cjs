@@ -12,7 +12,7 @@ module.exports = {
   transform: {
     '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
   },
-  setupFiles: ['reflect-metadata'],
+  setupFiles: ['reflect-metadata', '<rootDir>/test/jest-unit.setup.ts'],
   testEnvironment: 'node',
   collectCoverageFrom: [
     'apps/**/*.ts',

@@ -2,12 +2,6 @@
   "version": 1,
   "reviewedAcceptable": [
     {
-      "category": "dto_view_mapper",
-      "files": ["libs/features/admin/admin-audit/admin-audit.dto.ts"],
-      "reason": "Admin audit DTOs intentionally repeat explicit OpenAPI-decorated fields. A base DTO would make schema generation less direct for little code reduction.",
-      "reviewedOn": "2026-06-05"
-    },
-    {
       "category": "prisma_query_builder",
       "files": [
         "libs/features/admin/shared/persistence/prisma-admin-audit.query-builders.ts",
