@@ -55,22 +55,15 @@ libs/features/auth/
   auth.module.ts
 
   shared/
-    auth.config.ts
     auth.dto.ts
-    auth.error-codes.ts
     auth-error.filter.ts
     auth.errors.ts
+    auth.model.ts
     auth.service.helpers.ts
     auth.tokens.ts
-    auth.types.ts
-    email.ts
-    refresh-token.ts
     ports/
-      access-token-issuer.ts
+      auth.ports.ts
       auth.repository.ts
-      login-rate-limiter.ts
-      oidc-id-token-verifier.ts
-      password-hasher.ts
     persistence/
       prisma-auth.repository.ts
       prisma-auth.repository.*.ts
@@ -242,7 +235,7 @@ Current files:
 
 - `libs/features/auth/sessions/session-lifecycle.service.ts`
 - `libs/features/auth/sessions/sessions.service.ts`
-- `libs/features/auth/shared/refresh-token.ts`
+- `libs/features/auth/shared/auth.model.ts` (refresh-token helpers)
 - `libs/features/auth/sessions/sessions.controller.ts`
 - `libs/features/auth/sessions/sessions.dto.ts`
 - `libs/features/auth/sessions/jwks.controller.ts`
@@ -256,9 +249,11 @@ libs/features/auth/sessions/
   sessions.dto.ts
   sessions.service.ts
   session-lifecycle.service.ts
-  refresh-token.ts
   jwks.controller.ts
 ```
+
+`refresh-token.ts` moved to `shared/` (with the other shared auth primitives)
+rather than staying in `sessions/`.
 
 Risk notes:
 
