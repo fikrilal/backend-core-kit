@@ -1,12 +1,12 @@
 import { FilePurpose, FileStatus } from '@prisma/client';
 import { Job } from 'bullmq';
-import { PrismaService } from '../../../../libs/platform/db/prisma.service';
-import { ObjectStorageService } from '../../../../libs/platform/storage/object-storage.service';
+import { PrismaService } from '../../../../platform/db/prisma.service';
+import { ObjectStorageService } from '../../../../platform/storage/object-storage.service';
 import {
   runDeleteProfileImageStoredFile,
   runExpireProfileImageUpload,
 } from './users-account-deletion.handlers';
-import { createPrototypeStub } from '../../../../test/support/stubs';
+import { createPrototypeStub } from '../../../../../test/support/stubs';
 
 describe('users-account-deletion.handlers', () => {
   it('skips stored-file delete when storage is disabled', async () => {

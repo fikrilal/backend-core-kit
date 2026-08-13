@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../libs/platform/db/prisma.service';
 import { EmailService } from '../../../../libs/platform/email/email.service';
 import type { SendEmailInput } from '../../../../libs/platform/email/email.types';
 import { QueueWorkerFactory } from '../../../../libs/platform/queue/queue.worker';
+import type { Clock } from '../../../../libs/shared/time';
 import {
   AUTH_SEND_VERIFICATION_EMAIL_JOB,
   type AuthSendVerificationEmailJobData,
@@ -56,6 +57,10 @@ function createWorkerFactoryStub(): QueueWorkerFactory {
   });
 }
 
+function systemClock(): Clock {
+  return { now: () => new Date() };
+}
+
 function getResetLink(result: unknown): string | undefined {
   if (typeof result !== 'object' || result === null) return undefined;
   const resetLink = Reflect.get(result, 'resetLink');
@@ -103,6 +108,7 @@ describe('EmailsWorker (unit)', () => {
       createWorkerFactoryStub(),
       prisma,
       email,
+      systemClock(),
       createLoggerStub(),
     );
 
@@ -180,6 +186,7 @@ describe('EmailsWorker (unit)', () => {
       createWorkerFactoryStub(),
       prisma,
       email,
+      systemClock(),
       createLoggerStub(),
     );
 
@@ -233,6 +240,7 @@ describe('EmailsWorker (unit)', () => {
       createWorkerFactoryStub(),
       prisma,
       email,
+      systemClock(),
       createLoggerStub(),
     );
 
@@ -302,6 +310,7 @@ describe('EmailsWorker (unit)', () => {
       createWorkerFactoryStub(),
       prisma,
       email,
+      systemClock(),
       createLoggerStub(),
     );
 

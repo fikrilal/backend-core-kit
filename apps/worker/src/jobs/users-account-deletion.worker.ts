@@ -1,9 +1,10 @@
-import { Injectable, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import { DelayedError, type Job } from 'bullmq';
 import { PinoLogger } from 'nestjs-pino';
 import { PrismaService } from '../../../../libs/platform/db/prisma.service';
 import { QueueWorkerFactory } from '../../../../libs/platform/queue/queue.worker';
 import { ObjectStorageService } from '../../../../libs/platform/storage/object-storage.service';
+import { addDays, type Clock } from '../../../../libs/shared/time';
 import {
   USERS_PROFILE_IMAGE_DELETE_STORED_FILE_JOB,
   USERS_PROFILE_IMAGE_EXPIRE_UPLOAD_JOB,
@@ -21,12 +22,13 @@ import type {
   UsersProfileImageExpireUploadJobResult,
   UsersQueueJobData,
   UsersQueueJobResult,
-} from './users-account-deletion.contracts';
+} from '../../../../libs/features/users/shared/jobs/users-account-deletion.contracts';
 import {
   runDeleteProfileImageStoredFile,
   runExpireProfileImageUpload,
   runFinalizeAccountDeletionTx,
-} from './users-account-deletion.handlers';
+} from '../../../../libs/features/users/shared/jobs/users-account-deletion.handlers';
+import { WORKER_CLOCK } from '../worker.tokens';
 
 @Injectable()
 export class UsersAccountDeletionWorker implements OnModuleInit {
@@ -34,6 +36,7 @@ export class UsersAccountDeletionWorker implements OnModuleInit {
     private readonly workers: QueueWorkerFactory,
     private readonly prisma: PrismaService,
     private readonly storage: ObjectStorageService,
+    @Inject(WORKER_CLOCK) private readonly clock: Clock,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(UsersAccountDeletionWorker.name);
@@ -77,7 +80,7 @@ export class UsersAccountDeletionWorker implements OnModuleInit {
     job: Job<UsersFinalizeAccountDeletionJobData, UsersFinalizeAccountDeletionJobResult>,
     token: string,
   ): Promise<UsersFinalizeAccountDeletionJobResult> {
-    const now = new Date();
+    const now = this.clock.now();
 
     try {
       const res = await runFinalizeAccountDeletionTx(this.prisma, job, now);
@@ -88,7 +91,7 @@ export class UsersAccountDeletionWorker implements OnModuleInit {
       }
 
       if (res.kind === 'blocked_last_admin') {
-        const nextAttempt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const nextAttempt = addDays(now, 1);
         await job.moveToDelayed(nextAttempt.getTime(), token);
         throw new DelayedError();
       }
@@ -123,14 +126,14 @@ export class UsersAccountDeletionWorker implements OnModuleInit {
   private async deleteProfileImageStoredFile(
     job: Job<UsersProfileImageDeleteStoredFileJobData, UsersProfileImageDeleteStoredFileJobResult>,
   ): Promise<UsersProfileImageDeleteStoredFileJobResult> {
-    const now = new Date();
+    const now = this.clock.now();
     return await runDeleteProfileImageStoredFile(this.prisma, this.storage, job, now);
   }
 
   private async expireProfileImageUpload(
     job: Job<UsersProfileImageExpireUploadJobData, UsersProfileImageExpireUploadJobResult>,
   ): Promise<UsersProfileImageExpireUploadJobResult> {
-    const now = new Date();
+    const now = this.clock.now();
     return await runExpireProfileImageUpload(this.prisma, this.storage, job, now);
   }
 }

@@ -1,10 +1,11 @@
-import { Injectable, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Job } from 'bullmq';
 import { PinoLogger } from 'nestjs-pino';
 import { EmailService } from '../../../../libs/platform/email/email.service';
 import { PrismaService } from '../../../../libs/platform/db/prisma.service';
 import { QueueWorkerFactory } from '../../../../libs/platform/queue/queue.worker';
+import type { Clock } from '../../../../libs/shared/time';
 import {
   AUTH_SEND_VERIFICATION_EMAIL_JOB,
   EMAIL_QUEUE,
@@ -21,6 +22,7 @@ import {
   runPasswordResetEmailJob,
   runVerificationEmailJob,
 } from './emails.handlers';
+import { WORKER_CLOCK } from '../worker.tokens';
 
 @Injectable()
 export class EmailsWorker implements OnModuleInit {
@@ -29,6 +31,7 @@ export class EmailsWorker implements OnModuleInit {
     private readonly workers: QueueWorkerFactory,
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
+    @Inject(WORKER_CLOCK) private readonly clock: Clock,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(EmailsWorker.name);
@@ -51,6 +54,7 @@ export class EmailsWorker implements OnModuleInit {
       prisma: this.prisma,
       email: this.email,
       logger: this.logger,
+      clock: this.clock,
     };
 
     if (job.name === AUTH_SEND_VERIFICATION_EMAIL_JOB) {

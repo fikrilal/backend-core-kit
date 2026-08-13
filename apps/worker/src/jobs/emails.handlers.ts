@@ -12,6 +12,7 @@ import { AUTH_CONFIG_DEFAULTS } from '../../../../libs/platform/config/env.defau
 import type { PrismaService } from '../../../../libs/platform/db/prisma.service';
 import type { EmailService } from '../../../../libs/platform/email/email.service';
 import { asNonEmptyString } from '../../../../libs/shared/string';
+import { addSeconds, type Clock } from '../../../../libs/shared/time';
 import { buildVerifyEmailUrl, getBrandName, renderVerificationEmailHtml } from './emails.templates';
 import type {
   AuthSendPasswordResetEmailJobResult,
@@ -25,17 +26,18 @@ type EmailsHandlersDeps = Readonly<{
   prisma: PrismaService;
   email: EmailService;
   logger: Pick<PinoLogger, 'info' | 'warn'>;
+  clock: Clock;
 }>;
 
 export async function runVerificationEmailJob(
   deps: EmailsHandlersDeps,
   userId: string,
 ): Promise<AuthSendVerificationEmailJobResult> {
-  const now = new Date();
+  const now = deps.clock.now();
   const ttlSeconds =
     deps.config.get<number>('AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS') ??
     AUTH_CONFIG_DEFAULTS.AUTH_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS;
-  const expiresAt = new Date(now.getTime() + ttlSeconds * 1000);
+  const expiresAt = addSeconds(now, ttlSeconds);
 
   const client = deps.prisma.getClient();
   const user = await client.user.findUnique({
@@ -110,11 +112,11 @@ export async function runPasswordResetEmailJob(
   deps: EmailsHandlersDeps,
   userId: string,
 ): Promise<AuthSendPasswordResetEmailJobResult> {
-  const now = new Date();
+  const now = deps.clock.now();
   const ttlSeconds =
     deps.config.get<number>('AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS') ??
     AUTH_CONFIG_DEFAULTS.AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS;
-  const expiresAt = new Date(now.getTime() + ttlSeconds * 1000);
+  const expiresAt = addSeconds(now, ttlSeconds);
 
   const client = deps.prisma.getClient();
   const user = await client.user.findUnique({
@@ -239,7 +241,7 @@ export async function runAccountDeletionReminderEmailJob(
   deps: EmailsHandlersDeps,
   userId: string,
 ): Promise<UsersSendAccountDeletionReminderEmailJobResult> {
-  const now = new Date();
+  const now = deps.clock.now();
   const client = deps.prisma.getClient();
   const user = await client.user.findUnique({
     where: { id: userId },

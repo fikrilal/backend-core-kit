@@ -1,20 +1,16 @@
-import type { JsonObject } from '../../../../libs/platform/queue/queue.types';
-import type { UsersFinalizeAccountDeletionJobData } from '../../../../libs/features/users/account-deletion/user-account-deletion.job';
+import type { JsonObject } from '../../../../platform/queue/queue.types';
+import type { UsersFinalizeAccountDeletionJobData } from '../../account-deletion/user-account-deletion.job';
 import type {
   UsersProfileImageDeleteStoredFileJobData,
   UsersProfileImageExpireUploadJobData,
-} from '../../../../libs/features/users/profile-image/profile-image-cleanup.job';
+} from '../../profile-image/profile-image-cleanup.job';
 
 export type UsersFinalizeAccountDeletionJobResult = Readonly<{
   ok: true;
   userId: string;
   outcome: 'finalized' | 'skipped';
   reason?:
-    | 'user_not_found'
-    | 'already_deleted'
-    | 'not_scheduled'
-    | 'not_due'
-    | 'blocked_last_admin';
+    'user_not_found' | 'already_deleted' | 'not_scheduled' | 'not_due' | 'blocked_last_admin';
   deletedAt?: string;
   rescheduledUntil?: string;
 }> &

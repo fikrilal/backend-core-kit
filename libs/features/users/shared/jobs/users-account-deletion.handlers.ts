@@ -6,15 +6,15 @@ import {
   UserStatus as PrismaUserStatus,
 } from '@prisma/client';
 import type { Job } from 'bullmq';
-import { lockActiveAdminInvariant } from '../../../../libs/platform/db/row-locks';
-import { withTransactionRetry } from '../../../../libs/platform/db/tx-retry';
-import type { PrismaService } from '../../../../libs/platform/db/prisma.service';
-import type { ObjectStorageService } from '../../../../libs/platform/storage/object-storage.service';
+import { lockActiveAdminInvariant } from '../../../../platform/db/row-locks';
+import { withTransactionRetry } from '../../../../platform/db/tx-retry';
+import type { PrismaService } from '../../../../platform/db/prisma.service';
+import type { ObjectStorageService } from '../../../../platform/storage/object-storage.service';
 import type {
   UsersProfileImageDeleteStoredFileJobData,
   UsersProfileImageExpireUploadJobData,
-} from '../../../../libs/features/users/profile-image/profile-image-cleanup.job';
-import type { UsersFinalizeAccountDeletionJobData } from '../../../../libs/features/users/account-deletion/user-account-deletion.job';
+} from '../../profile-image/profile-image-cleanup.job';
+import type { UsersFinalizeAccountDeletionJobData } from '../../account-deletion/user-account-deletion.job';
 import type {
   UsersFinalizeDeletionTxnResult,
   UsersProfileImageDeleteStoredFileJobResult,

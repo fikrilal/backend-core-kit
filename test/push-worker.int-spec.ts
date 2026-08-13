@@ -5,6 +5,7 @@ import { QueueWorkerFactory } from '../libs/platform/queue/queue.worker';
 import { PUSH_SEND_JOB } from '../libs/platform/push/push.job';
 import { PushErrorCode, PushSendError } from '../libs/platform/push/push.types';
 import { PrismaService } from '../libs/platform/db/prisma.service';
+import type { Clock } from '../libs/shared/time';
 import { PushWorker } from '../apps/worker/src/jobs/push.worker';
 import { bindInstanceMethod, createConfigService, createPrototypeStub } from './support/stubs';
 
@@ -16,6 +17,10 @@ type PushJobLike = Readonly<{ name: string; data: { sessionId: string; requested
 
 function getProcess(worker: PushWorker) {
   return bindInstanceMethod(worker, 'process');
+}
+
+function systemClock(): Clock {
+  return { now: () => new Date() };
 }
 
 (shouldSkip ? describe.skip : describe)('PushWorker (int)', () => {
@@ -69,6 +74,7 @@ function getProcess(worker: PushWorker) {
       createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
       push,
       prisma,
+      systemClock(),
       createPrototypeStub(PinoLogger, {
         setContext: () => undefined,
         info: () => undefined,
@@ -116,6 +122,7 @@ function getProcess(worker: PushWorker) {
       createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
       push,
       prisma,
+      systemClock(),
       createPrototypeStub(PinoLogger, {
         setContext: () => undefined,
         info: () => undefined,
@@ -163,6 +170,7 @@ function getProcess(worker: PushWorker) {
       createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
       push,
       prisma,
+      systemClock(),
       createPrototypeStub(PinoLogger, {
         setContext: () => undefined,
         info: () => undefined,
@@ -209,6 +217,7 @@ function getProcess(worker: PushWorker) {
       createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
       push,
       prisma,
+      systemClock(),
       createPrototypeStub(PinoLogger, {
         setContext: () => undefined,
         info: () => undefined,
@@ -264,6 +273,7 @@ function getProcess(worker: PushWorker) {
       createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
       push,
       prisma,
+      systemClock(),
       createPrototypeStub(PinoLogger, {
         setContext: () => undefined,
         info: () => undefined,
@@ -335,6 +345,7 @@ function getProcess(worker: PushWorker) {
       createPrototypeStub(QueueWorkerFactory, { isEnabled: () => true }),
       push,
       prisma,
+      systemClock(),
       createPrototypeStub(PinoLogger, {
         setContext: () => undefined,
         info: () => undefined,
