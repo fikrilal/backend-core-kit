@@ -11,12 +11,10 @@ export type StoredFileRecord = Readonly<{
 }>;
 
 export type CreateProfileImageFileResult =
-  | Readonly<{ kind: 'ok' }>
-  | Readonly<{ kind: 'not_found' }>;
+  Readonly<{ kind: 'ok' }> | Readonly<{ kind: 'not_found' }>;
 
 export type AttachProfileImageResult =
-  | Readonly<{ kind: 'ok'; previousFileId: string | null }>
-  | Readonly<{ kind: 'not_found' }>;
+  Readonly<{ kind: 'ok'; previousFileId: string | null }> | Readonly<{ kind: 'not_found' }>;
 
 export type ClearProfileImageResult =
   | Readonly<{ kind: 'ok'; clearedFile: Readonly<{ id: string; objectKey: string }> | null }>

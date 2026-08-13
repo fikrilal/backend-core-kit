@@ -29,12 +29,7 @@ export type AdminUsersListResult = Readonly<{
 export type AdminUserRoleChangeAuditsSortField = 'createdAt' | 'id';
 
 export type AdminUserRoleChangeAuditsFilterField =
-  | 'actorUserId'
-  | 'targetUserId'
-  | 'oldRole'
-  | 'newRole'
-  | 'createdAt'
-  | 'traceId';
+  'actorUserId' | 'targetUserId' | 'oldRole' | 'newRole' | 'createdAt' | 'traceId';
 
 export type AdminUserRoleChangeAuditListItem = Readonly<{
   id: string;
@@ -57,17 +52,10 @@ export type AdminUserRoleChangeAuditListResult = Readonly<{
 export type AdminUserAccountDeletionAuditsSortField = 'createdAt' | 'id';
 
 export type AdminUserAccountDeletionAuditsFilterField =
-  | 'actorUserId'
-  | 'targetUserId'
-  | 'action'
-  | 'createdAt'
-  | 'traceId';
+  'actorUserId' | 'targetUserId' | 'action' | 'createdAt' | 'traceId';
 
 export type AdminUserAccountDeletionAction =
-  | 'REQUESTED'
-  | 'CANCELED'
-  | 'FINALIZED'
-  | 'FINALIZE_BLOCKED_LAST_ADMIN';
+  'REQUESTED' | 'CANCELED' | 'FINALIZED' | 'FINALIZE_BLOCKED_LAST_ADMIN';
 
 export type AdminUserAccountDeletionAuditListItem = Readonly<{
   id: string;
