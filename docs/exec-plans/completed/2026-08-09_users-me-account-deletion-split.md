@@ -2,7 +2,7 @@
 
 Date: 2026-08-09  
 Owner: Codex  
-Status: active  
+Status: completed  
 Risk class: high  
 Related issue/PR: N/A
 
@@ -99,7 +99,34 @@ the `getMe` import move.
 
 ## Completion Notes
 
-To be filled after execution.
+Phase 2 implemented and verified:
+
+- Split `UsersService` into `me/me.service.ts` (`MeService`: getMe, updateMeProfile)
+  and `account-deletion/account-deletion.service.ts` (`AccountDeletionService`:
+  request/cancel). Deleted the orphaned `app/users.service.ts` + its old spec.
+- `me/` holds `MeController`, `me.dto.ts`, `me.service.ts` + `me.service.spec.ts`
+  (4 tests, migrated from the old spec).
+- `account-deletion/` holds the controller, service, deletion + email jobs,
+  `users.queue.ts`, and the email-jobs spec; `account-deletion.service.spec.ts`
+  (7 tests, migrated from the old spec).
+- `users.module.ts` rewired: `MeService` + `AccountDeletionService` providers,
+  exports `MeService`.
+- Auth controllers (`oidc.controller.ts`, `password-auth.controller.ts`) now
+  import `MeService` for `getMe`.
+- Worker + test importers updated for the moved job contract files.
+
+Verification outcomes:
+
+- `npm run typecheck`: passed (0 errors).
+- `npm run deps:check`: passed (285 modules, 743 deps, no violations).
+- `npm run format:check`: passed.
+- `npm run lint`: passed.
+- Users specs (5 suites, 26 tests): passed.
+- Auth e2e (4 suites, 53 tests): passed, incl. register/login/OIDC (getMe),
+  `GET /v1/me`, and account-deletion request/cancel.
+- Queue-smoke int (6 tests): passed (moved deletion jobs).
+- `npm test`: 263 passed, 5 pre-existing platform env failures (unchanged).
+- OpenAPI check + lint: passed (snapshot unchanged).
 
 ## Follow-Ups
 

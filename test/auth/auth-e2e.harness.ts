@@ -11,7 +11,7 @@ import { EMAIL_QUEUE } from '../../libs/features/auth/email-verification/email-v
 import type {
   UsersSendAccountDeletionReminderEmailJobData,
   UsersSendAccountDeletionRequestedEmailJobData,
-} from '../../libs/features/users/infra/jobs/user-account-deletion-email.job';
+} from '../../libs/features/users/account-deletion/user-account-deletion-email.job';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();

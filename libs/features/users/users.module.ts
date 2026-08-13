@@ -5,12 +5,13 @@ import { PlatformEmailModule } from '../../platform/email/email.module';
 import { QueueModule } from '../../platform/queue/queue.module';
 import { RedisModule } from '../../platform/redis/redis.module';
 import { PlatformStorageModule } from '../../platform/storage/storage.module';
-import { UsersService } from './app/users.service';
-import { MeController } from './infra/http/me.controller';
+import { MeController } from './me/me.controller';
+import { MeService } from './me/me.service';
+import { UserAccountDeletionController } from './account-deletion/account-deletion.controller';
+import { AccountDeletionService } from './account-deletion/account-deletion.service';
+import { UserAccountDeletionJobs } from './account-deletion/user-account-deletion.jobs';
+import { UserAccountDeletionEmailJobs } from './account-deletion/user-account-deletion-email.jobs';
 import { PrismaUsersRepository } from './shared/persistence/prisma-users.repository';
-import { UserAccountDeletionController } from './infra/http/user-account-deletion.controller';
-import { UserAccountDeletionJobs } from './infra/jobs/user-account-deletion.jobs';
-import { UserAccountDeletionEmailJobs } from './infra/jobs/user-account-deletion-email.jobs';
 import { ProfileImageController } from './infra/http/profile-image.controller';
 import { PrismaProfileImageRepository } from './shared/persistence/prisma-profile-image.repository';
 import { UserProfileImageService } from './app/user-profile-image.service';
@@ -43,9 +44,14 @@ import {
     UsersProfileImageStorageAdapter,
     provideSystemClockToken(USERS_CLOCK),
     provideConstructedAppService({
-      provide: UsersService,
+      provide: MeService,
+      inject: [PrismaUsersRepository],
+      useClass: MeService,
+    }),
+    provideConstructedAppService({
+      provide: AccountDeletionService,
       inject: [PrismaUsersRepository, UserAccountDeletionJobs, USERS_CLOCK],
-      useClass: UsersService,
+      useClass: AccountDeletionService,
     }),
     provideConstructedAppService({
       provide: UserProfileImageService,
@@ -53,6 +59,6 @@ import {
       useClass: UserProfileImageService,
     }),
   ],
-  exports: [UsersService],
+  exports: [MeService],
 })
 export class UsersModule {}

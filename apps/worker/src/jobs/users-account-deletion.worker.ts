@@ -14,7 +14,7 @@ import {
   USERS_FINALIZE_ACCOUNT_DELETION_JOB,
   USERS_QUEUE,
   type UsersFinalizeAccountDeletionJobData,
-} from '../../../../libs/features/users/infra/jobs/user-account-deletion.job';
+} from '../../../../libs/features/users/account-deletion/user-account-deletion.job';
 import type {
   UsersFinalizeAccountDeletionJobResult,
   UsersProfileImageDeleteStoredFileJobResult,

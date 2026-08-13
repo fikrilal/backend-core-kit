@@ -1,26 +1,26 @@
 import { Controller, HttpCode, HttpStatus, Post, UseFilters, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PinoLogger } from 'nestjs-pino';
-import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
-import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
-import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
-import { ErrorCode } from '../../../../platform/http/errors/error-codes';
-import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
-import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
-import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
-import { RequestTraceId } from '../../../../platform/http/request-context.decorator';
-import { UsersErrorCode } from '../../shared/users.errors';
-import { UsersService } from '../../app/users.service';
-import { UserAccountDeletionEmailJobs } from '../jobs/user-account-deletion-email.jobs';
-import { UsersErrorFilter } from '../../shared/users-error.filter';
-import { runBestEffort } from '../../../../platform/logging/best-effort';
+import { AccessTokenGuard } from '../../../platform/auth/access-token.guard';
+import { CurrentPrincipal } from '../../../platform/auth/current-principal.decorator';
+import type { AuthPrincipal } from '../../../platform/auth/auth.types';
+import { ErrorCode } from '../../../platform/http/errors/error-codes';
+import { Idempotent } from '../../../platform/http/idempotency/idempotency.decorator';
+import { ApiIdempotencyKeyHeader } from '../../../platform/http/openapi/api-idempotency-key.decorator';
+import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
+import { RequestTraceId } from '../../../platform/http/request-context.decorator';
+import { UsersErrorCode } from '../shared/users.errors';
+import { AccountDeletionService } from './account-deletion.service';
+import { UserAccountDeletionEmailJobs } from './user-account-deletion-email.jobs';
+import { UsersErrorFilter } from '../shared/users-error.filter';
+import { runBestEffort } from '../../../platform/logging/best-effort';
 
 @ApiTags('Users')
 @Controller()
 @UseFilters(UsersErrorFilter)
 export class UserAccountDeletionController {
   constructor(
-    private readonly users: UsersService,
+    private readonly users: AccountDeletionService,
     private readonly emails: UserAccountDeletionEmailJobs,
     private readonly logger: PinoLogger,
   ) {

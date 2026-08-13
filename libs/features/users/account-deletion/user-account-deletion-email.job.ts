@@ -1,5 +1,5 @@
-import { jobName, type JsonObject } from '../../../../platform/queue/queue.types';
-import { EMAIL_QUEUE } from '../../../../platform/email/email.queue';
+import { jobName, type JsonObject } from '../../../platform/queue/queue.types';
+import { EMAIL_QUEUE } from '../../../platform/email/email.queue';
 
 export { EMAIL_QUEUE };
 

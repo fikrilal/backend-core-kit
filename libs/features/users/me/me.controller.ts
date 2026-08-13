@@ -1,21 +1,21 @@
 import { Body, Controller, Get, Patch, UseFilters, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { UsersService } from '../../app/users.service';
-import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
-import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
-import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
-import { ErrorCode } from '../../../../platform/http/errors/error-codes';
-import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
-import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
-import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
-import { MeEnvelopeDto, PatchMeRequestDto } from './dtos/me.dto';
-import { UsersErrorFilter } from '../../shared/users-error.filter';
+import { MeService } from './me.service';
+import { AccessTokenGuard } from '../../../platform/auth/access-token.guard';
+import { CurrentPrincipal } from '../../../platform/auth/current-principal.decorator';
+import type { AuthPrincipal } from '../../../platform/auth/auth.types';
+import { ErrorCode } from '../../../platform/http/errors/error-codes';
+import { Idempotent } from '../../../platform/http/idempotency/idempotency.decorator';
+import { ApiIdempotencyKeyHeader } from '../../../platform/http/openapi/api-idempotency-key.decorator';
+import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
+import { MeEnvelopeDto, PatchMeRequestDto } from './me.dto';
+import { UsersErrorFilter } from '../shared/users-error.filter';
 
 @ApiTags('Users')
 @Controller()
 @UseFilters(UsersErrorFilter)
 export class MeController {
-  constructor(private readonly users: UsersService) {}
+  constructor(private readonly users: MeService) {}
 
   @Get('me')
   @UseGuards(AccessTokenGuard)

@@ -1,14 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { QueueProducer } from '../../../../platform/queue/queue.producer';
-import type { Clock } from '../../../../shared/time';
-import type { AccountDeletionScheduler } from '../../shared/ports/account-deletion.scheduler';
+import { QueueProducer } from '../../../platform/queue/queue.producer';
+import type { Clock } from '../../../shared/time';
+import type { AccountDeletionScheduler } from '../shared/ports/account-deletion.scheduler';
 import {
   finalizeAccountDeletionJobId,
   USERS_FINALIZE_ACCOUNT_DELETION_JOB,
   USERS_QUEUE,
   type UsersFinalizeAccountDeletionJobData,
 } from './user-account-deletion.job';
-import { USERS_CLOCK } from '../../shared/users.tokens';
+import { USERS_CLOCK } from '../shared/users.tokens';
 
 @Injectable()
 export class UserAccountDeletionJobs implements AccountDeletionScheduler {

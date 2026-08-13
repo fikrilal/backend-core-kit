@@ -4,7 +4,7 @@ import type { AuthSendPasswordResetEmailJobData } from '../../../../libs/feature
 import type {
   UsersSendAccountDeletionReminderEmailJobData,
   UsersSendAccountDeletionRequestedEmailJobData,
-} from '../../../../libs/features/users/infra/jobs/user-account-deletion-email.job';
+} from '../../../../libs/features/users/account-deletion/user-account-deletion-email.job';
 
 export type AuthSendVerificationEmailJobResult = Readonly<{
   ok: true;

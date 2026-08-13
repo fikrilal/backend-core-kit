@@ -27,7 +27,7 @@ import {
 import { Idempotent } from '../../../platform/http/idempotency/idempotency.decorator';
 import { ApiIdempotencyKeyHeader } from '../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
-import { UsersService } from '../../users/app/users.service';
+import { MeService } from '../../users/me/me.service';
 import { AuthResultWithMeEnvelopeDto } from '../shared/auth.dto';
 import { OidcConnectRequestDto, OidcExchangeRequestDto } from './oidc.dto';
 import { AuthErrorFilter } from '../shared/auth-error.filter';
@@ -38,7 +38,7 @@ import { AuthErrorFilter } from '../shared/auth-error.filter';
 export class OidcController {
   constructor(
     private readonly auth: AuthOidcAuthService,
-    private readonly users: UsersService,
+    private readonly users: MeService,
   ) {}
 
   @Post('oidc/exchange')

@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsEmail, IsIn, IsOptional, IsString } from 'class-validator';
 import { AUTH_METHOD_VALUES } from '../../../shared/auth/auth-method';
-import { MeDto } from '../../users/infra/http/dtos/me.dto';
+import { MeDto } from '../../users/me/me.dto';
 
 export class AuthUserDto {
   @ApiProperty({ example: '3d2c7b2a-2dd6-46a5-8f8e-3b5de8a5b0f0' })

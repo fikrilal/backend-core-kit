@@ -1,4 +1,4 @@
-import { UsersService } from './users.service';
+import { AccountDeletionService } from './account-deletion.service';
 import { UserNotFoundError, type UsersError } from '../shared/users.errors';
 import { UsersErrorCode } from '../shared/users.errors';
 import type { AccountDeletionScheduler } from '../shared/ports/account-deletion.scheduler';
@@ -7,7 +7,7 @@ import type {
   RequestAccountDeletionResult,
   UsersRepository,
 } from '../shared/ports/users.repository';
-import type { MeView, UpdateMeProfilePatch, UserRecord } from '../shared/users.model';
+import type { UserRecord } from '../shared/users.model';
 import type { Clock } from '../../../shared/time';
 
 function unimplemented(): never {
@@ -65,60 +65,8 @@ function makeScheduler(): {
   };
 }
 
-describe('UsersService', () => {
+describe('AccountDeletionService', () => {
   const clock = fixedClock(new Date('2026-01-01T00:00:00.000Z'));
-
-  it('getMe returns a MeView with a non-null profile', async () => {
-    const repo = makeRepo({ findById: async () => makeUser({ profile: null }) });
-    const { scheduler } = makeScheduler();
-    const service = new UsersService(repo, scheduler, clock);
-
-    const res = await service.getMe('user-1');
-
-    expect(res).toEqual<MeView>({
-      id: 'user-1',
-      email: 'user@example.com',
-      emailVerified: true,
-      roles: ['USER'],
-      authMethods: ['PASSWORD'],
-      profile: {
-        profileImageFileId: null,
-        displayName: null,
-        givenName: null,
-        familyName: null,
-      },
-      accountDeletion: null,
-    });
-  });
-
-  it('getMe throws UserNotFoundError when repo returns null', async () => {
-    const repo = makeRepo({ findById: async () => null });
-    const { scheduler } = makeScheduler();
-    const service = new UsersService(repo, scheduler, clock);
-
-    await expect(service.getMe('missing')).rejects.toBeInstanceOf(UserNotFoundError);
-  });
-
-  it('getMe throws UserNotFoundError when user is DELETED', async () => {
-    const repo = makeRepo({ findById: async () => makeUser({ status: 'DELETED' }) });
-    const { scheduler } = makeScheduler();
-    const service = new UsersService(repo, scheduler, clock);
-
-    await expect(service.getMe('user-1')).rejects.toBeInstanceOf(UserNotFoundError);
-  });
-
-  it('updateMeProfile throws UserNotFoundError when repo returns null', async () => {
-    const repo = makeRepo({
-      updateProfile: async () => null,
-    });
-    const { scheduler } = makeScheduler();
-    const service = new UsersService(repo, scheduler, clock);
-
-    const patch: UpdateMeProfilePatch = { displayName: 'Alice' };
-    await expect(service.updateMeProfile('missing', patch)).rejects.toBeInstanceOf(
-      UserNotFoundError,
-    );
-  });
 
   it('requestAccountDeletion passes deterministic now + scheduledFor to the repository and schedules the job', async () => {
     const expectedNow = new Date('2026-01-01T00:00:00.000Z');
@@ -144,7 +92,7 @@ describe('UsersService', () => {
     });
 
     const { scheduler, scheduleCalls } = makeScheduler();
-    const service = new UsersService(repo, scheduler, fixedClock(expectedNow));
+    const service = new AccountDeletionService(repo, scheduler, fixedClock(expectedNow));
 
     const res = await service.requestAccountDeletion({
       userId: 'user-1',
@@ -176,7 +124,7 @@ describe('UsersService', () => {
     });
 
     const { scheduler, scheduleCalls } = makeScheduler();
-    const service = new UsersService(repo, scheduler, clock);
+    const service = new AccountDeletionService(repo, scheduler, clock);
 
     const res = await service.requestAccountDeletion({
       userId: 'user-1',
@@ -195,7 +143,7 @@ describe('UsersService', () => {
       requestAccountDeletion: async () => ({ kind: 'not_found' }),
     });
     const { scheduler, scheduleCalls } = makeScheduler();
-    const service = new UsersService(repo, scheduler, clock);
+    const service = new AccountDeletionService(repo, scheduler, clock);
 
     await expect(
       service.requestAccountDeletion({ userId: 'missing', sessionId: 's', traceId: 't' }),
@@ -209,7 +157,7 @@ describe('UsersService', () => {
       requestAccountDeletion: async () => ({ kind: 'last_admin' }),
     });
     const { scheduler, scheduleCalls } = makeScheduler();
-    const service = new UsersService(repo, scheduler, clock);
+    const service = new AccountDeletionService(repo, scheduler, clock);
 
     await expect(
       service.requestAccountDeletion({ userId: 'user-1', sessionId: 's', traceId: 't' }),
@@ -226,7 +174,7 @@ describe('UsersService', () => {
       requestAccountDeletion: async () => ({ kind: 'ok', user: makeUser({ status: 'DELETED' }) }),
     });
     const { scheduler, scheduleCalls } = makeScheduler();
-    const service = new UsersService(repo, scheduler, clock);
+    const service = new AccountDeletionService(repo, scheduler, clock);
 
     await expect(
       service.requestAccountDeletion({ userId: 'user-1', sessionId: 's', traceId: 't' }),
@@ -249,7 +197,7 @@ describe('UsersService', () => {
     });
 
     const { scheduler, cancelCalls } = makeScheduler();
-    const service = new UsersService(repo, scheduler, fixedClock(expectedNow));
+    const service = new AccountDeletionService(repo, scheduler, fixedClock(expectedNow));
 
     await service.cancelAccountDeletion({ userId: 'user-1', sessionId: 's', traceId: 't' });
 
@@ -263,7 +211,7 @@ describe('UsersService', () => {
     });
 
     const { scheduler, cancelCalls } = makeScheduler();
-    const service = new UsersService(repo, scheduler, clock);
+    const service = new AccountDeletionService(repo, scheduler, clock);
 
     await expect(
       service.cancelAccountDeletion({ userId: 'missing', sessionId: 's', traceId: 't' }),

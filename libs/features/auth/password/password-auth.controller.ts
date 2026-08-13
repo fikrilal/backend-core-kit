@@ -29,7 +29,7 @@ import { Idempotent } from '../../../platform/http/idempotency/idempotency.decor
 import { ApiIdempotencyKeyHeader } from '../../../platform/http/openapi/api-idempotency-key.decorator';
 import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
 import { AuthEmailVerificationJobs } from '../email-verification/email-verification.jobs';
-import { UsersService } from '../../users/app/users.service';
+import { MeService } from '../../users/me/me.service';
 import { AuthResultWithMeEnvelopeDto } from '../shared/auth.dto';
 import {
   ChangePasswordRequestDto,
@@ -45,7 +45,7 @@ import { runBestEffort } from '../../../platform/logging/best-effort';
 export class PasswordAuthController {
   constructor(
     private readonly auth: AuthPasswordAuthService,
-    private readonly users: UsersService,
+    private readonly users: MeService,
     private readonly emailVerificationJobs: AuthEmailVerificationJobs,
     private readonly logger: PinoLogger,
   ) {

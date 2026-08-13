@@ -1,12 +1,12 @@
-import { EmailService } from '../../../../platform/email/email.service';
-import { QueueProducer } from '../../../../platform/queue/queue.producer';
+import { EmailService } from '../../../platform/email/email.service';
+import { QueueProducer } from '../../../platform/queue/queue.producer';
 import { UserAccountDeletionEmailJobs } from './user-account-deletion-email.jobs';
 import {
   accountDeletionReminderEmailJobId,
   EMAIL_QUEUE,
   USERS_SEND_ACCOUNT_DELETION_REMINDER_EMAIL_JOB,
 } from './user-account-deletion-email.job';
-import { createPrototypeStub } from '../../../../../test/support/stubs';
+import { createPrototypeStub } from '../../../../test/support/stubs';
 
 type Clock = Readonly<{ now(): Date }>;
 

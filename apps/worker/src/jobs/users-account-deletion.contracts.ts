@@ -1,5 +1,5 @@
 import type { JsonObject } from '../../../../libs/platform/queue/queue.types';
-import type { UsersFinalizeAccountDeletionJobData } from '../../../../libs/features/users/infra/jobs/user-account-deletion.job';
+import type { UsersFinalizeAccountDeletionJobData } from '../../../../libs/features/users/account-deletion/user-account-deletion.job';
 import type {
   UsersProfileImageDeleteStoredFileJobData,
   UsersProfileImageExpireUploadJobData,

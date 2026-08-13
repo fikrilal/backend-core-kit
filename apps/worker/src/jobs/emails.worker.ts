@@ -13,7 +13,7 @@ import { AUTH_SEND_PASSWORD_RESET_EMAIL_JOB } from '../../../../libs/features/au
 import {
   USERS_SEND_ACCOUNT_DELETION_REMINDER_EMAIL_JOB,
   USERS_SEND_ACCOUNT_DELETION_REQUESTED_EMAIL_JOB,
-} from '../../../../libs/features/users/infra/jobs/user-account-deletion-email.job';
+} from '../../../../libs/features/users/account-deletion/user-account-deletion-email.job';
 import type { EmailsJobData, EmailsJobResult } from './emails.contracts';
 import {
   runAccountDeletionReminderEmailJob,

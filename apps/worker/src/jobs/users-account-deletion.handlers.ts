@@ -14,7 +14,7 @@ import type {
   UsersProfileImageDeleteStoredFileJobData,
   UsersProfileImageExpireUploadJobData,
 } from '../../../../libs/features/users/infra/jobs/profile-image-cleanup.job';
-import type { UsersFinalizeAccountDeletionJobData } from '../../../../libs/features/users/infra/jobs/user-account-deletion.job';
+import type { UsersFinalizeAccountDeletionJobData } from '../../../../libs/features/users/account-deletion/user-account-deletion.job';
 import type {
   UsersFinalizeDeletionTxnResult,
   UsersProfileImageDeleteStoredFileJobResult,

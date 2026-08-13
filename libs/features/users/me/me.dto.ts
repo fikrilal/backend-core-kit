@@ -15,7 +15,7 @@ import {
   type ValidationArguments,
   type ValidationOptions,
 } from 'class-validator';
-import { AUTH_METHOD_VALUES } from '../../../../../shared/auth/auth-method';
+import { AUTH_METHOD_VALUES } from '../../../shared/auth/auth-method';
 
 const MAX_PROFILE_FIELD_LENGTH = 100;
 

@@ -1,5 +1,5 @@
 import { jobName, type JsonObject } from '../../../../platform/queue/queue.types';
-import { USERS_QUEUE } from './users.queue';
+import { USERS_QUEUE } from '../../account-deletion/users.queue';
 
 export { USERS_QUEUE };
 
