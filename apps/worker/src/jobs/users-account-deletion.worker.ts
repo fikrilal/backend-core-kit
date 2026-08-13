@@ -9,7 +9,7 @@ import {
   USERS_PROFILE_IMAGE_EXPIRE_UPLOAD_JOB,
   type UsersProfileImageDeleteStoredFileJobData,
   type UsersProfileImageExpireUploadJobData,
-} from '../../../../libs/features/users/infra/jobs/profile-image-cleanup.job';
+} from '../../../../libs/features/users/profile-image/profile-image-cleanup.job';
 import {
   USERS_FINALIZE_ACCOUNT_DELETION_JOB,
   USERS_QUEUE,

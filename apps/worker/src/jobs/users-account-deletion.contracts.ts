@@ -3,7 +3,7 @@ import type { UsersFinalizeAccountDeletionJobData } from '../../../../libs/featu
 import type {
   UsersProfileImageDeleteStoredFileJobData,
   UsersProfileImageExpireUploadJobData,
-} from '../../../../libs/features/users/infra/jobs/profile-image-cleanup.job';
+} from '../../../../libs/features/users/profile-image/profile-image-cleanup.job';
 
 export type UsersFinalizeAccountDeletionJobResult = Readonly<{
   ok: true;

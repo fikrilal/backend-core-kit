@@ -4,7 +4,7 @@ import { IsIn, IsInt, IsString, IsUUID, Max, Min } from 'class-validator';
 import {
   PROFILE_IMAGE_ALLOWED_CONTENT_TYPES,
   PROFILE_IMAGE_MAX_BYTES,
-} from '../../../app/profile-image.policy';
+} from './profile-image.policy';
 
 export class CreateProfileImageUploadRequestDto {
   @ApiProperty({

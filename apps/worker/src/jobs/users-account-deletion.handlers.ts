@@ -13,7 +13,7 @@ import type { ObjectStorageService } from '../../../../libs/platform/storage/obj
 import type {
   UsersProfileImageDeleteStoredFileJobData,
   UsersProfileImageExpireUploadJobData,
-} from '../../../../libs/features/users/infra/jobs/profile-image-cleanup.job';
+} from '../../../../libs/features/users/profile-image/profile-image-cleanup.job';
 import type { UsersFinalizeAccountDeletionJobData } from '../../../../libs/features/users/account-deletion/user-account-deletion.job';
 import type {
   UsersFinalizeDeletionTxnResult,

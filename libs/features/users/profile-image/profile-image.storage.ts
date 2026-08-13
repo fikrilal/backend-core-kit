@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { ObjectStorageService } from '../../../../platform/storage/object-storage.service';
+import { ObjectStorageService } from '../../../platform/storage/object-storage.service';
 import type {
   ProfileImageHeadObjectResult,
   ProfileImagePresignedGetObject,
   ProfileImagePresignedPutObject,
   ProfileImageStoragePort,
-} from '../../shared/ports/profile-image.storage';
+} from '../shared/ports/profile-image.storage';
 
 @Injectable()
 export class UsersProfileImageStorageAdapter implements ProfileImageStoragePort {

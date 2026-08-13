@@ -1,6 +1,6 @@
-import { ObjectStorageService } from '../../../../platform/storage/object-storage.service';
-import { UsersProfileImageStorageAdapter } from './users-profile-image-storage.adapter';
-import { createPrototypeStub } from '../../../../../test/support/stubs';
+import { ObjectStorageService } from '../../../platform/storage/object-storage.service';
+import { UsersProfileImageStorageAdapter } from './profile-image.storage';
+import { createPrototypeStub } from '../../../../test/support/stubs';
 
 describe('UsersProfileImageStorageAdapter', () => {
   it('delegates isEnabled and getBucketName', () => {

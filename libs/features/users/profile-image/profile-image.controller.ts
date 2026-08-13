@@ -19,32 +19,32 @@ import {
 } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
 import { PinoLogger } from 'nestjs-pino';
-import { AccessTokenGuard } from '../../../../platform/auth/access-token.guard';
-import { CurrentPrincipal } from '../../../../platform/auth/current-principal.decorator';
-import type { AuthPrincipal } from '../../../../platform/auth/auth.types';
-import { ErrorCode } from '../../../../platform/http/errors/error-codes';
+import { AccessTokenGuard } from '../../../platform/auth/access-token.guard';
+import { CurrentPrincipal } from '../../../platform/auth/current-principal.decorator';
+import type { AuthPrincipal } from '../../../platform/auth/auth.types';
+import { ErrorCode } from '../../../platform/http/errors/error-codes';
 import {
   ClientContext,
   type ClientContextValue,
   RequestTraceId,
-} from '../../../../platform/http/request-context.decorator';
-import { Idempotent } from '../../../../platform/http/idempotency/idempotency.decorator';
-import { ApiIdempotencyKeyHeader } from '../../../../platform/http/openapi/api-idempotency-key.decorator';
-import { ApiErrorCodes } from '../../../../platform/http/openapi/api-error-codes.decorator';
-import { PROFILE_IMAGE_PRESIGN_TTL_SECONDS } from '../../app/profile-image.policy';
-import type { ProfileImageUrlView } from '../../app/user-profile-image.service';
-import { UserProfileImageService } from '../../app/user-profile-image.service';
-import { UsersErrorCode } from '../../shared/users.errors';
-import { ProfileImageCleanupJobs } from '../jobs/profile-image-cleanup.jobs';
-import { RedisProfileImageUploadRateLimiter } from '../rate-limit/redis-profile-image-upload-rate-limiter';
+} from '../../../platform/http/request-context.decorator';
+import { Idempotent } from '../../../platform/http/idempotency/idempotency.decorator';
+import { ApiIdempotencyKeyHeader } from '../../../platform/http/openapi/api-idempotency-key.decorator';
+import { ApiErrorCodes } from '../../../platform/http/openapi/api-error-codes.decorator';
+import { PROFILE_IMAGE_PRESIGN_TTL_SECONDS } from './profile-image.policy';
+import type { ProfileImageUrlView } from './profile-image.service';
+import { UserProfileImageService } from './profile-image.service';
+import { UsersErrorCode } from '../shared/users.errors';
+import { ProfileImageCleanupJobs } from './profile-image-cleanup.jobs';
+import { RedisProfileImageUploadRateLimiter } from './redis-profile-image-upload-rate-limiter';
 import {
   CompleteProfileImageUploadRequestDto,
   CreateProfileImageUploadRequestDto,
   ProfileImageUploadPlanEnvelopeDto,
   ProfileImageUrlEnvelopeDto,
-} from './dtos/profile-image.dto';
-import { UsersErrorFilter } from '../../shared/users-error.filter';
-import { runBestEffort } from '../../../../platform/logging/best-effort';
+} from './profile-image.dto';
+import { UsersErrorFilter } from '../shared/users-error.filter';
+import { runBestEffort } from '../../../platform/logging/best-effort';
 
 @ApiTags('Users')
 @Controller()

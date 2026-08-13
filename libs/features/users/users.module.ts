@@ -12,13 +12,13 @@ import { AccountDeletionService } from './account-deletion/account-deletion.serv
 import { UserAccountDeletionJobs } from './account-deletion/user-account-deletion.jobs';
 import { UserAccountDeletionEmailJobs } from './account-deletion/user-account-deletion-email.jobs';
 import { PrismaUsersRepository } from './shared/persistence/prisma-users.repository';
-import { ProfileImageController } from './infra/http/profile-image.controller';
+import { ProfileImageController } from './profile-image/profile-image.controller';
 import { PrismaProfileImageRepository } from './shared/persistence/prisma-profile-image.repository';
-import { UserProfileImageService } from './app/user-profile-image.service';
-import { RedisProfileImageUploadRateLimiter } from './infra/rate-limit/redis-profile-image-upload-rate-limiter';
-import { ProfileImageCleanupJobs } from './infra/jobs/profile-image-cleanup.jobs';
+import { UserProfileImageService } from './profile-image/profile-image.service';
+import { RedisProfileImageUploadRateLimiter } from './profile-image/redis-profile-image-upload-rate-limiter';
+import { ProfileImageCleanupJobs } from './profile-image/profile-image-cleanup.jobs';
 import { USERS_CLOCK } from './shared/users.tokens';
-import { UsersProfileImageStorageAdapter } from './infra/storage/users-profile-image-storage.adapter';
+import { UsersProfileImageStorageAdapter } from './profile-image/profile-image.storage';
 import {
   provideConstructedAppService,
   provideSystemClockToken,

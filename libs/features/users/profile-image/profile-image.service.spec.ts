@@ -1,4 +1,4 @@
-import { UserProfileImageService } from './user-profile-image.service';
+import { UserProfileImageService } from './profile-image.service';
 import { UserNotFoundError, type UsersError } from '../shared/users.errors';
 import { UsersErrorCode } from '../shared/users.errors';
 import type {

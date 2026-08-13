@@ -2,7 +2,7 @@
 
 Date: 2026-08-09  
 Owner: Codex  
-Status: active  
+Status: completed  
 Risk class: high  
 Related issue/PR: N/A
 
@@ -102,7 +102,33 @@ clear -> url flows still work against real MinIO.
 
 ## Completion Notes
 
-To be filled after execution.
+Phase 3 implemented and verified:
+
+- `profile-image/` now holds the whole capability:
+  - `profile-image.service.ts` (was `app/user-profile-image.service.ts`, class
+    `UserProfileImageService` kept) + `profile-image.service.spec.ts`;
+  - `profile-image.policy.ts`, `profile-image.controller.ts`, `profile-image.dto.ts`;
+  - `profile-image.storage.ts` (was `infra/storage/users-profile-image-storage.adapter.ts`)
+    + spec;
+  - `redis-profile-image-upload-rate-limiter.ts`;
+  - `profile-image-cleanup.job.ts` / `.jobs.ts`.
+- `users.module.ts` rewired to the new paths.
+- Worker + test importers updated for the moved cleanup job contracts and
+  rate-limiter.
+- No semantic edits; storage verification behavior unchanged.
+
+Verification outcomes:
+
+- `npm run typecheck`: passed (0 errors).
+- `npm run deps:check`: passed (285 modules, 743 deps, no violations).
+- `npm run format:check`: passed.
+- `npm run lint`: passed.
+- Profile-image specs (2 suites, 12 tests): passed.
+- Users e2e (`auth-me`, 23 tests): passed — upload-plan -> complete -> url ->
+  clear flows against real MinIO/Redis/DB.
+- Queue-smoke int (6 tests): passed (cleanup jobs).
+- `npm test`: 263 passed, 5 pre-existing platform env failures (unchanged).
+- OpenAPI check + lint: passed (snapshot unchanged).
 
 ## Follow-Ups
 
