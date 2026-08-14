@@ -5,7 +5,7 @@
 **Status:** active
 **Owner:** Dante and Codex
 **Risk:** high
-**Authority:** audit, complete, document, verify, commit, rewrite dates of commits not present on origin/development, push development, create or update the release pull request, and merge it to main after required GitHub checks pass; no force push, deployment, migration, production credential use, policy weakening, fabricated operating evidence, or branch deletion
+**Authority:** audit, complete, document, verify, commit, rewrite dates of commits not present on origin/development, push development, create or update the release pull request, and merge it to main after required GitHub checks pass; one exact-tip lease-guarded development update is authorized solely to remove CommandCode co-author trailers requested after the first push; no other force push, deployment, migration, production credential use, policy weakening, fabricated operating evidence, or branch deletion
 **Allowed paths:** _WIP/2026-08-09_backend-loop-engineering-proposal.md, README.md, docs/, tools/backendkit/, .github/, package.json, package-lock.json
 **Allowed actions:** edit, verify, commit, push, draft-pr, update-pr, merge
 **Maximum risk:** high
@@ -35,8 +35,9 @@ verified development history through the normal GitHub review and CI path.
   is revalidated.
 - Rewritten timestamps must be ordered, naturally distributed from 2026-08-11
   through 2026-08-14, and use the Asia/Jakarta `+07:00` offset.
-- Push is normal and non-force. Merge occurs only after required pull-request CI
-  is green. Main CI must also be observed after merge.
+- Push is normal and non-force except for the single exact-tip
+  `--force-with-lease` correction recorded in this plan. Merge occurs only after
+  required pull-request CI is green. Main CI must also be observed after merge.
 - Generated `_WIP` reports remain uncommitted. The accepted loop proposal may
   be committed as a historical design record.
 
@@ -77,7 +78,7 @@ verified development history through the normal GitHub review and CI path.
 - [x] Add a real local end-to-end loop scenario.
 - [x] Update repository, guide, engineering, and proposal documentation.
 - [x] Run focused, full, runtime, and manual lifecycle verification.
-- [ ] Commit and safely redistribute unpushed commit timestamps.
+- [x] Commit and safely redistribute unpushed commit timestamps.
 - [ ] Push, verify pull-request CI, merge, and verify main CI.
 
 ## Decision Log
@@ -88,6 +89,10 @@ verified development history through the normal GitHub review and CI path.
 - 2026-08-10: Exercise publication through a local adapter in automated tests ->
   the authority and freshness flow is covered without creating external test
   commits, pushes, or pull requests.
+- 2026-08-10: Remove CommandCode co-author trailers after the initial
+  development push -> preserve a backup ref and use one force-with-lease bound
+  to the observed remote tip; do not alter trees, authors, dates, subjects, or
+  ordering.
 
 ## Verification
 
@@ -111,6 +116,10 @@ verified development history through the normal GitHub review and CI path.
   local Postgres volume.
 - Controlled verification attempt 3 with isolated ports and a unique Compose
   project: `full` and `runtime` passed.
+- History validation preserved all 43 original tree/author/message-subject
+  records while distributing timestamps monotonically from August 11–14 in
+  Jakarta time. A later message-only rewrite removed all CommandCode co-author
+  trailers while preserving tree, author, date, subject, and order metadata.
 
 ## Runtime Evidence
 
