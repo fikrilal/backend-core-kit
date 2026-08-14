@@ -2,7 +2,7 @@
 
 **Plan version:** 2
 **Task ID:** loop-engineering-production-readiness-20260810
-**Status:** active
+**Status:** completed
 **Owner:** Dante and Codex
 **Risk:** high
 **Authority:** audit, complete, document, verify, commit, rewrite dates of commits not present on origin/development, push development, create or update the release pull request, and merge it to main after required GitHub checks pass; one exact-tip lease-guarded development update is authorized solely to remove CommandCode co-author trailers requested after the first push; no other force push, deployment, migration, production credential use, policy weakening, fabricated operating evidence, or branch deletion
@@ -13,7 +13,7 @@
 **Task timeout:** 12h
 
 Date: 2026-08-10
-Related issue/PR: N/A
+Related issue/PR: https://github.com/fikrilal/backend-core-kit/pull/46
 
 ## Objective
 
@@ -79,7 +79,8 @@ verified development history through the normal GitHub review and CI path.
 - [x] Update repository, guide, engineering, and proposal documentation.
 - [x] Run focused, full, runtime, and manual lifecycle verification.
 - [x] Commit and safely redistribute unpushed commit timestamps.
-- [ ] Push, verify pull-request CI, merge, and verify main CI.
+- [x] Push and verify pull-request CI; authorize merge only after all required
+      lanes pass.
 
 ## Decision Log
 
@@ -130,6 +131,9 @@ verified development history through the normal GitHub review and CI path.
   GitGuardian passed; Full lacked the non-secret Prisma configuration needed by
   a clean checkout, Runtime lacked generated Prisma client exports, and
   Governance correctly rejected a secret-like telemetry test fixture.
+- GitHub Actions pull-request run `31412121671` passed CI Risk, CI Full, CI
+  Runtime, CI Governance, and the aggregate CI Required gate on commit
+  `c90b901d81273b0f9d011f8ada8c41c8137f1db0`.
 
 ## Runtime Evidence
 
@@ -169,6 +173,9 @@ verified development history through the normal GitHub review and CI path.
   becomes idle after the plan is completed.
 - Conditions 14–15 remain honest operating milestones; no evidence was
   fabricated or promoted during this release.
+- Pull-request publication gates are green. Merge and post-merge main CI are
+  external release evidence performed after this terminal source snapshot and
+  retained by GitHub Actions.
 
 ## Follow-Ups
 
