@@ -26,8 +26,12 @@ export type BackendkitCommand =
   | Readonly<{ kind: 'handoff-draft-pr'; taskId: string; base: string; title: string }>
   | Readonly<{ kind: 'oracles-check' }>
   | Readonly<{ kind: 'evidence-check' }>
+  | Readonly<{ kind: 'improve-check' }>
+  | Readonly<{ kind: 'improve-analyze' }>
+  | Readonly<{ kind: 'improve-shadow'; hypothesisId: string }>
   | Readonly<{ kind: 'risk-classify'; planPath?: string }>
-  | Readonly<{ kind: 'knowledge-check' }>;
+  | Readonly<{ kind: 'knowledge-check' }>
+  | Readonly<{ kind: 'doctor' }>;
 
 export class CliUsageError extends Error {
   constructor(message: string) {
@@ -54,8 +58,12 @@ export type BackendkitCliDependencies = Readonly<{
   draftPrHandoff(taskId: string, base: string, title: string): Promise<void>;
   checkOracles(): Promise<void>;
   checkEvidence(): Promise<void>;
+  checkImprovements(): Promise<void>;
+  analyzeImprovements(): Promise<void>;
+  shadowImprovement(hypothesisId: string): Promise<void>;
   classifyRisk(planPath?: string): Promise<void>;
   checkKnowledge(): Promise<void>;
+  runDoctor(): Promise<void>;
   stdout: TextOutput;
   stderr: TextOutput;
 }>;
@@ -79,10 +87,15 @@ export function parseBackendkitCommand(args: ReadonlyArray<string>): BackendkitC
       return parseExactCheck(args, 'oracles', 'oracles-check');
     case 'evidence':
       return parseExactCheck(args, 'evidence', 'evidence-check');
+    case 'improve':
+      return parseImprove(args);
     case 'risk':
       return parseRisk(args);
     case 'knowledge':
       return parseKnowledge(args);
+    case 'doctor':
+      if (args.length === 1) return { kind: 'doctor' };
+      throw new CliUsageError('Usage: backendkit doctor');
     default:
       throw new CliUsageError(`Unknown command '${args[0]}'`);
   }
@@ -107,8 +120,12 @@ export function backendkitHelp(): string {
     '  backendkit handoff draft-pr --task <id> --base <branch> --title <title>',
     '  backendkit oracles check',
     '  backendkit evidence check',
+    '  backendkit improve check',
+    '  backendkit improve analyze',
+    '  backendkit improve shadow --hypothesis <id>',
     '  backendkit risk classify [--plan <path>]',
     '  backendkit knowledge check',
+    '  backendkit doctor',
     '  backendkit --help',
     '',
     'Profiles:',
@@ -172,11 +189,23 @@ export async function runBackendkitCli(
       case 'evidence-check':
         await dependencies.checkEvidence();
         break;
+      case 'improve-check':
+        await dependencies.checkImprovements();
+        break;
+      case 'improve-analyze':
+        await dependencies.analyzeImprovements();
+        break;
+      case 'improve-shadow':
+        await dependencies.shadowImprovement(command.hypothesisId);
+        break;
       case 'risk-classify':
         await dependencies.classifyRisk(command.planPath);
         break;
       case 'knowledge-check':
         await dependencies.checkKnowledge();
+        break;
+      case 'doctor':
+        await dependencies.runDoctor();
         break;
     }
     return 0;
@@ -189,6 +218,17 @@ export async function runBackendkitCli(
     }
     return 1;
   }
+}
+
+function parseImprove(args: ReadonlyArray<string>): BackendkitCommand {
+  if (args.length === 2 && args[1] === 'check') return { kind: 'improve-check' };
+  if (args.length === 2 && args[1] === 'analyze') return { kind: 'improve-analyze' };
+  if (args[1] === 'shadow') {
+    const options = args.slice(2);
+    assertOnlyOptions(options, ['--hypothesis'], 'Improve shadow');
+    return { kind: 'improve-shadow', hypothesisId: requiredOption(options, '--hypothesis') };
+  }
+  throw new CliUsageError('Usage: backendkit improve check|analyze|shadow --hypothesis <id>');
 }
 
 function parseExactCheck(

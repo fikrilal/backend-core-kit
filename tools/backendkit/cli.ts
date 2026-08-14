@@ -1,6 +1,7 @@
 import { runBackendkitCli } from './command';
 import { CiClassificationService, writeCiClassification } from './ci/ci-classification';
 import { DiagnosticStore } from './evidence/diagnostics';
+import { HarnessDoctor } from './doctor/harness-doctor';
 import { EpisodeStore } from './evidence/episode';
 import { evidenceEligibility, readOperatingLedger } from './evidence/operating-ledger';
 import { EventIntakeService, type EventIntakeResult } from './events/event-intake';
@@ -11,6 +12,12 @@ import {
 } from './handoff/handoff-service';
 import { assertKnowledgeValid, checkKnowledge } from './knowledge/knowledge-check';
 import { MaintenanceService, type MaintenanceResult } from './maintenance/maintenance-service';
+import {
+  evaluateShadow,
+  readImprovementLedger,
+  validateImprovementProgram,
+} from './improvement/improvement-ledger';
+import { analyzeEvidenceTrends } from './improvement/trend-analysis';
 import { highRiskOracles, validateHighRiskOracles } from './oracles/high-risk-oracles';
 import {
   defaultTaskCommandService,
@@ -98,6 +105,40 @@ async function main(): Promise<void> {
         `Operating evidence: ${eligibility.reviewedTasks} reviewed tasks; ${eligibility.riskClasses} risk classes; ${eligibility.repairsOrEscalations} repairs/escalations; hill climbing ${eligibility.eligible ? 'eligible' : `ineligible (${eligibility.missing.join(', ')})`}.\n`,
       );
     },
+    checkImprovements: async () => {
+      const evidence = await readOperatingLedger(root);
+      const improvements = await readImprovementLedger(root);
+      await validateImprovementProgram(root, evidence, improvements);
+      process.stdout.write(
+        `Harness improvement check passed: ${improvements.hypotheses.length} hypotheses; ${evidenceEligibility(evidence).eligible ? 'enabled' : 'disabled by evidence threshold'}.\n`,
+      );
+    },
+    analyzeImprovements: async () => {
+      const evidence = await readOperatingLedger(root);
+      const improvements = await readImprovementLedger(root);
+      await validateImprovementProgram(root, evidence, improvements);
+      const trend = analyzeEvidenceTrends(evidence);
+      process.stdout.write(
+        `Harness trends: ${trend.reviewedTasks} tasks; ${trend.riskClasses} risk classes; repair/escalation ${trend.repairOrEscalationRateBps}bps; terminal escalation ${trend.escalationRateBps}bps; hill climbing ${trend.eligible ? 'enabled' : 'disabled'}.\n`,
+      );
+      for (const reason of trend.recurringStopReasons) {
+        process.stdout.write(`- ${reason.id}: ${reason.count}\n`);
+      }
+    },
+    shadowImprovement: async (hypothesisId) => {
+      const evidence = await readOperatingLedger(root);
+      const improvements = await readImprovementLedger(root);
+      await validateImprovementProgram(root, evidence, improvements);
+      if (!evidenceEligibility(evidence).eligible) {
+        process.stdout.write('Harness shadow evaluation disabled by evidence threshold.\n');
+        return;
+      }
+      const hypothesis = improvements.hypotheses.find(({ id }) => id === hypothesisId);
+      if (!hypothesis)
+        throw new Error(`Harness improvement hypothesis '${hypothesisId}' not found.`);
+      const result = evaluateShadow(evidence, hypothesis);
+      process.stdout.write(`Harness shadow evaluation: ${hypothesisId}; ${result.status}.\n`);
+    },
     classifyRisk: async (planPath) =>
       writeRiskResult(process.stdout, await taskService.classifyCurrent(planPath)),
     checkKnowledge: async () => {
@@ -106,6 +147,15 @@ async function main(): Promise<void> {
       process.stdout.write(
         `Knowledge check passed: ${report.checkedPlans} plans; ${report.v2Plans} V2; ${report.legacyCompletedPlans} legacy completed.\n`,
       );
+    },
+    runDoctor: async () => {
+      const report = await new HarnessDoctor(root).inspect();
+      process.stdout.write(
+        `Harness doctor passed: ${report.checks.length} checks; ${report.taskStates} task states; ${report.workspaces} workspaces; ${report.staleTasks} stale tasks; runtime ${report.runtimeReady ? 'ready' : 'unavailable'}.\n`,
+      );
+      for (const check of report.checks) {
+        process.stdout.write(`- ${check.id}: ${check.status} (${check.detail})\n`);
+      }
     },
     stdout: process.stdout,
     stderr: process.stderr,

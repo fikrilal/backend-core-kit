@@ -28,6 +28,7 @@ This layout is standardized by ADR: `docs/adr/0011-repository-layout-apps-and-li
 ```text
 /
 ├─ docs/
+├─ tools/backendkit/               # repository-local task/verification loop; never imported by apps/libs
 ├─ apps/
 │  ├─ api/                      # HTTP API (NestJS + Fastify)
 │  │  └─ src/

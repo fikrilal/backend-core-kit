@@ -35,4 +35,5 @@ Rules:
 - `docs/adr/0023-event-driven-task-intake.md`
 - `docs/adr/0024-verified-handoff-independent-ci.md`
 - `docs/adr/0025-test-oracles-operating-evidence.md`
+- `docs/adr/0026-controlled-harness-hill-climbing.md`
 - `docs/adr/template.md`

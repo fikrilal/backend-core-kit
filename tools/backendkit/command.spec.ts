@@ -43,6 +43,13 @@ describe('backendkit command', () => {
     expect(parseBackendkitCommand(['knowledge', 'check'])).toEqual({ kind: 'knowledge-check' });
     expect(parseBackendkitCommand(['oracles', 'check'])).toEqual({ kind: 'oracles-check' });
     expect(parseBackendkitCommand(['evidence', 'check'])).toEqual({ kind: 'evidence-check' });
+    expect(parseBackendkitCommand(['doctor'])).toEqual({ kind: 'doctor' });
+    expect(parseBackendkitCommand(['improve', 'check'])).toEqual({ kind: 'improve-check' });
+    expect(parseBackendkitCommand(['improve', 'analyze'])).toEqual({ kind: 'improve-analyze' });
+    expect(parseBackendkitCommand(['improve', 'shadow', '--hypothesis', 'repair.types'])).toEqual({
+      kind: 'improve-shadow',
+      hypothesisId: 'repair.types',
+    });
     expect(
       parseBackendkitCommand(['task', 'workspace', 'prepare', '--task', 'example-task']),
     ).toEqual({
@@ -124,8 +131,12 @@ describe('backendkit command', () => {
       draftPrHandoff: async () => undefined,
       checkOracles: async () => undefined,
       checkEvidence: async () => undefined,
+      checkImprovements: async () => undefined,
+      analyzeImprovements: async () => undefined,
+      shadowImprovement: async () => undefined,
       classifyRisk: async () => undefined,
       checkKnowledge: async () => undefined,
+      runDoctor: async () => undefined,
       stdout,
       stderr,
     });
@@ -153,8 +164,12 @@ describe('backendkit command', () => {
       draftPrHandoff: async (): Promise<void> => undefined,
       checkOracles: async (): Promise<void> => undefined,
       checkEvidence: async (): Promise<void> => undefined,
+      checkImprovements: async (): Promise<void> => undefined,
+      analyzeImprovements: async (): Promise<void> => undefined,
+      shadowImprovement: async (): Promise<void> => undefined,
       classifyRisk: async (): Promise<void> => undefined,
       checkKnowledge: async (): Promise<void> => undefined,
+      runDoctor: async (): Promise<void> => undefined,
       stdout,
       stderr,
     };
@@ -185,5 +200,7 @@ describe('backendkit command', () => {
     expect(backendkitHelp()).toContain('handoff dry-run');
     expect(backendkitHelp()).toContain('oracles check');
     expect(backendkitHelp()).toContain('evidence check');
+    expect(backendkitHelp()).toContain('improve shadow');
+    expect(backendkitHelp()).toContain('backendkit doctor');
   });
 });

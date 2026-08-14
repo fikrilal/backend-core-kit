@@ -12,6 +12,24 @@ Documentation is in `docs/README.md` (source of truth).
   - errors are RFC7807 (`application/problem+json`) with stable `code` + `traceId`
   - generated OpenAPI snapshot committed at `docs/openapi/openapi.yaml` and linted by Spectral
 - Auth + sessions (password + OIDC), RBAC, idempotency keys, email infra, admin control-plane + audits
+- Repository-local loop engineering for scoped agent tasks, isolated worktrees,
+  risk-aware verification, bounded repair, verified handoff, and independent CI
+
+## Agent development loop
+
+`backendkit` is the canonical harness used internally by the current Codex
+conversation. It does not launch another agent. Start with a human-approved V2
+execution plan, let the current agent use the task/workspace/verification
+commands, then separately authorize publication actions after review.
+
+```bash
+npm run backendkit -- doctor
+npm run backendkit -- task begin --plan docs/exec-plans/active/<plan>.md
+npm run backendkit -- task verify --task <task-id>
+```
+
+See `docs/engineering/loop-engineering.md` for the architecture and readiness
+status, and `docs/engineering/agent-pr-loop.md` for the operating workflow.
 
 ## Quickstart (local)
 
@@ -25,6 +43,7 @@ Documentation is in `docs/README.md` (source of truth).
 - `npm run start:dev` (API on `http://127.0.0.1:4000`, Swagger UI at `/docs` in dev)
 - `npm run start:worker:dev` (worker on `http://127.0.0.1:4001`)
 - `npm run verify` (format/lint/typecheck/boundaries/tests/openapi gates)
+- `npm run backendkit -- doctor` (read-only harness prerequisite inspection)
 - Optional: `npm run verify:e2e` (brings up local deps and runs e2e)
 
 ### WSL note (repo on Windows mount)

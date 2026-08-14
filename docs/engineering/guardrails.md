@@ -68,6 +68,8 @@ npm run test:coverage
 npm run test:mutation:pilot
 npm run backendkit -- oracles check
 npm run backendkit -- evidence check
+npm run backendkit -- improve check
+npm run backendkit -- doctor
 npm run smells:arch:ci
 npm run duplication:report
 npm run openapi:check
@@ -279,6 +281,17 @@ advisory duration budgets, high-risk scenario mappings to integration/E2E
 evidence, and one manual pure-policy mutation pilot. The versioned operating
 ledger accepts only strict independently reviewed clean-CI metadata. Ledger
 eligibility is advisory and cannot create tasks, weaken gates, or change policy.
+
+Phase 8 improvement controls are also mechanical: no hypothesis is valid before
+operating-evidence eligibility; every later hypothesis preserves the complete
+immutable-invariant set; approved work references an isolated high-risk edit/
+verify-only plan; and terminal human decisions must match read-only shadow
+evidence. Improvement commands never write source or grant publication.
+
+The read-only doctor closes the prerequisite loop before execution: it checks
+the repository and private-state boundary, validates harness schemas, rejects
+malformed persisted task/workspace metadata, and reports Docker availability
+without reading or printing environment values.
 
 ## Related Docs
 

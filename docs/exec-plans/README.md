@@ -85,6 +85,12 @@ exact revision; local episode success is insufficient. `backendkit evidence
 check` validates metadata and reports advisory eligibility but cannot promote
 an episode, create a task, or authorize a harness change.
 
+A harness-improvement hypothesis never replaces an execution plan. After the
+operating-evidence threshold is reached, approved/evaluating improvements must
+reference a separate high-risk V2 plan restricted to harness paths and exactly
+`edit, verify`. Shadow keep/revert advice is read-only; rollout and publication
+continue through ordinary explicit authority boundaries.
+
 ## What Does Not Belong Here
 
 - tiny one-file edits with no risk or coordination overhead

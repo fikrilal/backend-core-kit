@@ -85,3 +85,7 @@ this independent review contract. Hill-climbing recommendations remain
 ineligible until the ledger has five unique reviewed tasks, two risk classes,
 and at least one repair or escalation. Eligibility is advisory and never grants
 authority to create work or alter policy.
+
+Once eligibility is reached, Phase 8 may aggregate this ledger under the
+read-only protocol in `docs/engineering/controlled-hill-climbing.md`. Until
+then, the improvement ledger must remain empty and no recommendation is valid.

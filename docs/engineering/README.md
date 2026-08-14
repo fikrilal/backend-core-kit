@@ -30,8 +30,11 @@ These documents are not “standards”. Standards live under `docs/standards/`.
   - `docs/engineering/push/fcm.md`
 - Agent workflow and harness
   - `docs/engineering/agent-pr-loop.md`
+  - `docs/engineering/loop-engineering.md`
   - `docs/engineering/backendkit-cli.md`
   - `docs/engineering/backend-runtime-evidence.md`
   - `docs/engineering/guardrails.md`
   - `docs/engineering/parallel-agent-workflow.md`
   - `docs/engineering/duplication-harness.md`
+  - `docs/engineering/operating-evidence.md`
+  - `docs/engineering/controlled-hill-climbing.md`

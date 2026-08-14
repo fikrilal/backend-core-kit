@@ -27,6 +27,7 @@ Use these documents together:
 - architecture: `docs/core/project-architecture.md`
 - standards: `docs/standards/README.md`
 - mechanical guardrails: `docs/engineering/guardrails.md`
+- loop architecture and readiness: `docs/engineering/loop-engineering.md`
 - duplication review: `docs/engineering/duplication-harness.md`
 - runtime evidence: `docs/engineering/backend-runtime-evidence.md`
 - parallel-agent coordination: `docs/engineering/parallel-agent-workflow.md`
@@ -43,6 +44,13 @@ Before implementation starts:
 - classify risk
 - identify impact areas
 - create a plan file for non-trivial work
+
+On a new clone, runner, or after toolchain changes, inspect repository-local
+readiness first:
+
+```bash
+npm run backendkit -- doctor
+```
 
 New controller-managed tasks use execution-plan V2. Before task edits, capture
 the authorized baseline:
@@ -289,3 +297,6 @@ A PR is done only when:
 3. risk-class review expectations are satisfied
 4. runtime evidence is present when behavior needs proof
 5. follow-up debt is tracked instead of left implicit
+6. high-risk harness work has passed the cross-component loop scenario and the
+   canonical full profile
+7. hosted CI independently passes before merge

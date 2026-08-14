@@ -28,8 +28,12 @@ npm run backendkit -- handoff dry-run --task <task-id> --action push
 npm run backendkit -- handoff dry-run --task <task-id> --action draft-pr
 npm run backendkit -- oracles check
 npm run backendkit -- evidence check
+npm run backendkit -- improve check
+npm run backendkit -- improve analyze
+npm run backendkit -- improve shadow --hypothesis <id>
 npm run backendkit -- risk classify --plan docs/exec-plans/active/<plan>.md
 npm run backendkit -- knowledge check
+npm run backendkit -- doctor
 ```
 
 ## Profiles
@@ -74,11 +78,31 @@ instead of copying their step lists.
 - `tools/backendkit/oracles/` owns high-risk acceptance-to-runtime-evidence
   mappings; `tools/backendkit/evidence/operating-ledger.ts` owns the sanitized
   ledger and advisory Phase 8 eligibility calculation.
+- `tools/backendkit/improvement/` owns deterministic trend aggregation, strict
+  hypothesis lifecycle validation, isolated-plan checks, and read-only shadow
+  evaluation.
+- `tools/backendkit/doctor/` owns read-only repository prerequisite and policy
+  readiness inspection.
 - Existing scripts and npm commands continue to own OpenAPI, Prisma, env,
   architecture, duplication, tests, and runtime dependency behavior.
 
 The CLI is harness tooling. Production code under `apps/` and `libs/` must not
 import it.
+
+## Readiness Inspection
+
+`doctor` validates required local executables, canonical repository identity,
+the ignored private-state root, plan/oracle/evidence/improvement schemas, and
+persisted state/workspace metadata. It also reports Docker readiness without
+making Docker mandatory for non-runtime profiles. It prints status categories,
+not environment values or credentials, and changes no state.
+
+An active lifecycle record whose plan is no longer under `active/` is reported
+as a stale local warning. The doctor does not delete or rewrite task evidence.
+
+Repository code cannot prove host sandbox policy or credential isolation; the
+Codex host owns those controls. `verify:e2e` remains the authoritative runtime
+test even when doctor reports Docker ready.
 
 ## Structured Tasks
 
@@ -177,6 +201,20 @@ signals. The manual `npm run test:mutation:pilot` command samples the pure lane-
 selection policy and is not part of canonical profiles. Promotion from a local
 episode to the ledger remains a separately planned, independently reviewed
 source edit. See `docs/engineering/operating-evidence.md`.
+
+## Controlled Harness Improvement
+
+`improve check` validates the improvement lifecycle, `improve analyze` reports
+deterministic sanitized trends, and `improve shadow` compares a declared
+hypothesis with later reviewed tasks. All are read-only. While operating
+evidence is below eligibility, only an empty improvement ledger is valid and
+analysis/shadow evaluation report disabled.
+
+Approved improvements require separate human approval and an isolated high-risk
+V2 plan with exactly edit/verify authority. Terminal keep/revert records must
+match shadow evidence. The controller never creates the plan, edits policy,
+rolls out code, or publishes the result. See
+`docs/engineering/controlled-hill-climbing.md`.
 
 ## Current-Agent Task Workspace
 
