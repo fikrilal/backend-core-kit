@@ -110,6 +110,10 @@ class MemoryStateStore implements TaskStateStore {
     if (!this.state) throw new Error('state missing');
     return this.state;
   }
+
+  async write(state: TaskState): Promise<void> {
+    this.state = state;
+  }
 }
 
 async function taskFixture(source = planSource()): Promise<
@@ -156,5 +160,16 @@ function planSource(
 **Maximum risk:** ${values.maximumRisk ?? 'high'}
 **Repair limit:** 2
 **Task timeout:** 90m
+
+## Impact Areas
+
+- API/OpenAPI: no
+- DB/Prisma/migrations: no
+- Auth/session/RBAC: no
+- Queue/jobs: no
+- Env/config/secrets: no
+- Observability/logging/tracing: no
+- External integrations: no
+- CI/release/harness: no
 `;
 }

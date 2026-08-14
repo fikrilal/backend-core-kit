@@ -24,8 +24,23 @@ export type PreexistingChange = Readonly<{
   contentFingerprint: string;
 }>;
 
+export type TaskTransition = Readonly<{
+  status: TaskLifecycleStatus;
+  occurredAt: string;
+  reason: string;
+}>;
+
+export type TaskFailureRecord = Readonly<{
+  attempt: number;
+  occurredAt: string;
+  code: string;
+  taskFingerprint: string;
+  repeatCount: number;
+}>;
+
 export type TaskState = Readonly<{
-  schemaVersion: 1;
+  schemaVersion: 2;
+  authoritySchemaVersion: 1 | 2;
   taskId: string;
   status: TaskLifecycleStatus;
   startedAt: string;
@@ -36,11 +51,15 @@ export type TaskState = Readonly<{
   declaredRisk: Risk;
   boundaries: TaskBoundaries;
   preexistingChanges: ReadonlyArray<PreexistingChange>;
+  attempt: number;
+  transitions: ReadonlyArray<TaskTransition>;
+  failures: ReadonlyArray<TaskFailureRecord>;
 }>;
 
 export interface TaskStateStore {
   create(state: TaskState): Promise<void>;
   read(taskId: string): Promise<TaskState>;
+  write(state: TaskState): Promise<void>;
 }
 
 export class FileTaskStateStore implements TaskStateStore {
@@ -72,6 +91,10 @@ export class FileTaskStateStore implements TaskStateStore {
     return validateTaskState(decoded);
   }
 
+  async write(state: TaskState): Promise<void> {
+    await atomicWrite(this.pathFor(state.taskId), state);
+  }
+
   private pathFor(taskId: string): string {
     if (!/^[a-z0-9][a-z0-9-]{2,79}$/.test(taskId)) {
       throw new TaskStateError('task-id-invalid', 'Task ID is invalid.');
@@ -91,39 +114,34 @@ export class TaskStateError extends Error {
 }
 
 export function validateTaskState(value: unknown): TaskState {
-  if (!isObject(value) || value.schemaVersion !== 1) return invalidState();
-  const taskId = stringField(value, 'taskId');
-  const status = lifecycleStatus(value.status);
-  const startedAt = stringField(value, 'startedAt');
-  const baseRevision = stringField(value, 'baseRevision');
-  const planPath = normalizeRepositoryPath(stringField(value, 'planPath'));
-  const planSourceHash = stringField(value, 'planSourceHash');
-  const authorityHash = stringField(value, 'authorityHash');
-  const declaredRisk = riskValue(value.declaredRisk);
-  const boundaries = boundariesValue(value.boundaries);
-  const preexistingChanges = preexistingValue(value.preexistingChanges);
+  if (!isObject(value)) return invalidState();
+  if (value.schemaVersion === 1) return migrateV1(value);
+  if (value.schemaVersion !== 2) return invalidState();
 
-  if (
-    !/^[a-z0-9][a-z0-9-]{2,79}$/.test(taskId) ||
-    !/^[0-9a-f]{40,64}$/.test(baseRevision) ||
-    !/^[0-9a-f]{64}$/.test(planSourceHash) ||
-    !/^[0-9a-f]{64}$/.test(authorityHash) ||
-    Number.isNaN(Date.parse(startedAt))
-  ) {
-    return invalidState();
-  }
+  const base = baseState(value);
+  const authoritySchemaVersion = value.authoritySchemaVersion;
+  if (authoritySchemaVersion !== 1 && authoritySchemaVersion !== 2) return invalidState();
+  if (!isNonNegativeInteger(value.attempt)) return invalidState();
   return {
-    schemaVersion: 1,
-    taskId,
+    schemaVersion: 2,
+    authoritySchemaVersion,
+    ...base,
+    attempt: value.attempt,
+    transitions: transitionsValue(value.transitions),
+    failures: failuresValue(value.failures),
+  };
+}
+
+export function transitionTask(
+  state: TaskState,
+  status: TaskLifecycleStatus,
+  occurredAt: string,
+  reason: string,
+): TaskState {
+  return {
+    ...state,
     status,
-    startedAt,
-    baseRevision,
-    planPath,
-    planSourceHash,
-    authorityHash,
-    declaredRisk,
-    boundaries,
-    preexistingChanges,
+    transitions: [...state.transitions, { status, occurredAt, reason }],
   };
 }
 
@@ -138,11 +156,55 @@ async function atomicWrite(path: string, state: TaskState): Promise<void> {
   await rename(temporaryPath, path);
 }
 
+function migrateV1(value: Record<string, unknown>): TaskState {
+  const base = baseState(value);
+  return {
+    schemaVersion: 2,
+    authoritySchemaVersion: 1,
+    ...base,
+    attempt: 0,
+    transitions: [{ status: 'authorized', occurredAt: base.startedAt, reason: 'task.begin.v1' }],
+    failures: [],
+  };
+}
+
+function baseState(
+  value: Record<string, unknown>,
+): Omit<
+  TaskState,
+  'schemaVersion' | 'authoritySchemaVersion' | 'attempt' | 'transitions' | 'failures'
+> {
+  const taskId = stringField(value, 'taskId');
+  const status = lifecycleStatus(value.status);
+  const startedAt = isoDate(stringField(value, 'startedAt'));
+  const baseRevision = stringField(value, 'baseRevision');
+  const planPath = normalizeRepositoryPath(stringField(value, 'planPath'));
+  const planSourceHash = sha256(stringField(value, 'planSourceHash'));
+  const authorityHash = sha256(stringField(value, 'authorityHash'));
+  const declaredRisk = riskValue(value.declaredRisk);
+  const boundaries = boundariesValue(value.boundaries);
+  const preexistingChanges = preexistingValue(value.preexistingChanges);
+  if (!/^[a-z0-9][a-z0-9-]{2,79}$/.test(taskId) || !/^[0-9a-f]{40,64}$/.test(baseRevision)) {
+    return invalidState();
+  }
+  return {
+    taskId,
+    status,
+    startedAt,
+    baseRevision,
+    planPath,
+    planSourceHash,
+    authorityHash,
+    declaredRisk,
+    boundaries,
+    preexistingChanges,
+  };
+}
+
 function boundariesValue(value: unknown): TaskBoundaries {
   if (!isObject(value)) return invalidState();
   const allowedPaths = stringArray(value.allowedPaths);
-  const rawActions = stringArray(value.allowedActions);
-  const allowedActions = rawActions.map((action) => actionValue(action));
+  const allowedActions = stringArray(value.allowedActions).map(actionValue);
   const maximumRisk = riskValue(value.maximumRisk);
   if (
     allowedPaths.length === 0 ||
@@ -169,11 +231,42 @@ function preexistingValue(value: unknown): ReadonlyArray<PreexistingChange> {
   return value.map((item) => {
     if (!isObject(item)) return invalidState();
     const path = normalizeRepositoryPath(stringField(item, 'path'));
-    const contentFingerprint = stringField(item, 'contentFingerprint');
-    const rawSources = stringArray(item.sources);
-    const sources = rawSources.map(repositoryChangeSource);
-    if (sources.length === 0 || !/^[0-9a-f]{64}$/.test(contentFingerprint)) return invalidState();
+    const contentFingerprint = sha256(stringField(item, 'contentFingerprint'));
+    const sources = stringArray(item.sources).map(repositoryChangeSource);
+    if (sources.length === 0) return invalidState();
     return { path, sources, contentFingerprint };
+  });
+}
+
+function transitionsValue(value: unknown): ReadonlyArray<TaskTransition> {
+  if (!Array.isArray(value) || value.length === 0) return invalidState();
+  return value.map((item) => {
+    if (!isObject(item)) return invalidState();
+    return {
+      status: lifecycleStatus(item.status),
+      occurredAt: isoDate(stringField(item, 'occurredAt')),
+      reason: stringField(item, 'reason'),
+    };
+  });
+}
+
+function failuresValue(value: unknown): ReadonlyArray<TaskFailureRecord> {
+  if (!Array.isArray(value)) return invalidState();
+  return value.map((item) => {
+    if (
+      !isObject(item) ||
+      !isPositiveInteger(item.attempt) ||
+      !isPositiveInteger(item.repeatCount)
+    ) {
+      return invalidState();
+    }
+    return {
+      attempt: item.attempt,
+      occurredAt: isoDate(stringField(item, 'occurredAt')),
+      code: stringField(item, 'code'),
+      taskFingerprint: sha256(stringField(item, 'taskFingerprint')),
+      repeatCount: item.repeatCount,
+    };
   });
 }
 
@@ -248,6 +341,16 @@ function stringArray(value: unknown): ReadonlyArray<string> {
   return value.filter((item): item is string => typeof item === 'string');
 }
 
+function isoDate(value: string): string {
+  if (Number.isNaN(Date.parse(value))) return invalidState();
+  return value;
+}
+
+function sha256(value: string): string {
+  if (!/^[0-9a-f]{64}$/.test(value)) return invalidState();
+  return value;
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -265,5 +368,5 @@ function isMissing(error: unknown): boolean {
 }
 
 function invalidState(): never {
-  throw new TaskStateError('state-invalid', 'Task state does not match schema version 1.');
+  throw new TaskStateError('state-invalid', 'Task state does not match a supported schema.');
 }

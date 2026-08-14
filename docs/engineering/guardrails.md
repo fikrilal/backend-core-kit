@@ -237,6 +237,13 @@ risk, broaden allowed paths/actions, edit their state to bypass policy, or
 convert a failing preflight into a baseline exception. Any authority change
 requires explicit user approval and a new baseline.
 
+Task verification must use canonical profiles selected from effective risk and
+runtime impact. Failure categories, repair fingerprints, diagnostics caps,
+redaction, and episode schemas are guardrails: do not bypass them by invoking a
+weaker lane, deleting failure state, adding irrelevant fingerprint churn,
+persisting raw output, or rewriting baselines. `ready_for_review` is evidence,
+not publication authority.
+
 ## Related Docs
 
 - `docs/engineering/agent-pr-loop.md`

@@ -60,6 +60,17 @@ npm run backendkit -- task preflight --task <task-id> --action verify
 The plan grants authority; the controller only validates it. Changed paths may
 raise risk but cannot lower the plan declaration or grant additional actions.
 
+For a baselined V2 task, let the controller choose and record the required
+lanes:
+
+```bash
+npm run backendkit -- task verify --task <task-id>
+```
+
+A repair is a later manual rerun after task-owned content changes. Repeating an
+unchanged stable failure consumes the plan's repair budget and eventually
+escalates. Agent-authored repair execution is not enabled yet.
+
 Risk classes:
 
 - `low`: docs, tests, narrow refactors, local harness work with no runtime/API

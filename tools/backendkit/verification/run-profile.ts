@@ -1,4 +1,4 @@
-import { npmInvocation, systemProcessRunner } from '../process-runner';
+import { npmInvocation, systemProcessRunner, type ProcessStdio } from '../process-runner';
 import type { ProcessResult, ProcessRunner } from '../process-runner';
 import {
   expandVerificationProfile,
@@ -16,6 +16,13 @@ export type VerificationRunOptions = Readonly<{
   env: NodeJS.ProcessEnv;
   processRunner: ProcessRunner;
   output: TextOutput;
+  stdio?: ProcessStdio;
+}>;
+
+export type VerificationProfileRunResult = Readonly<{
+  profile: VerificationProfileId;
+  durationMs: number;
+  steps: ReadonlyArray<Readonly<{ id: string; durationMs: number }>>;
 }>;
 
 export class VerificationStepError extends Error {
@@ -46,9 +53,11 @@ export function defaultVerificationRunOptions(): VerificationRunOptions {
 export async function runVerificationProfile(
   profileId: VerificationProfileId,
   options: VerificationRunOptions = defaultVerificationRunOptions(),
-): Promise<void> {
+): Promise<VerificationProfileRunResult> {
   const profile = verificationProfiles[profileId];
   const steps = expandVerificationProfile(profileId);
+  const startedAt = Date.now();
+  const completedSteps: Array<Readonly<{ id: string; durationMs: number }>> = [];
 
   options.output.write(`backendkit verify: ${profile.id} — ${profile.description}\n`);
 
@@ -59,7 +68,7 @@ export async function runVerificationProfile(
       ...invocation,
       cwd: options.cwd,
       env: options.env,
-      stdio: 'inherit',
+      stdio: options.stdio ?? 'inherit',
       timeoutMs: step.timeoutMs,
     });
 
@@ -67,10 +76,13 @@ export async function runVerificationProfile(
       throw new VerificationStepError(step, result);
     }
 
+    completedSteps.push({ id: step.id, durationMs: result.durationMs });
+
     options.output.write(
       `==> ${step.title} completed in ${(result.durationMs / 1000).toFixed(1)}s\n`,
     );
   }
 
   options.output.write(`\nbackendkit verify: ${profile.id} completed successfully\n`);
+  return { profile: profileId, durationMs: Date.now() - startedAt, steps: completedSteps };
 }

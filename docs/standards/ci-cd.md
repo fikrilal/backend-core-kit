@@ -38,6 +38,9 @@ Local CI mirror:
   verification profile composition.
 - The fast and full profiles begin with `verify:knowledge`, which validates new
   V2 execution-plan lifecycle and authority metadata before expensive checks.
+- Controller-managed task verification selects `fast` for low risk, `full` for
+  medium/high risk, and adds `runtime` only when declared impact or conservative
+  changed-path rules require real dependencies.
 - `npm run verify:ci-local` runs the non-Docker CI sequence, including Prisma client generation, quality gates, scaffold smoke, architecture smell scan, contract gates, gate honesty, and runtime dependency audit.
 - Prisma migration status remains in the Docker-backed lane because it requires a live database.
 - The local CI mirror also generates the duplication self-review reports (`npm run duplication:report`). Findings are non-fatal during the initial tuning phase.

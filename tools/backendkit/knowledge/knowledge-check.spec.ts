@@ -69,7 +69,10 @@ function v2Plan(
   const sections = [
     ['Objective', 'Recorded.'],
     ['Constraints', 'Recorded.'],
-    ['Impact Areas', 'Recorded.'],
+    [
+      'Impact Areas',
+      '- API/OpenAPI: no\n- DB/Prisma/migrations: no\n- Auth/session/RBAC: no\n- Queue/jobs: no\n- Env/config/secrets: no\n- Observability/logging/tracing: no\n- External integrations: no\n- CI/release/harness: no',
+    ],
     ['Acceptance Criteria', 'Recorded.'],
     ['Implementation Checklist', values.checklist ?? '- [x] complete'],
     ['Decision Log', 'Recorded.'],

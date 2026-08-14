@@ -34,6 +34,10 @@ For a non-trivial controller-managed task, create a V2 execution plan and run
 `npm run backendkit -- task preflight --task <task-id> --action verify` before
 the verification profile.
 
+For baselined V2 work, prefer `npm run backendkit -- task verify --task
+<task-id>` so effective risk, runtime impact, attempts, repair decisions, and
+sanitized evidence stay attributable.
+
 ## PR Expectations
 
 - Keep PRs small and scoped.

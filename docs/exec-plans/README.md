@@ -52,6 +52,12 @@ Run `npm run backendkit -- knowledge check` to validate lifecycle and schema
 rules. Existing completed plans created before V2 are grandfathered; new active
 and queued plans are not.
 
+After `task begin`, use `npm run backendkit -- task verify --task <task-id>` to
+select risk/impact-derived verification and record the attempt. `Repair limit`
+is the number of unchanged repair opportunities permitted after the initial
+failure; it is not an unlimited retry count. A meaningful task fingerprint
+change resets the repeated count for that stable failed boundary.
+
 ## What Does Not Belong Here
 
 - tiny one-file edits with no risk or coordination overhead

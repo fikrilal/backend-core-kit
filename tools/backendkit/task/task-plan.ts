@@ -9,6 +9,17 @@ export type TaskAction =
 
 export type TaskPlanStatus = 'active' | 'queued' | 'completed';
 
+export type TaskImpactAreas = Readonly<{
+  api: boolean;
+  database: boolean;
+  auth: boolean;
+  queue: boolean;
+  environment: boolean;
+  observability: boolean;
+  externalIntegrations: boolean;
+  harness: boolean;
+}>;
+
 export type TaskBoundaries = Readonly<{
   allowedPaths: ReadonlyArray<string>;
   allowedActions: ReadonlyArray<TaskAction>;
@@ -25,9 +36,11 @@ export type TaskPlan = Readonly<{
   owner: string;
   risk: Risk;
   authority: string;
+  impacts: TaskImpactAreas;
   boundaries: TaskBoundaries;
   sourceHash: string;
   authorityHash: string;
+  legacyAuthorityHash: string;
 }>;
 
 export class TaskPlanError extends Error {
@@ -66,6 +79,7 @@ export function parseTaskPlan(path: string, source: string): TaskPlan {
   const owner = requiredMetadata(source, 'Owner');
   const risk = parseRisk(requiredMetadata(source, 'Risk'), 'Risk');
   const authority = requiredMetadata(source, 'Authority');
+  const impacts = parseImpactAreas(source);
   const allowedPaths = parseList(source, 'Allowed paths').map(normalizeAllowedPath);
   const allowedActions = parseList(source, 'Allowed actions').map(parseTaskAction);
   const maximumRisk = parseRisk(requiredMetadata(source, 'Maximum risk'), 'Maximum risk');
@@ -85,12 +99,21 @@ export function parseTaskPlan(path: string, source: string): TaskPlan {
     repairLimit,
     timeoutMs,
   };
+  const legacyAuthorityMaterial = JSON.stringify({
+    version: 2,
+    taskId,
+    owner,
+    risk,
+    authority,
+    boundaries,
+  });
   const authorityMaterial = JSON.stringify({
     version: 2,
     taskId,
     owner,
     risk,
     authority,
+    impacts,
     boundaries,
   });
 
@@ -102,10 +125,37 @@ export function parseTaskPlan(path: string, source: string): TaskPlan {
     owner,
     risk,
     authority,
+    impacts,
     boundaries,
     sourceHash: hash(source),
     authorityHash: hash(authorityMaterial),
+    legacyAuthorityHash: hash(legacyAuthorityMaterial),
   };
+}
+
+function parseImpactAreas(source: string): TaskImpactAreas {
+  return {
+    api: impactValue(source, 'API/OpenAPI'),
+    database: impactValue(source, 'DB/Prisma/migrations'),
+    auth: impactValue(source, 'Auth/session/RBAC'),
+    queue: impactValue(source, 'Queue/jobs'),
+    environment: impactValue(source, 'Env/config/secrets'),
+    observability: impactValue(source, 'Observability/logging/tracing'),
+    externalIntegrations: impactValue(source, 'External integrations'),
+    harness: impactValue(source, 'CI/release/harness'),
+  };
+}
+
+function impactValue(source: string, name: string): boolean {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const matches = [...source.matchAll(new RegExp(`^- ${escaped}:\\s*(yes|no)\\s*$`, 'gim'))];
+  if (matches.length !== 1) {
+    throw planError(
+      'impact-cardinality',
+      `Plan must contain exactly one '- ${name}: yes | no' impact declaration.`,
+    );
+  }
+  return matches[0]?.[1]?.toLowerCase() === 'yes';
 }
 
 export function parseRisk(value: string, label = 'risk'): Risk {

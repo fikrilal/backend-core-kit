@@ -32,6 +32,10 @@ describe('backendkit command', () => {
       taskId: 'example-task',
       action: 'verify',
     });
+    expect(parseBackendkitCommand(['task', 'verify', '--task', 'example-task'])).toEqual({
+      kind: 'task-verify',
+      taskId: 'example-task',
+    });
     expect(parseBackendkitCommand(['risk', 'classify', '--plan', 'docs/plan.md'])).toEqual({
       kind: 'risk-classify',
       planPath: 'docs/plan.md',
@@ -57,6 +61,7 @@ describe('backendkit command', () => {
       },
       beginTask: async () => undefined,
       preflightTask: async () => undefined,
+      verifyTask: async () => undefined,
       classifyRisk: async () => undefined,
       checkKnowledge: async () => undefined,
       stdout,
@@ -75,6 +80,7 @@ describe('backendkit command', () => {
       runProfile: async (): Promise<void> => undefined,
       beginTask: async (): Promise<void> => undefined,
       preflightTask: async (): Promise<void> => undefined,
+      verifyTask: async (): Promise<void> => undefined,
       classifyRisk: async (): Promise<void> => undefined,
       checkKnowledge: async (): Promise<void> => undefined,
       stdout,

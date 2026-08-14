@@ -15,6 +15,7 @@ npm run backendkit -- verify --profile runtime
 npm run backendkit -- verify --profile ci
 npm run backendkit -- task begin --plan docs/exec-plans/active/<plan>.md
 npm run backendkit -- task preflight --task <task-id> --action verify
+npm run backendkit -- task verify --task <task-id>
 npm run backendkit -- risk classify --plan docs/exec-plans/active/<plan>.md
 npm run backendkit -- knowledge check
 ```
@@ -43,6 +44,12 @@ instead of copying their step lists.
 - `tools/backendkit/policy/risk-classifier.ts` owns conservative changed-path
   risk rules and stable rule IDs.
 - `tools/backendkit/knowledge/` owns execution-plan lifecycle validation.
+- `tools/backendkit/verification/lane-selection.ts` owns risk/impact-derived
+  lane selection; `failure-taxonomy.ts` owns stable failed boundaries.
+- `tools/backendkit/task/task-verification.ts` owns attempts, transitions, and
+  bounded repair decisions.
+- `tools/backendkit/evidence/` owns redacted transient diagnostics and sanitized
+  episode schemas.
 - Existing scripts and npm commands continue to own OpenAPI, Prisma, env,
   architecture, duplication, tests, and runtime dependency behavior.
 
@@ -62,6 +69,28 @@ worktree changes, path scope, and effective risk. Risk classification may raise
 the declared risk and never lower it. This phase reports whether a task may
 proceed; profile selection, repair, and evidence episodes remain separate
 controller behavior.
+
+`task verify` runs that preflight and then selects canonical lanes:
+
+| Effective task condition                     | Required lanes   |
+| -------------------------------------------- | ---------------- |
+| Low risk, no runtime impact                  | `fast`           |
+| Medium/high risk, no runtime impact          | `full`           |
+| Any selected static lane plus runtime impact | static + runtime |
+
+Runtime impact comes from V2 impact declarations and conservative changed-path
+rules. Harness-only high risk does not imply Docker runtime. A successful task
+moves to `ready_for_review`; high risk still requires human review.
+
+On failure, the controller writes a redacted diagnostic capped at 16 KiB and a
+sanitized attempt episode under `.tmp/backendkit/tasks/<task-id>/`. The initial
+failure enters `repairing`. Each unchanged rerun consumes one repair
+opportunity; after `Repair limit` such opportunities fail, the next unchanged
+failure escalates. Changing the relevant task fingerprint resets that failed
+boundary's repeat count.
+
+Episodes and state are local controller artifacts, not commit candidates. They
+never grant commit, push, PR, merge, migration, or deployment authority.
 
 Pre-existing dirty paths are user-owned at begin. If their content later
 changes, they become task-owned and must fit the allowed scope. This is

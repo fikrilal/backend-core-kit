@@ -49,6 +49,17 @@ describe('V2 task plan', () => {
     ).toThrow('cannot exceed');
   });
 
+  it('binds verification impact into current authority while retaining the V1 fingerprint', () => {
+    const withoutRuntime = parseTaskPlan('docs/exec-plans/active/example.md', planSource());
+    const withRuntime = parseTaskPlan(
+      'docs/exec-plans/active/example.md',
+      planSource().replace('- DB/Prisma/migrations: no', '- DB/Prisma/migrations: yes'),
+    );
+
+    expect(withRuntime.authorityHash).not.toBe(withoutRuntime.authorityHash);
+    expect(withRuntime.legacyAuthorityHash).toBe(withoutRuntime.legacyAuthorityHash);
+  });
+
   it('matches only exact files or directory prefixes', () => {
     expect(
       findScopeViolations(
@@ -90,5 +101,16 @@ function planSource(
 **Maximum risk:** ${values.maximumRisk ?? 'high'}
 **Repair limit:** 2
 **Task timeout:** 90m
+
+## Impact Areas
+
+- API/OpenAPI: no
+- DB/Prisma/migrations: no
+- Auth/session/RBAC: no
+- Queue/jobs: no
+- Env/config/secrets: no
+- Observability/logging/tracing: no
+- External integrations: no
+- CI/release/harness: no
 `;
 }

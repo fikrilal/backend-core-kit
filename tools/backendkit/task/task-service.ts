@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -12,6 +13,7 @@ import {
   normalizeRepositoryPath,
   parseTaskPlan,
   type TaskAction,
+  type TaskImpactAreas,
   type TaskPlan,
 } from './task-plan';
 import {
@@ -36,6 +38,10 @@ export type TaskPreflightResult = Readonly<{
   preexistingPaths: ReadonlyArray<string>;
   controllerArtifactPaths: ReadonlyArray<string>;
   classification: RiskClassification;
+  impacts: TaskImpactAreas;
+  taskFingerprint: string;
+  planPath: string;
+  authorityHash: string;
 }>;
 
 export class TaskPreflightError extends Error {
@@ -76,7 +82,8 @@ export class TaskService {
     const changes = await this.repository.worktreeChanges();
     const preexistingChanges = await this.capturePreexisting(changes);
     const state: TaskState = {
-      schemaVersion: 1,
+      schemaVersion: 2,
+      authoritySchemaVersion: 2,
       taskId: plan.taskId,
       status: 'authorized',
       startedAt: this.now(),
@@ -87,6 +94,9 @@ export class TaskService {
       declaredRisk: plan.risk,
       boundaries: plan.boundaries,
       preexistingChanges,
+      attempt: 0,
+      transitions: [{ status: 'authorized', occurredAt: this.now(), reason: 'task.begin' }],
+      failures: [],
     };
     await this.states.create(state);
     return {
@@ -100,17 +110,22 @@ export class TaskService {
 
   async preflight(taskId: string, action: TaskAction): Promise<TaskPreflightResult> {
     const state = await this.states.read(taskId);
-    if (state.status !== 'authorized' || !state.planPath.startsWith('docs/exec-plans/active/')) {
+    if (
+      (state.status !== 'authorized' && state.status !== 'repairing') ||
+      !state.planPath.startsWith('docs/exec-plans/active/')
+    ) {
       throw new TaskPreflightError(
         'state-not-authorized',
         'Phase 2 preflight requires an authorized task with an active plan.',
       );
     }
     const plan = await this.loadPlan(state.planPath);
+    const expectedAuthorityHash =
+      state.authoritySchemaVersion === 1 ? plan.legacyAuthorityHash : plan.authorityHash;
     if (
       plan.status !== 'active' ||
       plan.taskId !== state.taskId ||
-      plan.authorityHash !== state.authorityHash
+      expectedAuthorityHash !== state.authorityHash
     ) {
       throw new TaskPreflightError(
         'authority-changed',
@@ -138,6 +153,11 @@ export class TaskService {
         `Effective ${classification.effectiveRisk} risk exceeds maximum ${plan.boundaries.maximumRisk}.`,
       );
     }
+    const taskFingerprint = await this.taskFingerprint(
+      plan.authorityHash,
+      ownership.taskPaths,
+      classification.effectiveRisk,
+    );
 
     return {
       taskId,
@@ -146,7 +166,24 @@ export class TaskService {
       preexistingPaths: ownership.preexistingPaths,
       controllerArtifactPaths: ownership.controllerArtifactPaths,
       classification,
+      impacts: plan.impacts,
+      taskFingerprint,
+      planPath: plan.path,
+      authorityHash: plan.authorityHash,
     };
+  }
+
+  private async taskFingerprint(
+    authorityHash: string,
+    paths: ReadonlyArray<string>,
+    effectiveRisk: TaskPlan['risk'],
+  ): Promise<string> {
+    const content = await Promise.all(
+      paths.map(async (path) => [path, await this.repository.contentFingerprint(path)]),
+    );
+    return createHash('sha256')
+      .update(JSON.stringify({ authorityHash, effectiveRisk, content }))
+      .digest('hex');
   }
 
   async classifyCurrent(planPath?: string): Promise<RiskClassification> {

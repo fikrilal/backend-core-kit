@@ -10,6 +10,7 @@ export type BackendkitCommand =
   | Readonly<{ kind: 'verify'; profile: VerificationProfileId }>
   | Readonly<{ kind: 'task-begin'; planPath: string }>
   | Readonly<{ kind: 'task-preflight'; taskId: string; action: TaskAction }>
+  | Readonly<{ kind: 'task-verify'; taskId: string }>
   | Readonly<{ kind: 'risk-classify'; planPath?: string }>
   | Readonly<{ kind: 'knowledge-check' }>;
 
@@ -24,6 +25,7 @@ export type BackendkitCliDependencies = Readonly<{
   runProfile(profile: VerificationProfileId): Promise<void>;
   beginTask(planPath: string): Promise<void>;
   preflightTask(taskId: string, action: TaskAction): Promise<void>;
+  verifyTask(taskId: string): Promise<void>;
   classifyRisk(planPath?: string): Promise<void>;
   checkKnowledge(): Promise<void>;
   stdout: TextOutput;
@@ -54,6 +56,7 @@ export function backendkitHelp(): string {
     '  backendkit verify [--profile fast|full|runtime|ci]',
     '  backendkit task begin --plan <path>',
     '  backendkit task preflight --task <id> [--action edit|verify|...]',
+    '  backendkit task verify --task <id>',
     '  backendkit risk classify [--plan <path>]',
     '  backendkit knowledge check',
     '  backendkit --help',
@@ -85,6 +88,9 @@ export async function runBackendkitCli(
         break;
       case 'task-preflight':
         await dependencies.preflightTask(command.taskId, command.action);
+        break;
+      case 'task-verify':
+        await dependencies.verifyTask(command.taskId);
         break;
       case 'risk-classify':
         await dependencies.classifyRisk(command.planPath);
@@ -130,8 +136,11 @@ function parseTask(args: ReadonlyArray<string>): BackendkitCommand {
       throw new CliUsageError(error instanceof Error ? error.message : String(error));
     }
   }
+  if (args[1] === 'verify' && args.length === 4 && args[2] === '--task' && args[3]) {
+    return { kind: 'task-verify', taskId: args[3] };
+  }
   throw new CliUsageError(
-    'Usage: backendkit task begin --plan <path> | task preflight --task <id> [--action <action>]',
+    'Usage: backendkit task begin --plan <path> | task preflight --task <id> [--action <action>] | task verify --task <id>',
   );
 }
 
