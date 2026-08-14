@@ -6,6 +6,7 @@ import {
   type NpmVerificationStep,
   type VerificationProfileId,
 } from './profile-registry';
+import { durationAdvisory } from './duration-policy';
 
 export interface TextOutput {
   write(message: string): void;
@@ -83,6 +84,9 @@ export async function runVerificationProfile(
     );
   }
 
+  const durationMs = Date.now() - startedAt;
+  const advisory = durationAdvisory(profileId, durationMs);
+  if (advisory) options.output.write(`\n${advisory}\n`);
   options.output.write(`\nbackendkit verify: ${profile.id} completed successfully\n`);
-  return { profile: profileId, durationMs: Date.now() - startedAt, steps: completedSteps };
+  return { profile: profileId, durationMs, steps: completedSteps };
 }

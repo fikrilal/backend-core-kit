@@ -99,6 +99,18 @@ export const verificationProfiles: VerificationProfileRegistry = {
       },
       {
         kind: 'npm',
+        id: 'oracles',
+        title: 'High-risk acceptance oracles',
+        script: 'verify:oracles',
+      },
+      {
+        kind: 'npm',
+        id: 'operating-evidence',
+        title: 'Operating evidence ledger',
+        script: 'verify:evidence',
+      },
+      {
+        kind: 'npm',
         id: 'dependencies',
         title: 'Dependency boundaries',
         script: 'deps:check',

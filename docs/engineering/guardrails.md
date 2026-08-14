@@ -65,6 +65,9 @@ npm run verify:prisma
 npm run verify:project-map
 npm run deps:check
 npm run test:coverage
+npm run test:mutation:pilot
+npm run backendkit -- oracles check
+npm run backendkit -- evidence check
 npm run smells:arch:ci
 npm run duplication:report
 npm run openapi:check
@@ -270,6 +273,12 @@ Hosted CI is independent evidence. `CI Risk` classifies clean base/head input,
 `CI Full` and conditional `CI Runtime` call canonical profiles, `CI Governance`
 owns security controls, and `CI Required` aggregates all selected lanes. Local
 controller state and diagnostics must never be uploaded as hosted evidence.
+
+Phase 7 adds complementary oracle guardrails: conservative coverage floors,
+advisory duration budgets, high-risk scenario mappings to integration/E2E
+evidence, and one manual pure-policy mutation pilot. The versioned operating
+ledger accepts only strict independently reviewed clean-CI metadata. Ledger
+eligibility is advisory and cannot create tasks, weaken gates, or change policy.
 
 ## Related Docs
 

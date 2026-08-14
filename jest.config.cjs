@@ -33,5 +33,13 @@ module.exports = {
   ],
   coverageDirectory: './coverage',
   coverageReporters: ['text-summary', 'lcov', 'json-summary'],
+  coverageThreshold: {
+    global: {
+      statements: 45,
+      branches: 38,
+      functions: 40,
+      lines: 46,
+    },
+  },
   clearMocks: true,
 };

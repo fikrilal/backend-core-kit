@@ -79,6 +79,12 @@ push, or draft PR. Each approval expires, cannot be reused across actions, and
 is revalidated against current evidence and repository state. Merge, force,
 deployment, migration, and branch deletion remain outside the harness.
 
+Operating-evidence promotion is also a separate plan-scoped source edit. A
+ledger entry requires independent human review and clean-checkout CI for the
+exact revision; local episode success is insufficient. `backendkit evidence
+check` validates metadata and reports advisory eligibility but cannot promote
+an episode, create a task, or authorize a harness change.
+
 ## What Does Not Belong Here
 
 - tiny one-file edits with no risk or coordination overhead

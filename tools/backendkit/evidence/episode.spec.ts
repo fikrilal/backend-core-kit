@@ -44,6 +44,30 @@ describe('sanitized task episode', () => {
       }),
     ).toThrow('sanitized schema');
   });
+
+  it('rejects secret or PII shapes hidden in allowed string fields', () => {
+    expect(() =>
+      validateEpisode({ ...validEpisode(), stopReason: 'ghp_abcdefghijklmnopqrstuvwxyz' }),
+    ).toThrow('sanitized schema');
+    expect(() =>
+      validateEpisode({ ...validEpisode(), changedPaths: ['docs/user@example.com.md'] }),
+    ).toThrow('sanitized schema');
+    expect(() =>
+      validateEpisode({ ...validEpisode(), changedPaths: ['nested/../escape.ts'] }),
+    ).toThrow('sanitized schema');
+  });
+
+  it('rejects duplicate identities and unknown nested lane fields', () => {
+    expect(() =>
+      validateEpisode({ ...validEpisode(), matchedRiskRuleIds: ['high.harness', 'high.harness'] }),
+    ).toThrow('sanitized schema');
+    expect(() =>
+      validateEpisode({
+        ...validEpisode(),
+        lanes: [{ ...validEpisode().lanes[0], token: 'hidden' }],
+      }),
+    ).toThrow('sanitized schema');
+  });
 });
 
 function validEpisode(): TaskEpisode {

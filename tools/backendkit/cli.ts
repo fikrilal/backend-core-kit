@@ -2,6 +2,7 @@ import { runBackendkitCli } from './command';
 import { CiClassificationService, writeCiClassification } from './ci/ci-classification';
 import { DiagnosticStore } from './evidence/diagnostics';
 import { EpisodeStore } from './evidence/episode';
+import { evidenceEligibility, readOperatingLedger } from './evidence/operating-ledger';
 import { EventIntakeService, type EventIntakeResult } from './events/event-intake';
 import {
   HandoffService,
@@ -10,6 +11,7 @@ import {
 } from './handoff/handoff-service';
 import { assertKnowledgeValid, checkKnowledge } from './knowledge/knowledge-check';
 import { MaintenanceService, type MaintenanceResult } from './maintenance/maintenance-service';
+import { highRiskOracles, validateHighRiskOracles } from './oracles/high-risk-oracles';
 import {
   defaultTaskCommandService,
   writeBeginResult,
@@ -86,6 +88,16 @@ async function main(): Promise<void> {
         process.stdout,
         await handoff.draftPr(taskId, requiredHandoffApproval(), base, title),
       ),
+    checkOracles: async () => {
+      await validateHighRiskOracles(root);
+      process.stdout.write(`High-risk oracle check passed: ${highRiskOracles.length} scenarios.\n`);
+    },
+    checkEvidence: async () => {
+      const eligibility = evidenceEligibility(await readOperatingLedger(root));
+      process.stdout.write(
+        `Operating evidence: ${eligibility.reviewedTasks} reviewed tasks; ${eligibility.riskClasses} risk classes; ${eligibility.repairsOrEscalations} repairs/escalations; hill climbing ${eligibility.eligible ? 'eligible' : `ineligible (${eligibility.missing.join(', ')})`}.\n`,
+      );
+    },
     classifyRisk: async (planPath) =>
       writeRiskResult(process.stdout, await taskService.classifyCurrent(planPath)),
     checkKnowledge: async () => {

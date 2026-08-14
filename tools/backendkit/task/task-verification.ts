@@ -143,7 +143,6 @@ export class TaskVerificationController {
       } catch (error: unknown) {
         if (!(error instanceof VerificationStepError)) {
           state = transitionTask(state, 'failed', this.now(), 'harness.profile-execution');
-          await this.states.write(state);
           const failedLane: LaneOutcome = {
             id: lane,
             status: 'failed',
@@ -160,6 +159,7 @@ export class TaskVerificationController {
               stopReason: 'harness.profile-execution',
             }),
           );
+          await this.states.write(state);
           throw new TaskVerificationError(
             'harness.profile-execution',
             'failed',
@@ -180,7 +180,6 @@ export class TaskVerificationController {
     }
 
     state = transitionTask(state, 'ready_for_review', this.now(), 'task.verify.passed');
-    await this.states.write(state);
     const episodePath = await this.episodes.write(
       this.episode({
         state,
@@ -191,6 +190,7 @@ export class TaskVerificationController {
         stopReason: 'verification.passed',
       }),
     );
+    await this.states.write(state);
     return {
       taskId,
       attempt,
@@ -249,7 +249,6 @@ export class TaskVerificationController {
       this.now(),
       exhausted ? 'repair.exhausted' : descriptor.code,
     );
-    await this.states.write(state);
     const episodePath = await this.episodes.write(
       this.episode({
         state,
@@ -261,6 +260,7 @@ export class TaskVerificationController {
         diagnostic,
       }),
     );
+    await this.states.write(state);
     throw new TaskVerificationError(
       descriptor.code,
       status,
@@ -292,7 +292,9 @@ export class TaskVerificationController {
       taskFingerprint: input.taskFingerprint,
       effectiveRisk: input.preflight.classification.effectiveRisk,
       reviewRequired: input.preflight.classification.effectiveRisk === 'high',
-      matchedRiskRuleIds: input.preflight.classification.reasons.map(({ ruleId }) => ruleId),
+      matchedRiskRuleIds: [
+        ...new Set(input.preflight.classification.reasons.map(({ ruleId }) => ruleId)),
+      ].sort(),
       changedPaths: input.preflight.taskPaths,
       runtimeReasons: input.runtimeReasons,
       lanes: input.lanes,

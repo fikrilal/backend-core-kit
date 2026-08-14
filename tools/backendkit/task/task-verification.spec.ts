@@ -43,6 +43,22 @@ describe('task verification controller', () => {
     expect(fixture.profiles.requested).toEqual(['full', 'runtime']);
   });
 
+  it('deduplicates stable risk identities in durable evidence', async () => {
+    const value = preflight();
+    const reason = value.classification.reasons[0];
+    if (!reason) throw new Error('Missing risk fixture.');
+    const fixture = verificationFixture({
+      preflight: {
+        ...value,
+        classification: { ...value.classification, reasons: [reason, reason] },
+      },
+    });
+
+    await fixture.controller.verify('example-task');
+
+    expect(fixture.episodes.values[0]?.matchedRiskRuleIds).toEqual(['high.harness']);
+  });
+
   it('records a repairable stable failure with diagnostics', async () => {
     const fixture = verificationFixture({ profileResults: [typesFailure()] });
 

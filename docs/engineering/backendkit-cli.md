@@ -26,6 +26,8 @@ npm run backendkit -- ci classify --base <sha> --head <sha>
 npm run backendkit -- handoff dry-run --task <task-id> --action commit
 npm run backendkit -- handoff dry-run --task <task-id> --action push
 npm run backendkit -- handoff dry-run --task <task-id> --action draft-pr
+npm run backendkit -- oracles check
+npm run backendkit -- evidence check
 npm run backendkit -- risk classify --plan docs/exec-plans/active/<plan>.md
 npm run backendkit -- knowledge check
 ```
@@ -69,6 +71,9 @@ instead of copying their step lists.
 - `tools/backendkit/handoff/` owns fresh-evidence inspection, expiring
   action-scoped approvals, and the narrow commit/push/draft-PR adapters.
 - `tools/backendkit/ci/` owns clean base/head risk and runtime classification.
+- `tools/backendkit/oracles/` owns high-risk acceptance-to-runtime-evidence
+  mappings; `tools/backendkit/evidence/operating-ledger.ts` owns the sanitized
+  ledger and advisory Phase 8 eligibility calculation.
 - Existing scripts and npm commands continue to own OpenAPI, Prisma, env,
   architecture, duplication, tests, and runtime dependency behavior.
 
@@ -158,6 +163,20 @@ operating authority.
 CI never treats local task episodes as pass evidence. Third-party actions use
 full immutable SHAs, checkout credentials are not persisted, permissions are
 read-only, and only approved coverage/runtime evidence may be retained.
+
+## Test Oracles And Operating Evidence
+
+`oracles check` validates that each high-risk acceptance scenario maps to an
+existing integration or E2E suite. `evidence check` validates the versioned
+sanitized ledger and reports whether the accepted five-task/two-risk/one-
+repair-or-escalation threshold has been reached. Neither command creates tasks,
+promotes episodes, changes policy, or grants authority.
+
+Coverage floors and advisory profile duration budgets provide broad regression
+signals. The manual `npm run test:mutation:pilot` command samples the pure lane-
+selection policy and is not part of canonical profiles. Promotion from a local
+episode to the ledger remains a separately planned, independently reviewed
+source edit. See `docs/engineering/operating-evidence.md`.
 
 ## Current-Agent Task Workspace
 

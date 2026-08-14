@@ -187,6 +187,12 @@ logs or a future explicitly approved sanitized runtime artifact may document
 `CI Runtime`. Never upload raw diagnostics, prompts, model output, environment
 values, credentials, or controller approval state.
 
+A local episode becomes durable operating evidence only through the reviewed
+promotion contract in `docs/engineering/operating-evidence.md`: independent
+human review, successful hosted CI for the exact revision, an authorized ledger
+edit, schema validation, and ordinary source review. Never promote local success
+alone or copy raw episode/diagnostic files into the ledger.
+
 Never include:
 
 - secrets

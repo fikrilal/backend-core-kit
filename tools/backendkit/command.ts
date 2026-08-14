@@ -24,6 +24,8 @@ export type BackendkitCommand =
   | Readonly<{ kind: 'handoff-commit'; taskId: string; message: string }>
   | Readonly<{ kind: 'handoff-push'; taskId: string }>
   | Readonly<{ kind: 'handoff-draft-pr'; taskId: string; base: string; title: string }>
+  | Readonly<{ kind: 'oracles-check' }>
+  | Readonly<{ kind: 'evidence-check' }>
   | Readonly<{ kind: 'risk-classify'; planPath?: string }>
   | Readonly<{ kind: 'knowledge-check' }>;
 
@@ -50,6 +52,8 @@ export type BackendkitCliDependencies = Readonly<{
   commitHandoff(taskId: string, message: string): Promise<void>;
   pushHandoff(taskId: string): Promise<void>;
   draftPrHandoff(taskId: string, base: string, title: string): Promise<void>;
+  checkOracles(): Promise<void>;
+  checkEvidence(): Promise<void>;
   classifyRisk(planPath?: string): Promise<void>;
   checkKnowledge(): Promise<void>;
   stdout: TextOutput;
@@ -71,6 +75,10 @@ export function parseBackendkitCommand(args: ReadonlyArray<string>): BackendkitC
       return parseCi(args);
     case 'handoff':
       return parseHandoff(args);
+    case 'oracles':
+      return parseExactCheck(args, 'oracles', 'oracles-check');
+    case 'evidence':
+      return parseExactCheck(args, 'evidence', 'evidence-check');
     case 'risk':
       return parseRisk(args);
     case 'knowledge':
@@ -97,6 +105,8 @@ export function backendkitHelp(): string {
     '  backendkit handoff commit --task <id> --message <message>',
     '  backendkit handoff push --task <id>',
     '  backendkit handoff draft-pr --task <id> --base <branch> --title <title>',
+    '  backendkit oracles check',
+    '  backendkit evidence check',
     '  backendkit risk classify [--plan <path>]',
     '  backendkit knowledge check',
     '  backendkit --help',
@@ -156,6 +166,12 @@ export async function runBackendkitCli(
       case 'handoff-draft-pr':
         await dependencies.draftPrHandoff(command.taskId, command.base, command.title);
         break;
+      case 'oracles-check':
+        await dependencies.checkOracles();
+        break;
+      case 'evidence-check':
+        await dependencies.checkEvidence();
+        break;
       case 'risk-classify':
         await dependencies.classifyRisk(command.planPath);
         break;
@@ -173,6 +189,15 @@ export async function runBackendkitCli(
     }
     return 1;
   }
+}
+
+function parseExactCheck(
+  args: ReadonlyArray<string>,
+  name: string,
+  kind: 'oracles-check' | 'evidence-check',
+): BackendkitCommand {
+  if (args.length === 2 && args[1] === 'check') return { kind };
+  throw new CliUsageError(`Usage: backendkit ${name} check`);
 }
 
 function parseEvents(args: ReadonlyArray<string>): BackendkitCommand {

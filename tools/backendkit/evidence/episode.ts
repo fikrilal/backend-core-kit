@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import type { Risk } from '../task/task-plan';
+import { normalizeRepositoryPath, type Risk } from '../task/task-plan';
 import type { TaskLifecycleStatus, TaskTransition } from '../task/task-state';
 import type { VerificationLaneId } from '../verification/lane-selection';
 import type { DiagnosticReference } from './diagnostics';
@@ -78,12 +78,15 @@ export function parseEpisode(value: unknown): TaskEpisode {
   if (!isObject(value) || value.schemaVersion !== 1) return invalidEpisode();
   if (
     typeof value.taskId !== 'string' ||
+    !/^[a-z0-9][a-z0-9-]{2,79}$/.test(value.taskId) ||
     !Number.isSafeInteger(value.attempt) ||
     typeof value.attempt !== 'number' ||
     value.attempt <= 0 ||
     typeof value.generatedAt !== 'string' ||
     Number.isNaN(Date.parse(value.generatedAt)) ||
     typeof value.planPath !== 'string' ||
+    !isCanonicalPath(value.planPath) ||
+    !value.planPath.startsWith('docs/exec-plans/') ||
     typeof value.authorityHash !== 'string' ||
     typeof value.baseRevision !== 'string' ||
     typeof value.taskFingerprint !== 'string' ||
@@ -94,16 +97,16 @@ export function parseEpisode(value: unknown): TaskEpisode {
       value.effectiveRisk !== 'medium' &&
       value.effectiveRisk !== 'high') ||
     typeof value.reviewRequired !== 'boolean' ||
-    !isStringArray(value.matchedRiskRuleIds) ||
-    !isStringArray(value.changedPaths) ||
-    !isStringArray(value.runtimeReasons) ||
+    !isStableIdArray(value.matchedRiskRuleIds) ||
+    !isCanonicalPathArray(value.changedPaths) ||
+    !isStableIdArray(value.runtimeReasons) ||
     !Array.isArray(value.lanes) ||
     !value.lanes.every(isLane) ||
     !Array.isArray(value.transitions) ||
     !value.transitions.every(isTransition) ||
     !isLifecycleStatus(value.finalStatus) ||
     (value.diagnostic !== undefined && !isDiagnostic(value.diagnostic)) ||
-    typeof value.stopReason !== 'string'
+    !isStableId(value.stopReason)
   ) {
     return invalidEpisode();
   }
@@ -178,8 +181,28 @@ function containsForbiddenKey(value: unknown): boolean {
   );
 }
 
-function isStringArray(value: unknown): value is ReadonlyArray<string> {
-  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+function isStableIdArray(value: unknown): value is ReadonlyArray<string> {
+  return Array.isArray(value) && value.every(isStableId) && new Set(value).size === value.length;
+}
+
+function isCanonicalPathArray(value: unknown): value is ReadonlyArray<string> {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => typeof item === 'string' && isCanonicalPath(item)) &&
+    new Set(value).size === value.length
+  );
+}
+
+function isCanonicalPath(value: string): boolean {
+  try {
+    return normalizeRepositoryPath(value) === value && !/[@\r\n\0]/.test(value);
+  } catch {
+    return false;
+  }
+}
+
+function isStableId(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+$/.test(value);
 }
 
 function isLane(value: unknown): value is LaneOutcome {
@@ -190,7 +213,8 @@ function isLane(value: unknown): value is LaneOutcome {
     typeof value.durationMs === 'number' &&
     Number.isFinite(value.durationMs) &&
     value.durationMs >= 0 &&
-    (value.failureCode === undefined || typeof value.failureCode === 'string')
+    (value.failureCode === undefined || isStableId(value.failureCode)) &&
+    Object.keys(value).every((key) => ['id', 'status', 'durationMs', 'failureCode'].includes(key))
   );
 }
 
@@ -200,7 +224,8 @@ function isTransition(value: unknown): value is TaskTransition {
     typeof value.status === 'string' &&
     typeof value.occurredAt === 'string' &&
     !Number.isNaN(Date.parse(value.occurredAt)) &&
-    typeof value.reason === 'string'
+    isStableId(value.reason) &&
+    Object.keys(value).every((key) => ['status', 'occurredAt', 'reason'].includes(key))
   );
 }
 
@@ -208,6 +233,8 @@ function isDiagnostic(value: unknown): value is DiagnosticReference {
   return (
     isObject(value) &&
     typeof value.path === 'string' &&
+    isCanonicalPath(value.path) &&
+    value.path.startsWith('.tmp/backendkit/tasks/') &&
     typeof value.sha256 === 'string' &&
     /^[0-9a-f]{64}$/.test(value.sha256) &&
     typeof value.truncated === 'boolean' &&

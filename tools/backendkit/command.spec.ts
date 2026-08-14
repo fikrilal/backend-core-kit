@@ -41,6 +41,8 @@ describe('backendkit command', () => {
       planPath: 'docs/plan.md',
     });
     expect(parseBackendkitCommand(['knowledge', 'check'])).toEqual({ kind: 'knowledge-check' });
+    expect(parseBackendkitCommand(['oracles', 'check'])).toEqual({ kind: 'oracles-check' });
+    expect(parseBackendkitCommand(['evidence', 'check'])).toEqual({ kind: 'evidence-check' });
     expect(
       parseBackendkitCommand(['task', 'workspace', 'prepare', '--task', 'example-task']),
     ).toEqual({
@@ -120,6 +122,8 @@ describe('backendkit command', () => {
       commitHandoff: async () => undefined,
       pushHandoff: async () => undefined,
       draftPrHandoff: async () => undefined,
+      checkOracles: async () => undefined,
+      checkEvidence: async () => undefined,
       classifyRisk: async () => undefined,
       checkKnowledge: async () => undefined,
       stdout,
@@ -147,6 +151,8 @@ describe('backendkit command', () => {
       commitHandoff: async (): Promise<void> => undefined,
       pushHandoff: async (): Promise<void> => undefined,
       draftPrHandoff: async (): Promise<void> => undefined,
+      checkOracles: async (): Promise<void> => undefined,
+      checkEvidence: async (): Promise<void> => undefined,
       classifyRisk: async (): Promise<void> => undefined,
       checkKnowledge: async (): Promise<void> => undefined,
       stdout,
@@ -177,5 +183,7 @@ describe('backendkit command', () => {
     expect(backendkitHelp()).toContain('maintenance run --once');
     expect(backendkitHelp()).toContain('ci classify');
     expect(backendkitHelp()).toContain('handoff dry-run');
+    expect(backendkitHelp()).toContain('oracles check');
+    expect(backendkitHelp()).toContain('evidence check');
   });
 });
