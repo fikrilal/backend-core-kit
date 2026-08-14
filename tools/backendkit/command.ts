@@ -16,6 +16,8 @@ export type BackendkitCommand =
       operation: 'prepare' | 'status' | 'cancel' | 'cleanup';
       taskId: string;
     }>
+  | Readonly<{ kind: 'events-run-once' }>
+  | Readonly<{ kind: 'maintenance-run-once' }>
   | Readonly<{ kind: 'risk-classify'; planPath?: string }>
   | Readonly<{ kind: 'knowledge-check' }>;
 
@@ -35,6 +37,8 @@ export type BackendkitCliDependencies = Readonly<{
     operation: 'prepare' | 'status' | 'cancel' | 'cleanup',
     taskId: string,
   ): Promise<void>;
+  runEventsOnce(): Promise<void>;
+  runMaintenanceOnce(): Promise<void>;
   classifyRisk(planPath?: string): Promise<void>;
   checkKnowledge(): Promise<void>;
   stdout: TextOutput;
@@ -48,6 +52,10 @@ export function parseBackendkitCommand(args: ReadonlyArray<string>): BackendkitC
       return parseVerify(args);
     case 'task':
       return parseTask(args);
+    case 'events':
+      return parseEvents(args);
+    case 'maintenance':
+      return parseMaintenance(args);
     case 'risk':
       return parseRisk(args);
     case 'knowledge':
@@ -67,6 +75,8 @@ export function backendkitHelp(): string {
     '  backendkit task preflight --task <id> [--action edit|verify|...]',
     '  backendkit task verify --task <id>',
     '  backendkit task workspace prepare|status|cancel|cleanup --task <id>',
+    '  backendkit events run --once',
+    '  backendkit maintenance run --once',
     '  backendkit risk classify [--plan <path>]',
     '  backendkit knowledge check',
     '  backendkit --help',
@@ -105,6 +115,12 @@ export async function runBackendkitCli(
       case 'task-workspace':
         await dependencies.manageTaskWorkspace(command.operation, command.taskId);
         break;
+      case 'events-run-once':
+        await dependencies.runEventsOnce();
+        break;
+      case 'maintenance-run-once':
+        await dependencies.runMaintenanceOnce();
+        break;
       case 'risk-classify':
         await dependencies.classifyRisk(command.planPath);
         break;
@@ -122,6 +138,20 @@ export async function runBackendkitCli(
     }
     return 1;
   }
+}
+
+function parseEvents(args: ReadonlyArray<string>): BackendkitCommand {
+  if (args.length === 3 && args[1] === 'run' && args[2] === '--once') {
+    return { kind: 'events-run-once' };
+  }
+  throw new CliUsageError('Usage: backendkit events run --once');
+}
+
+function parseMaintenance(args: ReadonlyArray<string>): BackendkitCommand {
+  if (args.length === 3 && args[1] === 'run' && args[2] === '--once') {
+    return { kind: 'maintenance-run-once' };
+  }
+  throw new CliUsageError('Usage: backendkit maintenance run --once');
 }
 
 function parseVerify(args: ReadonlyArray<string>): BackendkitCommand {

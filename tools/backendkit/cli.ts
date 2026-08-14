@@ -1,7 +1,9 @@
 import { runBackendkitCli } from './command';
 import { DiagnosticStore } from './evidence/diagnostics';
 import { EpisodeStore } from './evidence/episode';
+import { EventIntakeService, type EventIntakeResult } from './events/event-intake';
 import { assertKnowledgeValid, checkKnowledge } from './knowledge/knowledge-check';
+import { MaintenanceService, type MaintenanceResult } from './maintenance/maintenance-service';
 import {
   defaultTaskCommandService,
   writeBeginResult,
@@ -24,6 +26,8 @@ async function main(): Promise<void> {
   const taskService = defaultTaskCommandService();
   const states = new FileTaskStateStore(root);
   const workspaces = new TaskWorkspaceService(root, { states });
+  const events = new EventIntakeService(root, { states });
+  const maintenance = new MaintenanceService(root);
   process.exitCode = await runBackendkitCli(process.argv.slice(2), {
     runProfile: async (profile) => {
       await runVerificationProfile(profile);
@@ -55,6 +59,9 @@ async function main(): Promise<void> {
               : await workspaces.cleanup(taskId);
       writeWorkspaceResult(process.stdout, operation, result);
     },
+    runEventsOnce: async () => writeEventResult(process.stdout, await events.runOnce()),
+    runMaintenanceOnce: async () =>
+      writeMaintenanceResult(process.stdout, await maintenance.runOnce()),
     classifyRisk: async (planPath) =>
       writeRiskResult(process.stdout, await taskService.classifyCurrent(planPath)),
     checkKnowledge: async () => {
@@ -67,6 +74,22 @@ async function main(): Promise<void> {
     stdout: process.stdout,
     stderr: process.stderr,
   });
+}
+
+function writeEventResult(output: TextOutput, result: EventIntakeResult): void {
+  if (result.kind === 'idle') {
+    output.write(`Event intake idle: ${result.reason}.\n`);
+    return;
+  }
+  output.write(
+    `Event accepted: ${result.eventId}; task ${result.task.taskId}; plan ${result.activePlanPath};${result.recovered ? ' recovered;' : ''} current agent may prepare the workspace.\n`,
+  );
+}
+
+function writeMaintenanceResult(output: TextOutput, result: MaintenanceResult): void {
+  output.write(
+    `Maintenance completed: ${result.steps.map(({ id, durationMs }) => `${id} ${durationMs}ms`).join('; ')}.\n`,
+  );
 }
 
 function verificationController(
