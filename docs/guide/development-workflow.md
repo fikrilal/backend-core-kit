@@ -44,6 +44,12 @@ ordinary tool calls. `task workspace status` rediscovers that workspace after
 context compaction; cancel and cleanup are explicit task-state operations.
 Repository tooling never launches another agent or authorizes publication.
 
+For approved queued work, the current agent or an external scheduler may invoke
+`events run --once`. This activates at most one queued plan and returns an
+authorized task; it does not start Codex. Scheduled repository observations use
+`maintenance run --once`, which has a fixed command registry and may refresh
+the existing `_WIP` reports but never edits source or grants task authority.
+
 ## PR Expectations
 
 - Keep PRs small and scoped.

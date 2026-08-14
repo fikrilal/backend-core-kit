@@ -20,6 +20,8 @@ npm run backendkit -- task workspace prepare --task <task-id>
 npm run backendkit -- task workspace status --task <task-id>
 npm run backendkit -- task workspace cancel --task <task-id>
 npm run backendkit -- task workspace cleanup --task <task-id>
+npm run backendkit -- events run --once
+npm run backendkit -- maintenance run --once
 npm run backendkit -- risk classify --plan docs/exec-plans/active/<plan>.md
 npm run backendkit -- knowledge check
 ```
@@ -56,6 +58,10 @@ instead of copying their step lists.
   episode schemas.
 - `tools/backendkit/workspace/` owns the short repository command lock,
   linked-worktree identity, private workspace metadata, and safe cleanup.
+- `tools/backendkit/events/` owns queued-plan discovery, deterministic event
+  identity, private receipts, single-flight activation, and interrupted-intake
+  recovery.
+- `tools/backendkit/maintenance/` owns the fixed one-shot observation registry.
 - Existing scripts and npm commands continue to own OpenAPI, Prisma, env,
   architecture, duplication, tests, and runtime dependency behavior.
 
@@ -130,6 +136,46 @@ interrupting Codex remains the host's responsibility.
 `task workspace cleanup` requires a stopped task and a clean validated
 worktree. It removes the linked worktree but preserves the candidate branch;
 dirty work is retained for inspection.
+
+## Event Intake
+
+`events run --once` is an internal one-shot command for the current agent or an
+approved external scheduler. It does not run continuously and never launches a
+coding agent.
+
+The command validates all queued V2 plans, refuses another active task or plan,
+and selects at most one lexically ordered new delivery. A queued plan already
+contains approved authority; the event changes only `Status` from `queued` to
+`active` and moves the same filename from `docs/exec-plans/queued/` to
+`docs/exec-plans/active/`. Its authority hash must not change.
+
+Before activation, the controller creates a mode-0600 receipt under
+`.tmp/backendkit/events/<event-id>.json`. Event identity is derived from the
+source, task ID, and queued source hash. Repeated delivery is therefore
+idempotent. A claimed receipt is resumed before new intake; exact plan hashes,
+active destination, task state, and single-flight ownership must agree or the
+command fails closed.
+
+Successful intake creates normal authorized task state and prints its task ID.
+The current conversational agent can then invoke `task workspace prepare` and
+continue through ordinary tools. Intake grants no new path, action, risk,
+network, publication, migration, or deployment authority.
+
+## Scheduled Maintenance
+
+`maintenance run --once` executes a fixed sequence owned by source code:
+
+1. execution-plan knowledge validation;
+2. architecture-smell observations;
+3. duplication observations;
+4. production dependency audit.
+
+An external scheduler may invoke this command. There is no repository daemon,
+timer, Redis, or BullMQ dependency. Maintenance is read-only with respect to
+source, policy, plans, baselines, and authority; the existing architecture and
+duplication sensors may refresh their three explicit `_WIP` reports. The
+dependency audit may use package-registry network access. A failed step stops
+the sequence, and no observation automatically creates an authorized task.
 
 Pre-existing dirty paths are user-owned at begin. If their content later
 changes, they become task-owned and must fit the allowed scope. This is

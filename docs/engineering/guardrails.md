@@ -251,6 +251,13 @@ authority and Git identity before work continues. Cancellation records task
 state only; repository code must never launch or kill the Codex process.
 Cleanup must refuse active or dirty work and preserve the candidate branch.
 
+Event intake is also fail closed. Only a valid queued V2 plan can be activated,
+activation must preserve its authority hash, and one active task/plan is the
+default. Claimed and accepted receipts are private, strict, bounded controller
+state; delivery replay must not create another task. Conflicting recovery state
+requires human inspection. Maintenance commands come from a fixed registry and
+cannot accept plan- or event-supplied command arguments.
+
 ## Related Docs
 
 - `docs/engineering/agent-pr-loop.md`

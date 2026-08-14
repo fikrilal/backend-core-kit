@@ -65,6 +65,13 @@ workspace. Preflight and verification automatically target it. Workspace
 cleanup is explicit, refuses dirty or active worktrees, and preserves the
 candidate branch. The repository CLI never launches another coding agent.
 
+Queued V2 plans are already-authorized intent waiting for activation.
+`backendkit events run --once` may move one from `queued/` to `active/` and
+create its task baseline, but it cannot change authority-bearing fields. Event
+receipts deduplicate unchanged delivery and support fail-closed recovery. One
+active task or plan remains the default, and the current conversational agent
+still prepares the workspace explicitly.
+
 ## What Does Not Belong Here
 
 - tiny one-file edits with no risk or coordination overhead

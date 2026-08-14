@@ -81,6 +81,12 @@ unchanged stable failure consumes the plan's repair budget and eventually
 escalates. Repository tooling never launches a second coding agent and grants
 no publication authority.
 
+Queued work may be selected with `npm run backendkit -- events run --once`.
+The queued V2 plan must already be approved; intake only activates that plan,
+deduplicates delivery, and creates normal task state. The current agent still
+prepares and executes the workspace through the commands above. Event payloads,
+schedules, labels, and future adapters cannot grant authority.
+
 Risk classes:
 
 - `low`: docs, tests, narrow refactors, local harness work with no runtime/API
