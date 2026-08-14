@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,6 +14,20 @@ describe('sanitized task episode', () => {
     expect(JSON.parse(source)).toEqual(episode);
     expect(source).not.toContain('stdout');
     expect(source).not.toContain('DATABASE_URL');
+    await expect(new EpisodeStore(root).read(episode.taskId, episode.attempt)).resolves.toEqual(
+      episode,
+    );
+  });
+
+  it('rejects oversized episode input', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'backendkit-episode-large-'));
+    const directory = join(root, '.tmp', 'backendkit', 'tasks', 'example-task', 'episodes');
+    await mkdir(directory, { recursive: true });
+    await writeFile(join(directory, 'attempt-1.json'), 'x'.repeat(64 * 1024 + 1));
+
+    await expect(new EpisodeStore(root).read('example-task', 1)).rejects.toThrow(
+      'exceeds 65536 bytes',
+    );
   });
 
   it('rejects raw diagnostic and secret-bearing fields', () => {

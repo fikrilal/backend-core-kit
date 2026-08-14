@@ -109,14 +109,26 @@ export class TaskService {
   }
 
   async preflight(taskId: string, action: TaskAction): Promise<TaskPreflightResult> {
+    return await this.preflightForStatuses(taskId, action, ['authorized', 'repairing']);
+  }
+
+  async handoffPreflight(taskId: string, action: TaskAction): Promise<TaskPreflightResult> {
+    return await this.preflightForStatuses(taskId, action, ['ready_for_review']);
+  }
+
+  private async preflightForStatuses(
+    taskId: string,
+    action: TaskAction,
+    allowedStatuses: ReadonlyArray<TaskState['status']>,
+  ): Promise<TaskPreflightResult> {
     const state = await this.states.read(taskId);
     if (
-      (state.status !== 'authorized' && state.status !== 'repairing') ||
+      !allowedStatuses.includes(state.status) ||
       !state.planPath.startsWith('docs/exec-plans/active/')
     ) {
       throw new TaskPreflightError(
         'state-not-authorized',
-        'Phase 2 preflight requires an authorized task with an active plan.',
+        `Task preflight requires state ${allowedStatuses.join(' or ')} with an active plan.`,
       );
     }
     const plan = await this.loadPlan(state.planPath);

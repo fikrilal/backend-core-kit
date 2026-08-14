@@ -54,6 +54,43 @@ describe('backendkit command', () => {
     expect(parseBackendkitCommand(['maintenance', 'run', '--once'])).toEqual({
       kind: 'maintenance-run-once',
     });
+    expect(
+      parseBackendkitCommand([
+        'ci',
+        'classify',
+        '--base',
+        'a'.repeat(40),
+        '--head',
+        'b'.repeat(40),
+      ]),
+    ).toEqual({ kind: 'ci-classify', base: 'a'.repeat(40), head: 'b'.repeat(40) });
+    expect(
+      parseBackendkitCommand([
+        'handoff',
+        'dry-run',
+        '--task',
+        'example-task',
+        '--action',
+        'commit',
+      ]),
+    ).toEqual({ kind: 'handoff-dry-run', taskId: 'example-task', action: 'commit' });
+    expect(
+      parseBackendkitCommand([
+        'handoff',
+        'draft-pr',
+        '--task',
+        'example-task',
+        '--base',
+        'development',
+        '--title',
+        'Verified change',
+      ]),
+    ).toEqual({
+      kind: 'handoff-draft-pr',
+      taskId: 'example-task',
+      base: 'development',
+      title: 'Verified change',
+    });
   });
 
   it('rejects unknown commands and profiles', () => {
@@ -78,6 +115,11 @@ describe('backendkit command', () => {
       manageTaskWorkspace: async () => undefined,
       runEventsOnce: async () => undefined,
       runMaintenanceOnce: async () => undefined,
+      classifyCi: async () => undefined,
+      dryRunHandoff: async () => undefined,
+      commitHandoff: async () => undefined,
+      pushHandoff: async () => undefined,
+      draftPrHandoff: async () => undefined,
       classifyRisk: async () => undefined,
       checkKnowledge: async () => undefined,
       stdout,
@@ -100,6 +142,11 @@ describe('backendkit command', () => {
       manageTaskWorkspace: async (): Promise<void> => undefined,
       runEventsOnce: async (): Promise<void> => undefined,
       runMaintenanceOnce: async (): Promise<void> => undefined,
+      classifyCi: async (): Promise<void> => undefined,
+      dryRunHandoff: async (): Promise<void> => undefined,
+      commitHandoff: async (): Promise<void> => undefined,
+      pushHandoff: async (): Promise<void> => undefined,
+      draftPrHandoff: async (): Promise<void> => undefined,
       classifyRisk: async (): Promise<void> => undefined,
       checkKnowledge: async (): Promise<void> => undefined,
       stdout,
@@ -128,5 +175,7 @@ describe('backendkit command', () => {
     expect(backendkitHelp()).toContain('task workspace');
     expect(backendkitHelp()).toContain('events run --once');
     expect(backendkitHelp()).toContain('maintenance run --once');
+    expect(backendkitHelp()).toContain('ci classify');
+    expect(backendkitHelp()).toContain('handoff dry-run');
   });
 });

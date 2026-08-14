@@ -22,7 +22,7 @@ These are the typical commands a project should provide:
 - `npm run start:dev` (API)
 - `npm run start:worker:dev` (worker)
 - `npm run verify:ci-local` (non-Docker CI mirror)
-- `npm run verify:ci` (canonical full + runtime profile used by hosted CI)
+- `npm run verify:ci` (explicit local full + runtime composition)
 - `npm run duplication:report` (categorized duplication self-review reports)
 
 The stable verification aliases are composed by the repository-local
@@ -44,11 +44,21 @@ ordinary tool calls. `task workspace status` rediscovers that workspace after
 context compaction; cancel and cleanup are explicit task-state operations.
 Repository tooling never launches another agent or authorizes publication.
 
+After verification, the current agent uses `handoff dry-run` to present exact
+commit, push, or draft-PR scope. Each external action needs separate explicit
+user authorization and a fresh expiring approval. The adapter supports normal
+commit, normal non-force push, and draft PR creation only; ambiguous outcomes
+are reconciled manually.
+
 For approved queued work, the current agent or an external scheduler may invoke
 `events run --once`. This activates at most one queued plan and returns an
 authorized task; it does not start Codex. Scheduled repository observations use
 `maintenance run --once`, which has a fixed command registry and may refresh
 the existing `_WIP` reports but never edits source or grants task authority.
+
+Hosted CI independently runs clean-checkout `CI Risk`, `CI Full`, conditional
+`CI Runtime`, and `CI Governance` lanes behind the stable `CI Required`
+aggregate. It does not consume local controller episodes as pass evidence.
 
 ## PR Expectations
 

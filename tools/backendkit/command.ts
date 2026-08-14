@@ -4,6 +4,7 @@ import {
   type VerificationProfileId,
 } from './verification/profile-registry';
 import type { TextOutput } from './verification/run-profile';
+import type { PublicationAction } from './handoff/handoff-approval';
 
 export type BackendkitCommand =
   | Readonly<{ kind: 'help' }>
@@ -18,6 +19,11 @@ export type BackendkitCommand =
     }>
   | Readonly<{ kind: 'events-run-once' }>
   | Readonly<{ kind: 'maintenance-run-once' }>
+  | Readonly<{ kind: 'ci-classify'; base: string; head: string }>
+  | Readonly<{ kind: 'handoff-dry-run'; taskId: string; action: PublicationAction }>
+  | Readonly<{ kind: 'handoff-commit'; taskId: string; message: string }>
+  | Readonly<{ kind: 'handoff-push'; taskId: string }>
+  | Readonly<{ kind: 'handoff-draft-pr'; taskId: string; base: string; title: string }>
   | Readonly<{ kind: 'risk-classify'; planPath?: string }>
   | Readonly<{ kind: 'knowledge-check' }>;
 
@@ -39,6 +45,11 @@ export type BackendkitCliDependencies = Readonly<{
   ): Promise<void>;
   runEventsOnce(): Promise<void>;
   runMaintenanceOnce(): Promise<void>;
+  classifyCi(base: string, head: string): Promise<void>;
+  dryRunHandoff(taskId: string, action: PublicationAction): Promise<void>;
+  commitHandoff(taskId: string, message: string): Promise<void>;
+  pushHandoff(taskId: string): Promise<void>;
+  draftPrHandoff(taskId: string, base: string, title: string): Promise<void>;
   classifyRisk(planPath?: string): Promise<void>;
   checkKnowledge(): Promise<void>;
   stdout: TextOutput;
@@ -56,6 +67,10 @@ export function parseBackendkitCommand(args: ReadonlyArray<string>): BackendkitC
       return parseEvents(args);
     case 'maintenance':
       return parseMaintenance(args);
+    case 'ci':
+      return parseCi(args);
+    case 'handoff':
+      return parseHandoff(args);
     case 'risk':
       return parseRisk(args);
     case 'knowledge':
@@ -77,6 +92,11 @@ export function backendkitHelp(): string {
     '  backendkit task workspace prepare|status|cancel|cleanup --task <id>',
     '  backendkit events run --once',
     '  backendkit maintenance run --once',
+    '  backendkit ci classify --base <sha> --head <sha>',
+    '  backendkit handoff dry-run --task <id> --action commit|push|draft-pr',
+    '  backendkit handoff commit --task <id> --message <message>',
+    '  backendkit handoff push --task <id>',
+    '  backendkit handoff draft-pr --task <id> --base <branch> --title <title>',
     '  backendkit risk classify [--plan <path>]',
     '  backendkit knowledge check',
     '  backendkit --help',
@@ -121,6 +141,21 @@ export async function runBackendkitCli(
       case 'maintenance-run-once':
         await dependencies.runMaintenanceOnce();
         break;
+      case 'ci-classify':
+        await dependencies.classifyCi(command.base, command.head);
+        break;
+      case 'handoff-dry-run':
+        await dependencies.dryRunHandoff(command.taskId, command.action);
+        break;
+      case 'handoff-commit':
+        await dependencies.commitHandoff(command.taskId, command.message);
+        break;
+      case 'handoff-push':
+        await dependencies.pushHandoff(command.taskId);
+        break;
+      case 'handoff-draft-pr':
+        await dependencies.draftPrHandoff(command.taskId, command.base, command.title);
+        break;
       case 'risk-classify':
         await dependencies.classifyRisk(command.planPath);
         break;
@@ -152,6 +187,58 @@ function parseMaintenance(args: ReadonlyArray<string>): BackendkitCommand {
     return { kind: 'maintenance-run-once' };
   }
   throw new CliUsageError('Usage: backendkit maintenance run --once');
+}
+
+function parseCi(args: ReadonlyArray<string>): BackendkitCommand {
+  if (args[1] !== 'classify') {
+    throw new CliUsageError('Usage: backendkit ci classify --base <sha> --head <sha>');
+  }
+  const options = args.slice(2);
+  assertOnlyOptions(options, ['--base', '--head'], 'CI classify');
+  return {
+    kind: 'ci-classify',
+    base: requiredOption(options, '--base'),
+    head: requiredOption(options, '--head'),
+  };
+}
+
+function parseHandoff(args: ReadonlyArray<string>): BackendkitCommand {
+  const operation = args[1];
+  const options = args.slice(2);
+  if (operation === 'dry-run') {
+    assertOnlyOptions(options, ['--task', '--action'], 'Handoff dry-run');
+    const action = requiredOption(options, '--action');
+    if (action !== 'commit' && action !== 'push' && action !== 'draft-pr') {
+      throw new CliUsageError('Handoff action must be commit, push, or draft-pr.');
+    }
+    return {
+      kind: 'handoff-dry-run',
+      taskId: requiredOption(options, '--task'),
+      action,
+    };
+  }
+  if (operation === 'commit') {
+    assertOnlyOptions(options, ['--task', '--message'], 'Handoff commit');
+    return {
+      kind: 'handoff-commit',
+      taskId: requiredOption(options, '--task'),
+      message: requiredOption(options, '--message'),
+    };
+  }
+  if (operation === 'push') {
+    assertOnlyOptions(options, ['--task'], 'Handoff push');
+    return { kind: 'handoff-push', taskId: requiredOption(options, '--task') };
+  }
+  if (operation === 'draft-pr') {
+    assertOnlyOptions(options, ['--task', '--base', '--title'], 'Handoff draft-pr');
+    return {
+      kind: 'handoff-draft-pr',
+      taskId: requiredOption(options, '--task'),
+      base: requiredOption(options, '--base'),
+      title: requiredOption(options, '--title'),
+    };
+  }
+  throw new CliUsageError('Unknown handoff operation.');
 }
 
 function parseVerify(args: ReadonlyArray<string>): BackendkitCommand {
@@ -227,11 +314,23 @@ function optionValue(
   return value && !value.startsWith('--') ? value : undefined;
 }
 
-function assertOnlyOptions(args: ReadonlyArray<string>, allowed: ReadonlyArray<string>): void {
+function requiredOption(args: ReadonlyArray<string>, option: string): string {
+  const value = optionValue(args, option);
+  if (!value) throw new CliUsageError(`Missing required option ${option}.`);
+  return value;
+}
+
+function assertOnlyOptions(
+  args: ReadonlyArray<string>,
+  allowed: ReadonlyArray<string>,
+  label = 'Task preflight',
+): void {
+  const seen = new Set<string>();
   for (let index = 0; index < args.length; index += 2) {
     const option = args[index];
-    if (!option || !allowed.includes(option) || !args[index + 1]) {
-      throw new CliUsageError('Task preflight options must be complete option/value pairs.');
+    if (!option || !allowed.includes(option) || !args[index + 1] || seen.has(option)) {
+      throw new CliUsageError(`${label} options must be complete option/value pairs.`);
     }
+    seen.add(option);
   }
 }

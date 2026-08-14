@@ -1,7 +1,13 @@
 import { runBackendkitCli } from './command';
+import { CiClassificationService, writeCiClassification } from './ci/ci-classification';
 import { DiagnosticStore } from './evidence/diagnostics';
 import { EpisodeStore } from './evidence/episode';
 import { EventIntakeService, type EventIntakeResult } from './events/event-intake';
+import {
+  HandoffService,
+  type HandoffDryRunResult,
+  type HandoffMutationResult,
+} from './handoff/handoff-service';
 import { assertKnowledgeValid, checkKnowledge } from './knowledge/knowledge-check';
 import { MaintenanceService, type MaintenanceResult } from './maintenance/maintenance-service';
 import {
@@ -28,6 +34,8 @@ async function main(): Promise<void> {
   const workspaces = new TaskWorkspaceService(root, { states });
   const events = new EventIntakeService(root, { states });
   const maintenance = new MaintenanceService(root);
+  const ci = new CiClassificationService(root);
+  const handoff = new HandoffService(root, { states });
   process.exitCode = await runBackendkitCli(process.argv.slice(2), {
     runProfile: async (profile) => {
       await runVerificationProfile(profile);
@@ -62,6 +70,22 @@ async function main(): Promise<void> {
     runEventsOnce: async () => writeEventResult(process.stdout, await events.runOnce()),
     runMaintenanceOnce: async () =>
       writeMaintenanceResult(process.stdout, await maintenance.runOnce()),
+    classifyCi: async (base, head) =>
+      writeCiClassification(process.stdout, await ci.classify(base, head)),
+    dryRunHandoff: async (taskId, action) =>
+      writeHandoffDryRun(process.stdout, await handoff.dryRun(taskId, action)),
+    commitHandoff: async (taskId, message) =>
+      writeHandoffMutation(
+        process.stdout,
+        await handoff.commit(taskId, requiredHandoffApproval(), message),
+      ),
+    pushHandoff: async (taskId) =>
+      writeHandoffMutation(process.stdout, await handoff.push(taskId, requiredHandoffApproval())),
+    draftPrHandoff: async (taskId, base, title) =>
+      writeHandoffMutation(
+        process.stdout,
+        await handoff.draftPr(taskId, requiredHandoffApproval(), base, title),
+      ),
     classifyRisk: async (planPath) =>
       writeRiskResult(process.stdout, await taskService.classifyCurrent(planPath)),
     checkKnowledge: async () => {
@@ -90,6 +114,28 @@ function writeMaintenanceResult(output: TextOutput, result: MaintenanceResult): 
   output.write(
     `Maintenance completed: ${result.steps.map(({ id, durationMs }) => `${id} ${durationMs}ms`).join('; ')}.\n`,
   );
+}
+
+function writeHandoffDryRun(output: TextOutput, result: HandoffDryRunResult): void {
+  output.write(
+    `Handoff dry-run: ${result.taskId}; ${result.action}; attempt ${result.attempt}; ${result.branch}; ${result.remote}; expires ${result.expiresAt}.\n`,
+  );
+  for (const path of result.changedPaths) output.write(`- ${path}\n`);
+  output.write(`Approval: ${result.approval}\n`);
+}
+
+function writeHandoffMutation(output: TextOutput, result: HandoffMutationResult): void {
+  output.write(`Handoff completed: ${result.taskId}; ${result.action}; ${result.outcome}.\n`);
+}
+
+function requiredHandoffApproval(): string {
+  const approval = process.env.BACKENDKIT_HANDOFF_APPROVAL;
+  if (!approval) {
+    throw new Error(
+      'BACKENDKIT_HANDOFF_APPROVAL is required after explicit user approval of a fresh dry-run.',
+    );
+  }
+  return approval;
 }
 
 function verificationController(

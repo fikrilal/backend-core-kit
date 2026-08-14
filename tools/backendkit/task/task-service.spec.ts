@@ -74,6 +74,25 @@ describe('task service', () => {
       Partial<TaskPreflightError>
     >({ code: 'risk-above-authority' });
   });
+
+  it('allows an explicitly authorized handoff only after successful verification state', async () => {
+    const fixture = await taskFixture(planSource({ actions: 'edit, verify, commit' }));
+    const started = await fixture.service.begin(fixture.planPath);
+    const authorized = await fixture.states.read();
+    await fixture.states.write({ ...authorized, status: 'ready_for_review', attempt: 1 });
+    fixture.repository.worktree = [change('libs/features/users/me.ts', 'unstaged')];
+    fixture.repository.fingerprints.set('libs/features/users/me.ts', 'verified');
+
+    await expect(fixture.service.preflight(started.taskId, 'commit')).rejects.toMatchObject<
+      Partial<TaskPreflightError>
+    >({ code: 'state-not-authorized' });
+    await expect(fixture.service.handoffPreflight(started.taskId, 'commit')).resolves.toMatchObject(
+      {
+        action: 'commit',
+        taskPaths: ['libs/features/users/me.ts'],
+      },
+    );
+  });
 });
 
 class FakeGitRepository implements GitRepository {
@@ -121,6 +140,7 @@ async function taskFixture(source = planSource()): Promise<
     root: string;
     planPath: string;
     repository: FakeGitRepository;
+    states: MemoryStateStore;
     service: TaskService;
   }>
 > {
@@ -131,13 +151,9 @@ async function taskFixture(source = planSource()): Promise<
   await mkdir(join(root, 'tools', 'backendkit'), { recursive: true });
   await writeFile(join(root, planPath), source);
   const repository = new FakeGitRepository();
-  const service = new TaskService(
-    root,
-    repository,
-    new MemoryStateStore(),
-    () => '2026-08-09T00:00:00.000Z',
-  );
-  return { root, planPath, repository, service };
+  const states = new MemoryStateStore();
+  const service = new TaskService(root, repository, states, () => '2026-08-09T00:00:00.000Z');
+  return { root, planPath, repository, states, service };
 }
 
 function change(path: string, source: RepositoryChange['sources'][number]): RepositoryChange {
@@ -145,7 +161,12 @@ function change(path: string, source: RepositoryChange['sources'][number]): Repo
 }
 
 function planSource(
-  values: Readonly<{ paths?: string; risk?: string; maximumRisk?: string }> = {},
+  values: Readonly<{
+    paths?: string;
+    risk?: string;
+    maximumRisk?: string;
+    actions?: string;
+  }> = {},
 ): string {
   return `# Example
 
@@ -156,7 +177,7 @@ function planSource(
 **Risk:** ${values.risk ?? 'medium'}
 **Authority:** edit and verify locally
 **Allowed paths:** ${values.paths ?? 'libs/features/users/'}
-**Allowed actions:** edit, verify
+**Allowed actions:** ${values.actions ?? 'edit, verify'}
 **Maximum risk:** ${values.maximumRisk ?? 'high'}
 **Repair limit:** 2
 **Task timeout:** 90m

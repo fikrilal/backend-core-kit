@@ -119,7 +119,7 @@ npm run audit:prod
 ### Config and security
 
 - `scripts/verify-env-example.ts`
-- `.github/workflows/governance.yml`
+- `.github/workflows/ci.yml` (`CI Governance`)
 - `npm run audit:prod`
 
 ### Scaffolding and gate honesty
@@ -257,6 +257,19 @@ default. Claimed and accepted receipts are private, strict, bounded controller
 state; delivery replay must not create another task. Conflicting recovery state
 requires human inspection. Maintenance commands come from a fixed registry and
 cannot accept plan- or event-supplied command arguments.
+
+Verified handoff keeps evidence and authority separate. Every commit, push, or
+draft PR requires a fresh matching dry-run and explicit user authorization.
+Approval state is strict, private, action-scoped, expiring, and bound to the
+episode fingerprint, workspace, branch, remote, and exact paths. Publication
+adapters do not expose force, merge, deploy, migration, branch deletion, or
+PR-ready behavior. An ambiguous external result is terminal until a human
+reconciles it.
+
+Hosted CI is independent evidence. `CI Risk` classifies clean base/head input,
+`CI Full` and conditional `CI Runtime` call canonical profiles, `CI Governance`
+owns security controls, and `CI Required` aggregates all selected lanes. Local
+controller state and diagnostics must never be uploaded as hosted evidence.
 
 ## Related Docs
 

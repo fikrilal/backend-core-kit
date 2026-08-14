@@ -22,6 +22,10 @@ npm run backendkit -- task workspace cancel --task <task-id>
 npm run backendkit -- task workspace cleanup --task <task-id>
 npm run backendkit -- events run --once
 npm run backendkit -- maintenance run --once
+npm run backendkit -- ci classify --base <sha> --head <sha>
+npm run backendkit -- handoff dry-run --task <task-id> --action commit
+npm run backendkit -- handoff dry-run --task <task-id> --action push
+npm run backendkit -- handoff dry-run --task <task-id> --action draft-pr
 npm run backendkit -- risk classify --plan docs/exec-plans/active/<plan>.md
 npm run backendkit -- knowledge check
 ```
@@ -62,6 +66,9 @@ instead of copying their step lists.
   identity, private receipts, single-flight activation, and interrupted-intake
   recovery.
 - `tools/backendkit/maintenance/` owns the fixed one-shot observation registry.
+- `tools/backendkit/handoff/` owns fresh-evidence inspection, expiring
+  action-scoped approvals, and the narrow commit/push/draft-PR adapters.
+- `tools/backendkit/ci/` owns clean base/head risk and runtime classification.
 - Existing scripts and npm commands continue to own OpenAPI, Prisma, env,
   architecture, duplication, tests, and runtime dependency behavior.
 
@@ -103,6 +110,54 @@ boundary's repeat count.
 
 Episodes and state are local controller artifacts, not commit candidates. They
 never grant commit, push, PR, merge, migration, or deployment authority.
+
+## Verified Handoff
+
+`ready_for_review` is necessary evidence, not publication authority. For each
+publication action, the current agent first runs a sanitized dry-run and shows
+the user its exact action, verification attempt, branch, credential-free
+remote identity, changed paths, and expiry:
+
+```bash
+npm run backendkit -- handoff dry-run --task <task-id> --action <commit|push|draft-pr>
+```
+
+After the user explicitly authorizes that one action, the current agent passes
+the fresh one-time value through `BACKENDKIT_HANDOFF_APPROVAL` and invokes only
+the matching command:
+
+```bash
+BACKENDKIT_HANDOFF_APPROVAL=<approval> npm run backendkit -- handoff commit --task <task-id> --message <message>
+BACKENDKIT_HANDOFF_APPROVAL=<approval> npm run backendkit -- handoff push --task <task-id>
+BACKENDKIT_HANDOFF_APPROVAL=<approval> npm run backendkit -- handoff draft-pr --task <task-id> --base <branch> --title <title>
+```
+
+Approvals are independent and expire after 15 minutes. Every mutation repeats
+freshness and repository checks. Commit uses exact task-path staging, push is
+normal and non-force, and PR creation is draft-only. Merge, deploy, migration,
+force push, branch deletion, and PR-ready operations are absent. An uncertain
+external outcome is locked against automatic retry and requires manual
+reconciliation.
+
+The repository stores only the approval hash. It cannot authenticate the human
+speaker; explicit user authorization in the active conversation remains the
+operating authority.
+
+## Hosted CI
+
+`.github/workflows/ci.yml` runs independent clean-checkout jobs:
+
+| Job             | Responsibility                                                   |
+| --------------- | ---------------------------------------------------------------- |
+| `CI Risk`       | Classify base/head paths and changed V2 plan declarations        |
+| `CI Full`       | Run the canonical non-Docker `verify:ci-local` alias             |
+| `CI Runtime`    | Conditionally run the canonical Docker-backed `verify:e2e` alias |
+| `CI Governance` | Dependency review and secret scanning                            |
+| `CI Required`   | Aggregate every selected lane into one stable required status    |
+
+CI never treats local task episodes as pass evidence. Third-party actions use
+full immutable SHAs, checkout credentials are not persisted, permissions are
+read-only, and only approved coverage/runtime evidence may be retained.
 
 ## Current-Agent Task Workspace
 

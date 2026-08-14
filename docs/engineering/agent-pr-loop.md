@@ -160,9 +160,10 @@ MinIO, integration tests, or request flows touching real dependencies changed:
 npm run verify:e2e
 ```
 
-Hosted CI runs `npm run verify:ci`, which executes the same `full` profile used
-by `verify:ci-local` followed by the same `runtime` profile used by
-`verify:e2e`.
+Hosted CI independently runs the same `verify:ci-local` full profile and adds
+the same `verify:e2e` runtime profile when clean-diff risk classification
+requires it. `CI Required` aggregates risk, full, selected runtime, and
+governance jobs. Hosted CI does not trust local task episodes as pass evidence.
 
 Targeted checks:
 
@@ -229,6 +230,12 @@ Before opening or updating a PR, verify:
 - verification commands and outcomes are recorded truthfully
 
 ### 7. PR Description
+
+Before publication, the current agent performs a fresh action-specific handoff
+dry-run. The user must separately authorize commit, push, and draft-PR actions;
+`ready_for_review` does not authorize any of them. The adapters stage exact
+task paths, use normal non-force push, and create draft PRs only. Any uncertain
+external outcome requires manual reconciliation instead of automatic retry.
 
 Use `.github/pull_request_template.md`.
 

@@ -2,6 +2,9 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -12,22 +15,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  checks:
-    name: Checks
+  risk:
+    name: CI Risk
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+    outputs:
+      effective_risk: ${{ steps.classify.outputs.effective_risk }}
+      runtime_required: ${{ steps.classify.outputs.runtime_required }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Dependency review
-        uses: actions/dependency-review-action@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fail-on-severity: high
-          fail-on-scopes: runtime, development
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22.x
           cache: npm
@@ -35,20 +38,123 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Canonical full and runtime verification
+      - name: Classify clean base/head diff
+        id: classify
         env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
-          REDIS_URL: redis://127.0.0.1:63790/0
-        run: npm run verify:ci
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [[ "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA=$(git rev-parse "$HEAD_SHA^")
+          fi
+          npm run --silent backendkit -- ci classify --base "$BASE_SHA" --head "$HEAD_SHA" >> "$GITHUB_OUTPUT"
+
+  full:
+    name: CI Full
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Canonical full verification
+        run: npm run verify:ci-local
 
       - name: Upload unit coverage artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: unit-coverage
           path: coverage/
           if-no-files-found: ignore
+          retention-days: 7
 
-      - name: Stop local dependencies after interrupted verification
+  runtime:
+    name: CI Runtime
+    needs: risk
+    if: needs.risk.outputs.runtime_required == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Canonical runtime verification
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
+          REDIS_URL: redis://127.0.0.1:63790/0
+        run: npm run verify:e2e
+
+      - name: Stop local dependencies
         if: always()
         run: npm run deps:down
+
+  governance:
+    name: CI Governance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Dependency review
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261 # v4.8.2
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime, development
+
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  required:
+    name: CI Required
+    needs:
+      - risk
+      - full
+      - runtime
+      - governance
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      RISK_RESULT: ${{ needs.risk.result }}
+      FULL_RESULT: ${{ needs.full.result }}
+      RUNTIME_RESULT: ${{ needs.runtime.result }}
+      GOVERNANCE_RESULT: ${{ needs.governance.result }}
+    steps:
+      - name: Require every selected lane
+        run: |
+          if [[ "$RISK_RESULT" != "success" || "$FULL_RESULT" != "success" || "$GOVERNANCE_RESULT" != "success" ]]; then
+            exit 1
+          fi
+          if [[ "$RUNTIME_RESULT" != "success" && "$RUNTIME_RESULT" != "skipped" ]]; then
+            exit 1
+          fi

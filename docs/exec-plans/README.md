@@ -72,6 +72,13 @@ receipts deduplicate unchanged delivery and support fail-closed recovery. One
 active task or plan remains the default, and the current conversational agent
 still prepares the workspace explicitly.
 
+After successful verification, `ready_for_review` still grants no publication
+authority. The current agent must prepare and show a fresh action-specific
+handoff dry-run, then obtain explicit user authorization separately for commit,
+push, or draft PR. Each approval expires, cannot be reused across actions, and
+is revalidated against current evidence and repository state. Merge, force,
+deployment, migration, and branch deletion remain outside the harness.
+
 ## What Does Not Belong Here
 
 - tiny one-file edits with no risk or coordination overhead

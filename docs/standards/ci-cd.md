@@ -45,8 +45,16 @@ Local CI mirror:
 - Prisma migration status remains in the Docker-backed lane because it requires a live database.
 - The local CI mirror also generates the duplication self-review reports (`npm run duplication:report`). Findings are non-fatal during the initial tuning phase.
 - `npm run verify:e2e` remains the explicit Docker-backed lane for Postgres/Redis/MinIO, migrations, integration tests, and e2e tests.
-- Hosted CI runs `npm run verify:ci`, which composes those same `full` and
-  `runtime` profiles rather than copying their steps into workflow YAML.
+- Hosted `CI Full` runs `npm run verify:ci-local`. `CI Runtime` independently
+  runs `npm run verify:e2e` only when clean base/head path rules or changed V2
+  plan declarations select runtime evidence. Workflow YAML selects aliases and
+  never copies profile internals.
+- `CI Risk`, `CI Full`, conditional `CI Runtime`, and `CI Governance` remain
+  independently visible. `CI Required` is the stable aggregate branch-
+  protection status and fails when any selected lane fails.
+- Hosted CI starts from a clean checkout and never consumes local controller
+  episodes as pass evidence. Third-party actions are pinned to full immutable
+  commit SHAs and checkout credentials are not persisted.
 
 4. Security gates (baseline)
 

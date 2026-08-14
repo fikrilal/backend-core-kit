@@ -33,4 +33,5 @@ Rules:
 - `docs/adr/0021-risk-aware-verification-repair.md`
 - `docs/adr/0022-isolated-agent-execution.md`
 - `docs/adr/0023-event-driven-task-intake.md`
+- `docs/adr/0024-verified-handoff-independent-ci.md`
 - `docs/adr/template.md`

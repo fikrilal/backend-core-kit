@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import type { Risk } from '../task/task-plan';
@@ -46,9 +47,34 @@ export class EpisodeStore {
     );
     return relativePath;
   }
+
+  async read(taskId: string, attempt: number): Promise<TaskEpisode> {
+    if (
+      !/^[a-z0-9][a-z0-9-]{2,79}$/.test(taskId) ||
+      !Number.isSafeInteger(attempt) ||
+      attempt <= 0
+    ) {
+      throw new Error('Task episode identity is invalid.');
+    }
+    const source = await readFile(
+      resolve(this.root, `.tmp/backendkit/tasks/${taskId}/episodes/attempt-${attempt}.json`),
+    );
+    if (source.byteLength > 64 * 1024) throw new Error('Task episode exceeds 65536 bytes.');
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(source.toString('utf8'));
+    } catch {
+      throw new Error('Task episode is unreadable.');
+    }
+    return parseEpisode(decoded);
+  }
 }
 
 export function validateEpisode(value: unknown): void {
+  parseEpisode(value);
+}
+
+export function parseEpisode(value: unknown): TaskEpisode {
   if (!isObject(value) || value.schemaVersion !== 1) return invalidEpisode();
   if (
     typeof value.taskId !== 'string' ||
@@ -103,6 +129,43 @@ export function validateEpisode(value: unknown): void {
     'diagnostic',
   ]);
   if (Object.keys(value).some((key) => !allowedKeys.has(key))) return invalidEpisode();
+  return {
+    schemaVersion: 1,
+    taskId: value.taskId,
+    attempt: value.attempt,
+    generatedAt: value.generatedAt,
+    planPath: value.planPath,
+    authorityHash: value.authorityHash,
+    baseRevision: value.baseRevision,
+    taskFingerprint: value.taskFingerprint,
+    effectiveRisk: value.effectiveRisk,
+    reviewRequired: value.reviewRequired,
+    matchedRiskRuleIds: value.matchedRiskRuleIds,
+    changedPaths: value.changedPaths,
+    runtimeReasons: value.runtimeReasons,
+    lanes: value.lanes.map((lane) => ({
+      id: lane.id,
+      status: lane.status,
+      durationMs: lane.durationMs,
+      ...(lane.failureCode ? { failureCode: lane.failureCode } : {}),
+    })),
+    transitions: value.transitions.map((transition) => ({
+      status: transition.status,
+      occurredAt: transition.occurredAt,
+      reason: transition.reason,
+    })),
+    finalStatus: value.finalStatus,
+    stopReason: value.stopReason,
+    ...(value.diagnostic
+      ? {
+          diagnostic: {
+            path: value.diagnostic.path,
+            sha256: value.diagnostic.sha256,
+            truncated: value.diagnostic.truncated,
+          },
+        }
+      : {}),
+  };
 }
 
 function containsForbiddenKey(value: unknown): boolean {
@@ -119,7 +182,7 @@ function isStringArray(value: unknown): value is ReadonlyArray<string> {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');
 }
 
-function isLane(value: unknown): boolean {
+function isLane(value: unknown): value is LaneOutcome {
   return (
     isObject(value) &&
     (value.id === 'fast' || value.id === 'full' || value.id === 'runtime') &&
@@ -131,7 +194,7 @@ function isLane(value: unknown): boolean {
   );
 }
 
-function isTransition(value: unknown): boolean {
+function isTransition(value: unknown): value is TaskTransition {
   return (
     isObject(value) &&
     typeof value.status === 'string' &&
@@ -141,7 +204,7 @@ function isTransition(value: unknown): boolean {
   );
 }
 
-function isDiagnostic(value: unknown): boolean {
+function isDiagnostic(value: unknown): value is DiagnosticReference {
   return (
     isObject(value) &&
     typeof value.path === 'string' &&
@@ -152,7 +215,7 @@ function isDiagnostic(value: unknown): boolean {
   );
 }
 
-function isLifecycleStatus(value: unknown): boolean {
+function isLifecycleStatus(value: unknown): value is TaskLifecycleStatus {
   return [
     'queued',
     'authorized',
