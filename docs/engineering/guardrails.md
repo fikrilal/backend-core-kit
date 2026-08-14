@@ -27,6 +27,9 @@ mode is likely to recur, especially with agent-authored code.
 
 ## Canonical Commands
 
+Profile composition is owned by `tools/backendkit/verification/`. The stable
+npm commands below are compatibility aliases to those typed profiles.
+
 Fast local gate:
 
 ```bash
@@ -43,6 +46,12 @@ Docker-backed dependency lane:
 
 ```bash
 npm run verify:e2e
+```
+
+Full hosted-CI profile:
+
+```bash
+npm run verify:ci
 ```
 
 Targeted guardrails:
@@ -72,6 +81,13 @@ npm run audit:prod
 - `eslint.config.mjs`
 - `.prettierrc`
 - `package.json`
+
+### Harness orchestration
+
+- `tools/backendkit/`
+- `docs/engineering/backendkit-cli.md`
+- `package.json` compatibility aliases
+- `.github/workflows/ci.yml`
 
 ### Architecture boundaries
 

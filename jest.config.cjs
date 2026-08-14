@@ -8,6 +8,8 @@ module.exports = {
     '<rootDir>/apps/**/*.test.ts',
     '<rootDir>/libs/**/*.spec.ts',
     '<rootDir>/libs/**/*.test.ts',
+    '<rootDir>/tools/backendkit/**/*.spec.ts',
+    '<rootDir>/tools/backendkit/**/*.test.ts',
   ],
   transform: {
     '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: 'tsconfig.json' }],

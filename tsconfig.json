@@ -21,6 +21,7 @@
     "libs/**/*.d.ts",
     "test/**/*.ts",
     "test/**/*.d.ts",
+    "tools/backendkit/**/*.ts",
     "*.d.ts"
   ],
   "exclude": ["node_modules", "dist"]

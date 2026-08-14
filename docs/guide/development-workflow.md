@@ -22,9 +22,12 @@ These are the typical commands a project should provide:
 - `npm run start:dev` (API)
 - `npm run start:worker:dev` (worker)
 - `npm run verify:ci-local` (non-Docker CI mirror)
+- `npm run verify:ci` (canonical full + runtime profile used by hosted CI)
 - `npm run duplication:report` (categorized duplication self-review reports)
 
-When code is scaffolded, keep these commands stable; they form the project’s “golden path”.
+The stable verification aliases are composed by the repository-local
+`backendkit` CLI. See `docs/engineering/backendkit-cli.md`. When code is
+scaffolded, keep these commands stable; they form the project’s “golden path”.
 
 ## PR Expectations
 

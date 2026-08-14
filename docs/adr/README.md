@@ -28,4 +28,5 @@ Rules:
 - `docs/adr/0016-structured-logging-with-nestjs-pino.md`
 - `docs/adr/0017-standardize-app-errors-and-clock.md`
 - `docs/adr/0018-progressive-feature-architecture.md`
+- `docs/adr/0019-canonical-backendkit-harness.md`
 - `docs/adr/template.md`

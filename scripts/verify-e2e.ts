@@ -1,49 +1,29 @@
-import { spawn } from 'node:child_process';
+import {
+  npmInvocation,
+  systemProcessRunner,
+  type ProcessInvocation,
+  type ProcessResult,
+} from '../tools/backendkit/process-runner';
 
-async function run(cmd: string, args: string[]): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: 'inherit', shell: true });
-    child.on('error', reject);
-    child.on('exit', (code, signal) => {
-      if (signal) {
-        reject(new Error(`${cmd} ${args.join(' ')} exited with signal ${signal}`));
-        return;
-      }
-      if (code !== 0) {
-        reject(new Error(`${cmd} ${args.join(' ')} exited with code ${code ?? 'unknown'}`));
-        return;
-      }
-      resolve();
-    });
+async function run(invocation: ProcessInvocation): Promise<void> {
+  const result = await systemProcessRunner.run({
+    ...invocation,
+    stdio: 'inherit',
   });
+  if (result.signal) {
+    throw new Error(
+      `${invocation.command} ${invocation.args.join(' ')} exited with signal ${result.signal}`,
+    );
+  }
+  if (result.code !== 0) {
+    throw new Error(
+      `${invocation.command} ${invocation.args.join(' ')} exited with code ${result.code ?? 'unknown'}`,
+    );
+  }
 }
 
-type CapturedRun = {
-  code: number | null;
-  signal: NodeJS.Signals | null;
-  stdout: string;
-  stderr: string;
-};
-
-async function runCapture(cmd: string, args: string[]): Promise<CapturedRun> {
-  return await new Promise<CapturedRun>((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: true });
-
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout?.on('data', (chunk: unknown) => {
-      stdout += String(chunk);
-    });
-    child.stderr?.on('data', (chunk: unknown) => {
-      stderr += String(chunk);
-    });
-
-    child.on('error', reject);
-    child.on('exit', (code, signal) => {
-      resolve({ code, signal, stdout, stderr });
-    });
-  });
+async function runCapture(command: string, args: ReadonlyArray<string>): Promise<ProcessResult> {
+  return await systemProcessRunner.run({ command, args, stdio: 'pipe' });
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -52,7 +32,7 @@ async function sleep(ms: number): Promise<void> {
 
 async function dumpComposeLogs(service: 'postgres' | 'redis'): Promise<void> {
   try {
-    await run('docker', ['compose', 'logs', service]);
+    await run({ command: 'docker', args: ['compose', 'logs', service] });
   } catch {
     // best-effort only; ignore failures (e.g., compose not available)
   }
@@ -146,12 +126,11 @@ function setDefaultTestStorageEnv(): void {
 async function main(): Promise<void> {
   setDefaultTestStorageEnv();
 
-  const npm = 'npm';
   let depsAttempted = false;
   try {
     depsAttempted = true;
     process.stdout.write('==> deps:up\n');
-    await run(npm, ['run', 'deps:up']);
+    await run(npmInvocation(['run', 'deps:up']));
 
     process.stdout.write('==> wait:postgres\n');
     await waitForPostgres();
@@ -163,21 +142,21 @@ async function main(): Promise<void> {
     await waitForMinio();
 
     process.stdout.write('==> prisma:migrate:deploy\n');
-    await run(npm, ['run', 'prisma:migrate:deploy']);
+    await run(npmInvocation(['run', 'prisma:migrate:deploy']));
 
     process.stdout.write('==> prisma:migrate:status\n');
-    await run(npm, ['run', 'prisma:migrate:status']);
+    await run(npmInvocation(['run', 'prisma:migrate:status']));
 
     process.stdout.write('==> test:int\n');
-    await run(npm, ['run', 'test:int']);
+    await run(npmInvocation(['run', 'test:int']));
 
     process.stdout.write('==> test:e2e\n');
-    await run(npm, ['run', 'test:e2e']);
+    await run(npmInvocation(['run', 'test:e2e']));
   } finally {
     if (!depsAttempted) return;
     try {
       process.stdout.write('==> deps:down\n');
-      await run(npm, ['run', 'deps:down']);
+      await run(npmInvocation(['run', 'deps:down']));
     } catch (err: unknown) {
       const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
       process.stderr.write(`Failed to stop local dependencies (deps:down): ${msg}\n`);

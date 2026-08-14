@@ -94,6 +94,9 @@ During implementation:
 
 ### 4. Mechanical Verification
 
+The typed profiles and their compatibility aliases are documented in
+`docs/engineering/backendkit-cli.md`.
+
 Default local gate:
 
 ```bash
@@ -113,6 +116,10 @@ MinIO, integration tests, or request flows touching real dependencies changed:
 ```bash
 npm run verify:e2e
 ```
+
+Hosted CI runs `npm run verify:ci`, which executes the same `full` profile used
+by `verify:ci-local` followed by the same `runtime` profile used by
+`verify:e2e`.
 
 Targeted checks:
 
