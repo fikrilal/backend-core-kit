@@ -41,6 +41,13 @@ describe('backendkit command', () => {
       planPath: 'docs/plan.md',
     });
     expect(parseBackendkitCommand(['knowledge', 'check'])).toEqual({ kind: 'knowledge-check' });
+    expect(
+      parseBackendkitCommand(['task', 'workspace', 'prepare', '--task', 'example-task']),
+    ).toEqual({
+      kind: 'task-workspace',
+      operation: 'prepare',
+      taskId: 'example-task',
+    });
   });
 
   it('rejects unknown commands and profiles', () => {
@@ -62,6 +69,7 @@ describe('backendkit command', () => {
       beginTask: async () => undefined,
       preflightTask: async () => undefined,
       verifyTask: async () => undefined,
+      manageTaskWorkspace: async () => undefined,
       classifyRisk: async () => undefined,
       checkKnowledge: async () => undefined,
       stdout,
@@ -81,6 +89,7 @@ describe('backendkit command', () => {
       beginTask: async (): Promise<void> => undefined,
       preflightTask: async (): Promise<void> => undefined,
       verifyTask: async (): Promise<void> => undefined,
+      manageTaskWorkspace: async (): Promise<void> => undefined,
       classifyRisk: async (): Promise<void> => undefined,
       checkKnowledge: async (): Promise<void> => undefined,
       stdout,
@@ -106,5 +115,6 @@ describe('backendkit command', () => {
     expect(backendkitHelp()).toContain('fast|full|runtime|ci');
     expect(backendkitHelp()).toContain('task begin');
     expect(backendkitHelp()).toContain('knowledge check');
+    expect(backendkitHelp()).toContain('task workspace');
   });
 });

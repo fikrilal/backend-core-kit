@@ -67,9 +67,19 @@ lanes:
 npm run backendkit -- task verify --task <task-id>
 ```
 
-A repair is a later manual rerun after task-owned content changes. Repeating an
+A repair is the same current Codex conversation changing task-owned content and
+rerunning verification. For isolated work, the agent internally uses:
+
+```bash
+npm run backendkit -- task workspace prepare --task <task-id>
+npm run backendkit -- task workspace status --task <task-id>
+```
+
+The current agent uses ordinary tools in the returned linked worktree. Task
+preflight and verification automatically target that candidate. Repeating an
 unchanged stable failure consumes the plan's repair budget and eventually
-escalates. Agent-authored repair execution is not enabled yet.
+escalates. Repository tooling never launches a second coding agent and grants
+no publication authority.
 
 Risk classes:
 

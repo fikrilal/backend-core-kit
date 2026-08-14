@@ -31,4 +31,5 @@ Rules:
 - `docs/adr/0019-canonical-backendkit-harness.md`
 - `docs/adr/0020-structured-task-authority.md`
 - `docs/adr/0021-risk-aware-verification-repair.md`
+- `docs/adr/0022-isolated-agent-execution.md`
 - `docs/adr/template.md`

@@ -38,6 +38,12 @@ For baselined V2 work, prefer `npm run backendkit -- task verify --task
 <task-id>` so effective risk, runtime impact, attempts, repair decisions, and
 sanitized evidence stay attributable.
 
+For isolated implementation, the current Codex agent internally runs `task
+workspace prepare --task <id>`, then uses the returned linked worktree for
+ordinary tool calls. `task workspace status` rediscovers that workspace after
+context compaction; cancel and cleanup are explicit task-state operations.
+Repository tooling never launches another agent or authorizes publication.
+
 ## PR Expectations
 
 - Keep PRs small and scoped.

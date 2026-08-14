@@ -244,6 +244,13 @@ weaker lane, deleting failure state, adding irrelevant fingerprint churn,
 persisting raw output, or rewriting baselines. `ready_for_review` is evidence,
 not publication authority.
 
+Current-agent workspace isolation adds another enforced boundary: a short
+repository command lock, one task-owned linked worktree and branch, and a strict
+private workspace schema. Status, preflight, and verification must validate
+authority and Git identity before work continues. Cancellation records task
+state only; repository code must never launch or kill the Codex process.
+Cleanup must refuse active or dirty work and preserve the candidate branch.
+
 ## Related Docs
 
 - `docs/engineering/agent-pr-loop.md`

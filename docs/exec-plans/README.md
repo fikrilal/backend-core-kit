@@ -58,6 +58,13 @@ is the number of unchanged repair opportunities permitted after the initial
 failure; it is not an unlimited retry count. A meaningful task fingerprint
 change resets the repeated count for that stable failed boundary.
 
+For isolated current-agent work, run `task workspace prepare --task <id>` after
+begin and use the returned path as the working directory. After compaction or a
+later turn, `task workspace status --task <id>` validates the same task
+workspace. Preflight and verification automatically target it. Workspace
+cleanup is explicit, refuses dirty or active worktrees, and preserves the
+candidate branch. The repository CLI never launches another coding agent.
+
 ## What Does Not Belong Here
 
 - tiny one-file edits with no risk or coordination overhead

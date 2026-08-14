@@ -16,6 +16,10 @@ npm run backendkit -- verify --profile ci
 npm run backendkit -- task begin --plan docs/exec-plans/active/<plan>.md
 npm run backendkit -- task preflight --task <task-id> --action verify
 npm run backendkit -- task verify --task <task-id>
+npm run backendkit -- task workspace prepare --task <task-id>
+npm run backendkit -- task workspace status --task <task-id>
+npm run backendkit -- task workspace cancel --task <task-id>
+npm run backendkit -- task workspace cleanup --task <task-id>
 npm run backendkit -- risk classify --plan docs/exec-plans/active/<plan>.md
 npm run backendkit -- knowledge check
 ```
@@ -50,6 +54,8 @@ instead of copying their step lists.
   bounded repair decisions.
 - `tools/backendkit/evidence/` owns redacted transient diagnostics and sanitized
   episode schemas.
+- `tools/backendkit/workspace/` owns the short repository command lock,
+  linked-worktree identity, private workspace metadata, and safe cleanup.
 - Existing scripts and npm commands continue to own OpenAPI, Prisma, env,
   architecture, duplication, tests, and runtime dependency behavior.
 
@@ -91,6 +97,39 @@ boundary's repeat count.
 
 Episodes and state are local controller artifacts, not commit candidates. They
 never grant commit, push, PR, merge, migration, or deployment authority.
+
+## Current-Agent Task Workspace
+
+The user continues working through one normal Codex conversation. The current
+agent invokes these commands internally; `backendkit` never launches Codex or
+another coding agent.
+
+After `task begin`, `task workspace prepare --task <id>` acquires a short
+repository command lock, creates `backendkit/<task-id>` from the authorized
+base under the ignored `.tmp/backendkit/worktrees/` directory, materializes the
+immutable plan snapshot, and returns the canonical working path. The current
+agent then uses ordinary tool calls with that path as `workdir`. User-owned
+dirty paths in the primary worktree are not copied.
+
+`task workspace status` validates repository identity, plan authority, base
+ancestry, branch, and canonical path after context compaction, interruption, or
+a later conversation turn. There is no agent-process resume operation: the
+current conversation simply rediscovers the workspace and continues.
+
+When workspace metadata exists, `task preflight` and `task verify`
+automatically inspect and verify the candidate worktree. Verification failures
+remain bounded by the Phase 3 repair budget and diagnostics. The current agent
+repairs the same candidate through normal tool calls and invokes verification
+again.
+
+Task lifecycle remains in `state.json`; strict adapter-neutral Git metadata is
+stored in mode-0600 `workspace.json`. It rejects model, prompt, output, session,
+environment, credential, and PID fields. Cancellation only records task state;
+interrupting Codex remains the host's responsibility.
+
+`task workspace cleanup` requires a stopped task and a clean validated
+worktree. It removes the linked worktree but preserves the candidate branch;
+dirty work is retained for inspection.
 
 Pre-existing dirty paths are user-owned at begin. If their content later
 changes, they become task-owned and must fit the allowed scope. This is

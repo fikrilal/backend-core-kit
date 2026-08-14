@@ -11,6 +11,11 @@ export type BackendkitCommand =
   | Readonly<{ kind: 'task-begin'; planPath: string }>
   | Readonly<{ kind: 'task-preflight'; taskId: string; action: TaskAction }>
   | Readonly<{ kind: 'task-verify'; taskId: string }>
+  | Readonly<{
+      kind: 'task-workspace';
+      operation: 'prepare' | 'status' | 'cancel' | 'cleanup';
+      taskId: string;
+    }>
   | Readonly<{ kind: 'risk-classify'; planPath?: string }>
   | Readonly<{ kind: 'knowledge-check' }>;
 
@@ -26,6 +31,10 @@ export type BackendkitCliDependencies = Readonly<{
   beginTask(planPath: string): Promise<void>;
   preflightTask(taskId: string, action: TaskAction): Promise<void>;
   verifyTask(taskId: string): Promise<void>;
+  manageTaskWorkspace(
+    operation: 'prepare' | 'status' | 'cancel' | 'cleanup',
+    taskId: string,
+  ): Promise<void>;
   classifyRisk(planPath?: string): Promise<void>;
   checkKnowledge(): Promise<void>;
   stdout: TextOutput;
@@ -57,6 +66,7 @@ export function backendkitHelp(): string {
     '  backendkit task begin --plan <path>',
     '  backendkit task preflight --task <id> [--action edit|verify|...]',
     '  backendkit task verify --task <id>',
+    '  backendkit task workspace prepare|status|cancel|cleanup --task <id>',
     '  backendkit risk classify [--plan <path>]',
     '  backendkit knowledge check',
     '  backendkit --help',
@@ -91,6 +101,9 @@ export async function runBackendkitCli(
         break;
       case 'task-verify':
         await dependencies.verifyTask(command.taskId);
+        break;
+      case 'task-workspace':
+        await dependencies.manageTaskWorkspace(command.operation, command.taskId);
         break;
       case 'risk-classify':
         await dependencies.classifyRisk(command.planPath);
@@ -139,8 +152,20 @@ function parseTask(args: ReadonlyArray<string>): BackendkitCommand {
   if (args[1] === 'verify' && args.length === 4 && args[2] === '--task' && args[3]) {
     return { kind: 'task-verify', taskId: args[3] };
   }
+  if (
+    args[1] === 'workspace' &&
+    (args[2] === 'prepare' ||
+      args[2] === 'status' ||
+      args[2] === 'cancel' ||
+      args[2] === 'cleanup') &&
+    args.length === 5 &&
+    args[3] === '--task' &&
+    args[4]
+  ) {
+    return { kind: 'task-workspace', operation: args[2], taskId: args[4] };
+  }
   throw new CliUsageError(
-    'Usage: backendkit task begin --plan <path> | task preflight --task <id> [--action <action>] | task verify --task <id>',
+    'Usage: backendkit task begin --plan <path> | task preflight --task <id> [--action <action>] | task verify --task <id> | task workspace prepare|status|cancel|cleanup --task <id>',
   );
 }
 
