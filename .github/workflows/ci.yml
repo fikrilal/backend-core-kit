@@ -53,6 +53,8 @@ jobs:
     name: CI Full
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -86,6 +88,9 @@ jobs:
     if: needs.risk.outputs.runtime_required == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
+      REDIS_URL: redis://127.0.0.1:63790/0
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -101,10 +106,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
       - name: Canonical runtime verification
-        env:
-          DATABASE_URL: postgresql://postgres@127.0.0.1:54321/backend_core_kit?schema=public
-          REDIS_URL: redis://127.0.0.1:63790/0
         run: npm run verify:e2e
 
       - name: Stop local dependencies

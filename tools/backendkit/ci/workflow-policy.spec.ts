@@ -22,6 +22,17 @@ describe('hosted CI policy', () => {
     expect(workflow).not.toContain('.tmp/backendkit');
     expect(workflow).not.toMatch(/diagnostic|prompt|stdout|stderr|environment/i);
   });
+
+  it('provides Prisma clean-checkout prerequisites without repository secrets', async () => {
+    const workflow = await workflowSource();
+
+    expect(
+      workflow.match(/DATABASE_URL: postgresql:\/\/postgres@127\.0\.0\.1:54321/g),
+    ).toHaveLength(2);
+    expect(workflow).toContain(
+      '- name: Generate Prisma client\n        run: npm run prisma:generate',
+    );
+  });
 });
 
 async function workflowSource(): Promise<string> {

@@ -6,7 +6,7 @@
 **Owner:** Dante and Codex
 **Risk:** high
 **Authority:** audit, complete, document, verify, commit, rewrite dates of commits not present on origin/development, push development, create or update the release pull request, and merge it to main after required GitHub checks pass; one exact-tip lease-guarded development update is authorized solely to remove CommandCode co-author trailers requested after the first push; no other force push, deployment, migration, production credential use, policy weakening, fabricated operating evidence, or branch deletion
-**Allowed paths:** _WIP/2026-08-09_backend-loop-engineering-proposal.md, README.md, docs/, tools/backendkit/, .github/, package.json, package-lock.json
+**Allowed paths:** _WIP/2026-08-09_backend-loop-engineering-proposal.md, README.md, docs/, tools/backendkit/, .github/, .gitleaksignore, libs/platform/otel/telemetry.spec.ts, package.json, package-lock.json
 **Allowed actions:** edit, verify, commit, push, draft-pr, update-pr, merge
 **Maximum risk:** high
 **Repair limit:** 2
@@ -93,6 +93,12 @@ verified development history through the normal GitHub review and CI path.
   development push -> preserve a backup ref and use one force-with-lease bound
   to the observed remote tip; do not alter trees, authors, dates, subjects, or
   ordering.
+- 2026-08-10: The first hosted run exposed clean-checkout prerequisites and a
+  secret-scanner false positive -> authorize the telemetry fixture only, give
+  Prisma verification a non-secret local URL, and generate the Prisma client
+  before runtime tests; retain strict scanning and ignore only the exact
+  historical false-positive fingerprint because the scanner evaluates the
+  complete pull-request commit range.
 
 ## Verification
 
@@ -120,6 +126,10 @@ verified development history through the normal GitHub review and CI path.
   records while distributing timestamps monotonically from August 11–14 in
   Jakarta time. A later message-only rewrite removed all CommandCode co-author
   trailers while preserving tree, author, date, subject, and order metadata.
+- GitHub Actions run `31411348848` reached all selected lanes. Risk and
+  GitGuardian passed; Full lacked the non-secret Prisma configuration needed by
+  a clean checkout, Runtime lacked generated Prisma client exports, and
+  Governance correctly rejected a secret-like telemetry test fixture.
 
 ## Runtime Evidence
 

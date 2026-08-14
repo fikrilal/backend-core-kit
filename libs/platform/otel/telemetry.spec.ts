@@ -59,8 +59,8 @@ describe('telemetry', () => {
   it('parses OTLP headers from comma-separated key-value pairs', () => {
     expect(parseOtlpHeaders(undefined)).toBeUndefined();
     expect(parseOtlpHeaders('  ')).toBeUndefined();
-    expect(parseOtlpHeaders('Authorization=Bearer token,x-scope=abc=123')).toEqual({
-      Authorization: 'Bearer token',
+    expect(parseOtlpHeaders('x-auth=fixture-value,x-scope=abc=123')).toEqual({
+      'x-auth': 'fixture-value',
       'x-scope': 'abc=123',
     });
   });
@@ -80,7 +80,7 @@ describe('telemetry', () => {
     process.env.NODE_ENV = 'production';
     process.env.OTEL_SERVICE_NAME = 'core';
     process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://collector:4318/';
-    process.env.OTEL_EXPORTER_OTLP_HEADERS = 'Authorization=Bearer token';
+    process.env.OTEL_EXPORTER_OTLP_HEADERS = 'x-auth=fixture-value';
 
     await initTelemetry('api');
     const second = await initTelemetry('worker');
@@ -89,7 +89,7 @@ describe('telemetry', () => {
     expect(mockNodeSdkStart).toHaveBeenCalledTimes(1);
     expect(mockTraceExporterConstructor).toHaveBeenCalledWith({
       url: 'http://collector:4318/v1/traces',
-      headers: { Authorization: 'Bearer token' },
+      headers: { 'x-auth': 'fixture-value' },
     });
 
     await second.shutdown();
