@@ -224,6 +224,19 @@ Use baselines only when:
 
 Do not baseline secrets, auth bypasses, contract breakage, or data-loss risks.
 
+## Structured Task Boundary
+
+Execution-plan V2 metadata is executable authority for controller-managed
+tasks. `backendkit task begin` records the base revision, authority fingerprint,
+and pre-existing dirty paths in ignored atomic state. `backendkit task
+preflight` rejects authority drift, unauthorized actions, task-owned scope
+escape, invalid state, and effective risk above the approved maximum.
+
+Risk rules and task schemas are guardrails themselves. Agents must not lower
+risk, broaden allowed paths/actions, edit their state to bypass policy, or
+convert a failing preflight into a baseline exception. Any authority change
+requires explicit user approval and a new baseline.
+
 ## Related Docs
 
 - `docs/engineering/agent-pr-loop.md`

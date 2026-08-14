@@ -22,6 +22,23 @@ describe('backendkit command', () => {
     });
   });
 
+  it('parses structured task, risk, and knowledge commands', () => {
+    expect(parseBackendkitCommand(['task', 'begin', '--plan', 'docs/plan.md'])).toEqual({
+      kind: 'task-begin',
+      planPath: 'docs/plan.md',
+    });
+    expect(parseBackendkitCommand(['task', 'preflight', '--task', 'example-task'])).toEqual({
+      kind: 'task-preflight',
+      taskId: 'example-task',
+      action: 'verify',
+    });
+    expect(parseBackendkitCommand(['risk', 'classify', '--plan', 'docs/plan.md'])).toEqual({
+      kind: 'risk-classify',
+      planPath: 'docs/plan.md',
+    });
+    expect(parseBackendkitCommand(['knowledge', 'check'])).toEqual({ kind: 'knowledge-check' });
+  });
+
   it('rejects unknown commands and profiles', () => {
     expect(() => parseBackendkitCommand(['repair'])).toThrow("Unknown command 'repair'");
     expect(() => parseBackendkitCommand(['verify', '--profile', 'slow'])).toThrow(
@@ -38,6 +55,10 @@ describe('backendkit command', () => {
       runProfile: async (profile) => {
         selected.push(profile);
       },
+      beginTask: async () => undefined,
+      preflightTask: async () => undefined,
+      classifyRisk: async () => undefined,
+      checkKnowledge: async () => undefined,
       stdout,
       stderr,
     });
@@ -52,6 +73,10 @@ describe('backendkit command', () => {
     const stderr = new RecordingOutput();
     const dependencies = {
       runProfile: async (): Promise<void> => undefined,
+      beginTask: async (): Promise<void> => undefined,
+      preflightTask: async (): Promise<void> => undefined,
+      classifyRisk: async (): Promise<void> => undefined,
+      checkKnowledge: async (): Promise<void> => undefined,
       stdout,
       stderr,
     };
@@ -73,5 +98,7 @@ describe('backendkit command', () => {
 
   it('documents every profile', () => {
     expect(backendkitHelp()).toContain('fast|full|runtime|ci');
+    expect(backendkitHelp()).toContain('task begin');
+    expect(backendkitHelp()).toContain('knowledge check');
   });
 });

@@ -28,6 +28,7 @@
     "verify:ci-local": "npm run backendkit -- verify --profile full",
     "verify:ci": "npm run backendkit -- verify --profile ci",
     "verify:env": "ts-node --files scripts/verify-env-example.ts",
+    "verify:knowledge": "npm run backendkit -- knowledge check",
     "verify:project-map": "ts-node --files scripts/verify-project-map-drift.ts",
     "verify:prisma": "ts-node --files scripts/verify-prisma-drift.ts",
     "duplication:core": "jscpd --config .jscpd.json libs/features libs/platform libs/shared apps/worker/src/jobs && ts-node --files scripts/filter-duplication-report.ts --profile core && prettier --write _WIP/duplication-report.md",

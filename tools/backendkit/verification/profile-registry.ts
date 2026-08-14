@@ -30,6 +30,12 @@ export const verificationProfiles: VerificationProfileRegistry = {
     id: 'fast',
     description: 'Deterministic static checks and unit tests',
     steps: [
+      {
+        kind: 'npm',
+        id: 'knowledge',
+        title: 'Knowledge lifecycle',
+        script: 'verify:knowledge',
+      },
       { kind: 'npm', id: 'format', title: 'Format check', script: 'format:check' },
       { kind: 'npm', id: 'lint', title: 'Lint', script: 'lint' },
       { kind: 'npm', id: 'types', title: 'Typecheck', script: 'typecheck' },
@@ -64,6 +70,12 @@ export const verificationProfiles: VerificationProfileRegistry = {
     id: 'full',
     description: 'Complete non-Docker CI-equivalent verification',
     steps: [
+      {
+        kind: 'npm',
+        id: 'knowledge',
+        title: 'Knowledge lifecycle',
+        script: 'verify:knowledge',
+      },
       {
         kind: 'npm',
         id: 'prisma',

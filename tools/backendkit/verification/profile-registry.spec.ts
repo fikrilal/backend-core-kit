@@ -10,6 +10,7 @@ describe('verification profile registry', () => {
     const scripts = expandVerificationProfile('fast').map((step) => step.script);
 
     expect(scripts).toEqual([
+      'verify:knowledge',
       'format:check',
       'lint',
       'typecheck',

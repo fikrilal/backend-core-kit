@@ -8,10 +8,14 @@ drift across sessions.
 ## Lifecycle
 
 1. Create a plan file in `docs/exec-plans/active/` from `docs/exec-plans/_template.md`.
-2. Update the same file as work progresses.
-3. Record decisions, verification evidence, and known blockers.
-4. Move the file to `docs/exec-plans/completed/` when done.
-5. Add unresolved follow-ups to `docs/exec-plans/tech-debt-tracker.md`.
+2. For agent-loop work, authorize the V2 boundary with
+   `npm run backendkit -- task begin --plan <path>` before task edits.
+3. Update the same file as work progresses without changing authority-bearing
+   metadata. An authority change requires a new task baseline.
+4. Record decisions, verification evidence, and known blockers.
+5. Move the file to `docs/exec-plans/completed/`, set `Status` to `completed`,
+   and close its implementation checklist when done.
+6. Add unresolved follow-ups to `docs/exec-plans/tech-debt-tracker.md`.
 
 ## File Naming
 
@@ -37,6 +41,16 @@ Examples:
 - verification evidence
 - runtime evidence when static checks are insufficient
 - follow-up debt
+
+V2 active and queued plans also require the structured metadata in the current
+template. Allowed paths are explicit repository-relative files or directory
+prefixes; roots, absolute paths, traversal, whitespace ambiguity, and globs are
+invalid. Allowed actions are independent grants. Plan parsing never grants an
+action that was not explicitly authorized by the user.
+
+Run `npm run backendkit -- knowledge check` to validate lifecycle and schema
+rules. Existing completed plans created before V2 are grandfathered; new active
+and queued plans are not.
 
 ## What Does Not Belong Here
 

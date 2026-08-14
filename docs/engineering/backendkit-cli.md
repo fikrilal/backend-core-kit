@@ -13,6 +13,10 @@ npm run backendkit -- verify --profile fast
 npm run backendkit -- verify --profile full
 npm run backendkit -- verify --profile runtime
 npm run backendkit -- verify --profile ci
+npm run backendkit -- task begin --plan docs/exec-plans/active/<plan>.md
+npm run backendkit -- task preflight --task <task-id> --action verify
+npm run backendkit -- risk classify --plan docs/exec-plans/active/<plan>.md
+npm run backendkit -- knowledge check
 ```
 
 ## Profiles
@@ -34,11 +38,40 @@ instead of copying their step lists.
 - `tools/backendkit/verification/profile-registry.ts` owns profile composition.
 - `tools/backendkit/verification/run-profile.ts` owns fail-fast execution and
   profile output.
+- `tools/backendkit/task/` owns V2 plan parsing, Git baselines, local task state,
+  path ownership, and preflight.
+- `tools/backendkit/policy/risk-classifier.ts` owns conservative changed-path
+  risk rules and stable rule IDs.
+- `tools/backendkit/knowledge/` owns execution-plan lifecycle validation.
 - Existing scripts and npm commands continue to own OpenAPI, Prisma, env,
   architecture, duplication, tests, and runtime dependency behavior.
 
 The CLI is harness tooling. Production code under `apps/` and `libs/` must not
 import it.
+
+## Structured Tasks
+
+New active and queued execution plans use the V2 metadata documented in
+`docs/exec-plans/README.md`. Begin captures the current Git revision and dirty
+paths under ignored `.tmp/backendkit/tasks/<task-id>/state.json`. State contains
+paths, hashes, authority, and lifecycle metadata only; it must not contain raw
+command output, environment values, prompts, credentials, tokens, or PII.
+
+Preflight checks the requested action, authority fingerprint, committed and
+worktree changes, path scope, and effective risk. Risk classification may raise
+the declared risk and never lower it. This phase reports whether a task may
+proceed; profile selection, repair, and evidence episodes remain separate
+controller behavior.
+
+Pre-existing dirty paths are user-owned at begin. If their content later
+changes, they become task-owned and must fit the allowed scope. This is
+path-level protection, not a substitute for isolated worktrees when two actors
+need the same file.
+
+The three exact untracked reports produced by the architecture and duplication
+sensors are reported separately as controller artifacts. They are never
+treated as task-owned source and are never included in commits. This exception
+is an explicit file list, not an `_WIP/` wildcard.
 
 The runtime profile preserves the documented default dependency ports. When
 another local stack owns those ports, the Compose-only `POSTGRES_HOST_PORT`,
@@ -59,3 +92,6 @@ When adding or changing a profile step:
 3. update this reference and relevant standards;
 4. treat the change as high-risk harness work;
 5. verify locally and through clean-checkout CI.
+
+When changing task metadata, state schemas, authority, or risk rules, also
+update their negative fixtures and treat the change as high-risk harness work.

@@ -38,7 +38,7 @@ function processResult(code: number): ProcessResult {
 describe('runVerificationProfile', () => {
   it('runs expanded steps in profile order', async () => {
     const output = new RecordingOutput();
-    const runner = new RecordingProcessRunner(Array.from({ length: 8 }, () => processResult(0)));
+    const runner = new RecordingProcessRunner(Array.from({ length: 9 }, () => processResult(0)));
 
     await runVerificationProfile('fast', {
       cwd: '/workspace',
@@ -47,8 +47,8 @@ describe('runVerificationProfile', () => {
       output,
     });
 
-    expect(runner.requests).toHaveLength(8);
-    expect(runner.requests[0]?.args).toContain('format:check');
+    expect(runner.requests).toHaveLength(9);
+    expect(runner.requests[0]?.args).toContain('verify:knowledge');
     expect(runner.requests.at(-1)?.args).toContain('openapi:lint');
     expect(output.value).toContain('fast completed successfully');
   });

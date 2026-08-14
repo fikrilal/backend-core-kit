@@ -44,6 +44,22 @@ Before implementation starts:
 - identify impact areas
 - create a plan file for non-trivial work
 
+New controller-managed tasks use execution-plan V2. Before task edits, capture
+the authorized baseline:
+
+```bash
+npm run backendkit -- task begin --plan docs/exec-plans/active/<plan>.md
+```
+
+Before expensive verification, run preflight for the intended action:
+
+```bash
+npm run backendkit -- task preflight --task <task-id> --action verify
+```
+
+The plan grants authority; the controller only validates it. Changed paths may
+raise risk but cannot lower the plan declaration or grant additional actions.
+
 Risk classes:
 
 - `low`: docs, tests, narrow refactors, local harness work with no runtime/API

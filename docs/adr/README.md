@@ -29,4 +29,5 @@ Rules:
 - `docs/adr/0017-standardize-app-errors-and-clock.md`
 - `docs/adr/0018-progressive-feature-architecture.md`
 - `docs/adr/0019-canonical-backendkit-harness.md`
+- `docs/adr/0020-structured-task-authority.md`
 - `docs/adr/template.md`

@@ -1,3 +1,4 @@
+import { parseTaskAction, type TaskAction } from './task/task-plan';
 import {
   parseVerificationProfileId,
   type VerificationProfileId,
@@ -5,7 +6,12 @@ import {
 import type { TextOutput } from './verification/run-profile';
 
 export type BackendkitCommand =
-  Readonly<{ kind: 'help' }> | Readonly<{ kind: 'verify'; profile: VerificationProfileId }>;
+  | Readonly<{ kind: 'help' }>
+  | Readonly<{ kind: 'verify'; profile: VerificationProfileId }>
+  | Readonly<{ kind: 'task-begin'; planPath: string }>
+  | Readonly<{ kind: 'task-preflight'; taskId: string; action: TaskAction }>
+  | Readonly<{ kind: 'risk-classify'; planPath?: string }>
+  | Readonly<{ kind: 'knowledge-check' }>;
 
 export class CliUsageError extends Error {
   constructor(message: string) {
@@ -16,31 +22,28 @@ export class CliUsageError extends Error {
 
 export type BackendkitCliDependencies = Readonly<{
   runProfile(profile: VerificationProfileId): Promise<void>;
+  beginTask(planPath: string): Promise<void>;
+  preflightTask(taskId: string, action: TaskAction): Promise<void>;
+  classifyRisk(planPath?: string): Promise<void>;
+  checkKnowledge(): Promise<void>;
   stdout: TextOutput;
   stderr: TextOutput;
 }>;
 
 export function parseBackendkitCommand(args: ReadonlyArray<string>): BackendkitCommand {
-  if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
-    return { kind: 'help' };
+  if (args.length === 0 || args[0] === '--help' || args[0] === '-h') return { kind: 'help' };
+  switch (args[0]) {
+    case 'verify':
+      return parseVerify(args);
+    case 'task':
+      return parseTask(args);
+    case 'risk':
+      return parseRisk(args);
+    case 'knowledge':
+      return parseKnowledge(args);
+    default:
+      throw new CliUsageError(`Unknown command '${args[0]}'`);
   }
-
-  if (args[0] !== 'verify') {
-    throw new CliUsageError(`Unknown command '${args[0]}'`);
-  }
-
-  if (args.length === 1) return { kind: 'verify', profile: 'fast' };
-
-  if (args.length !== 3 || args[1] !== '--profile') {
-    throw new CliUsageError('Usage: backendkit verify [--profile fast|full|runtime|ci]');
-  }
-
-  const profile = parseVerificationProfileId(args[2]);
-  if (!profile) {
-    throw new CliUsageError(`Unknown verification profile '${args[2]}'`);
-  }
-
-  return { kind: 'verify', profile };
 }
 
 export function backendkitHelp(): string {
@@ -49,6 +52,10 @@ export function backendkitHelp(): string {
     '',
     'Usage:',
     '  backendkit verify [--profile fast|full|runtime|ci]',
+    '  backendkit task begin --plan <path>',
+    '  backendkit task preflight --task <id> [--action edit|verify|...]',
+    '  backendkit risk classify [--plan <path>]',
+    '  backendkit knowledge check',
     '  backendkit --help',
     '',
     'Profiles:',
@@ -66,12 +73,26 @@ export async function runBackendkitCli(
 ): Promise<number> {
   try {
     const command = parseBackendkitCommand(args);
-    if (command.kind === 'help') {
-      dependencies.stdout.write(backendkitHelp());
-      return 0;
+    switch (command.kind) {
+      case 'help':
+        dependencies.stdout.write(backendkitHelp());
+        break;
+      case 'verify':
+        await dependencies.runProfile(command.profile);
+        break;
+      case 'task-begin':
+        await dependencies.beginTask(command.planPath);
+        break;
+      case 'task-preflight':
+        await dependencies.preflightTask(command.taskId, command.action);
+        break;
+      case 'risk-classify':
+        await dependencies.classifyRisk(command.planPath);
+        break;
+      case 'knowledge-check':
+        await dependencies.checkKnowledge();
+        break;
     }
-
-    await dependencies.runProfile(command.profile);
     return 0;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -81,5 +102,72 @@ export async function runBackendkitCli(
       return 2;
     }
     return 1;
+  }
+}
+
+function parseVerify(args: ReadonlyArray<string>): BackendkitCommand {
+  if (args.length === 1) return { kind: 'verify', profile: 'fast' };
+  if (args.length !== 3 || args[1] !== '--profile') {
+    throw new CliUsageError('Usage: backendkit verify [--profile fast|full|runtime|ci]');
+  }
+  const profile = parseVerificationProfileId(args[2]);
+  if (!profile) throw new CliUsageError(`Unknown verification profile '${args[2]}'`);
+  return { kind: 'verify', profile };
+}
+
+function parseTask(args: ReadonlyArray<string>): BackendkitCommand {
+  if (args[1] === 'begin' && args.length === 4 && args[2] === '--plan' && args[3]) {
+    return { kind: 'task-begin', planPath: args[3] };
+  }
+  if (args[1] === 'preflight') {
+    const taskId = optionValue(args.slice(2), '--task');
+    const actionValue = optionValue(args.slice(2), '--action', false) ?? 'verify';
+    assertOnlyOptions(args.slice(2), ['--task', '--action']);
+    if (!taskId) throw new CliUsageError('Missing required option --task.');
+    try {
+      return { kind: 'task-preflight', taskId, action: parseTaskAction(actionValue) };
+    } catch (error: unknown) {
+      throw new CliUsageError(error instanceof Error ? error.message : String(error));
+    }
+  }
+  throw new CliUsageError(
+    'Usage: backendkit task begin --plan <path> | task preflight --task <id> [--action <action>]',
+  );
+}
+
+function parseRisk(args: ReadonlyArray<string>): BackendkitCommand {
+  if (args[1] !== 'classify')
+    throw new CliUsageError('Usage: backendkit risk classify [--plan <path>]');
+  if (args.length === 2) return { kind: 'risk-classify' };
+  if (args.length === 4 && args[2] === '--plan' && args[3]) {
+    return { kind: 'risk-classify', planPath: args[3] };
+  }
+  throw new CliUsageError('Usage: backendkit risk classify [--plan <path>]');
+}
+
+function parseKnowledge(args: ReadonlyArray<string>): BackendkitCommand {
+  if (args.length === 2 && args[1] === 'check') return { kind: 'knowledge-check' };
+  throw new CliUsageError('Usage: backendkit knowledge check');
+}
+
+function optionValue(
+  args: ReadonlyArray<string>,
+  option: string,
+  required = true,
+): string | undefined {
+  const index = args.indexOf(option);
+  const value = index >= 0 ? args[index + 1] : undefined;
+  if (required && (!value || value.startsWith('--'))) {
+    throw new CliUsageError(`Missing required option ${option}.`);
+  }
+  return value && !value.startsWith('--') ? value : undefined;
+}
+
+function assertOnlyOptions(args: ReadonlyArray<string>, allowed: ReadonlyArray<string>): void {
+  for (let index = 0; index < args.length; index += 2) {
+    const option = args[index];
+    if (!option || !allowed.includes(option) || !args[index + 1]) {
+      throw new CliUsageError('Task preflight options must be complete option/value pairs.');
+    }
   }
 }

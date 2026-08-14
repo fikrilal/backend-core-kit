@@ -29,6 +29,11 @@ The stable verification aliases are composed by the repository-local
 `backendkit` CLI. See `docs/engineering/backendkit-cli.md`. When code is
 scaffolded, keep these commands stable; they form the project’s “golden path”.
 
+For a non-trivial controller-managed task, create a V2 execution plan and run
+`npm run backendkit -- task begin --plan <path>` before edits. Run
+`npm run backendkit -- task preflight --task <task-id> --action verify` before
+the verification profile.
+
 ## PR Expectations
 
 - Keep PRs small and scoped.
