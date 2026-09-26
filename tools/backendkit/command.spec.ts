@@ -85,27 +85,49 @@ describe('backendkit command', () => {
     ).toEqual({ kind: 'handoff-dry-run', taskId: 'example-task', action: 'commit' });
     expect(
       parseBackendkitCommand([
-        'handoff',
-        'draft-pr',
-        '--task',
-        'example-task',
-        '--base',
-        'development',
-        '--title',
-        'Verified change',
+        'scaffold',
+        'feature',
+        'orders',
+        '--tier',
+        'clean',
+        '--with-queue',
+        '--dry-run',
       ]),
     ).toEqual({
-      kind: 'handoff-draft-pr',
-      taskId: 'example-task',
-      base: 'development',
-      title: 'Verified change',
+      kind: 'scaffold-feature',
+      options: {
+        name: 'orders',
+        tier: 'clean',
+        withQueue: true,
+        dryRun: true,
+        force: false,
+      },
+    });
+    expect(parseBackendkitCommand(['scaffold', 'feature', '--name', 'orders', '--force'])).toEqual({
+      kind: 'scaffold-feature',
+      options: {
+        name: 'orders',
+        tier: 'simple',
+        withQueue: false,
+        dryRun: false,
+        force: true,
+      },
     });
   });
 
-  it('rejects unknown commands and profiles', () => {
+  it('rejects unknown commands, profiles, and invalid scaffold arguments', () => {
     expect(() => parseBackendkitCommand(['repair'])).toThrow("Unknown command 'repair'");
     expect(() => parseBackendkitCommand(['verify', '--profile', 'slow'])).toThrow(
       "Unknown verification profile 'slow'",
+    );
+    expect(() => parseBackendkitCommand(['scaffold', 'unknown'])).toThrow(
+      "Unknown scaffold subcommand 'unknown'",
+    );
+    expect(() =>
+      parseBackendkitCommand(['scaffold', 'feature', '--tier', 'invalid', '--name', 'orders']),
+    ).toThrow('--tier must be one of: simple, clean');
+    expect(() => parseBackendkitCommand(['scaffold', 'feature'])).toThrow(
+      'Usage: backendkit scaffold feature <name>',
     );
   });
 
@@ -115,6 +137,7 @@ describe('backendkit command', () => {
     const stderr = new RecordingOutput();
 
     const exitCode = await runBackendkitCli(['verify', '--profile', 'full'], {
+      scaffoldFeature: async () => undefined,
       runProfile: async (profile) => {
         selected.push(profile);
       },
@@ -150,6 +173,7 @@ describe('backendkit command', () => {
     const stdout = new RecordingOutput();
     const stderr = new RecordingOutput();
     const dependencies = {
+      scaffoldFeature: async (): Promise<void> => undefined,
       runProfile: async (): Promise<void> => undefined,
       beginTask: async (): Promise<void> => undefined,
       preflightTask: async (): Promise<void> => undefined,
@@ -202,5 +226,54 @@ describe('backendkit command', () => {
     expect(backendkitHelp()).toContain('evidence check');
     expect(backendkitHelp()).toContain('improve shadow');
     expect(backendkitHelp()).toContain('backendkit doctor');
+    expect(backendkitHelp()).toContain('backendkit scaffold feature');
+  });
+
+  it('runs scaffold feature and dispatches to handler', async () => {
+    const invoked: unknown[] = [];
+    const stdout = new RecordingOutput();
+    const stderr = new RecordingOutput();
+
+    const exitCode = await runBackendkitCli(
+      ['scaffold', 'feature', 'billing', '--tier', 'clean', '--with-queue', '--dry-run'],
+      {
+        scaffoldFeature: async (options) => {
+          invoked.push(options);
+        },
+        runProfile: async () => undefined,
+        beginTask: async () => undefined,
+        preflightTask: async () => undefined,
+        verifyTask: async () => undefined,
+        manageTaskWorkspace: async () => undefined,
+        runEventsOnce: async () => undefined,
+        runMaintenanceOnce: async () => undefined,
+        classifyCi: async () => undefined,
+        dryRunHandoff: async () => undefined,
+        commitHandoff: async () => undefined,
+        pushHandoff: async () => undefined,
+        draftPrHandoff: async () => undefined,
+        checkOracles: async () => undefined,
+        checkEvidence: async () => undefined,
+        checkImprovements: async () => undefined,
+        analyzeImprovements: async () => undefined,
+        shadowImprovement: async () => undefined,
+        classifyRisk: async () => undefined,
+        checkKnowledge: async () => undefined,
+        runDoctor: async () => undefined,
+        stdout,
+        stderr,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(invoked).toEqual([
+      {
+        name: 'billing',
+        tier: 'clean',
+        withQueue: true,
+        dryRun: true,
+        force: false,
+      },
+    ]);
   });
 });

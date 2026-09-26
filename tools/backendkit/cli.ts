@@ -4,6 +4,7 @@ import { DiagnosticStore } from './evidence/diagnostics';
 import { HarnessDoctor } from './doctor/harness-doctor';
 import { EpisodeStore } from './evidence/episode';
 import { evidenceEligibility, readOperatingLedger } from './evidence/operating-ledger';
+import { runFeatureScaffold } from './feature/feature-scaffold';
 import { EventIntakeService, type EventIntakeResult } from './events/event-intake';
 import {
   HandoffService,
@@ -46,6 +47,9 @@ async function main(): Promise<void> {
   const ci = new CiClassificationService(root);
   const handoff = new HandoffService(root, { states });
   process.exitCode = await runBackendkitCli(process.argv.slice(2), {
+    scaffoldFeature: async (options) => {
+      await runFeatureScaffold(options, root, process.stdout);
+    },
     runProfile: async (profile) => {
       await runVerificationProfile(profile);
     },

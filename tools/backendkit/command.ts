@@ -5,6 +5,7 @@ import {
 } from './verification/profile-registry';
 import type { TextOutput } from './verification/run-profile';
 import type { PublicationAction } from './handoff/handoff-approval';
+import type { ScaffoldFeatureOptions } from './feature/feature-scaffold';
 
 export type BackendkitCommand =
   | Readonly<{ kind: 'help' }>
@@ -31,7 +32,8 @@ export type BackendkitCommand =
   | Readonly<{ kind: 'improve-shadow'; hypothesisId: string }>
   | Readonly<{ kind: 'risk-classify'; planPath?: string }>
   | Readonly<{ kind: 'knowledge-check' }>
-  | Readonly<{ kind: 'doctor' }>;
+  | Readonly<{ kind: 'doctor' }>
+  | Readonly<{ kind: 'scaffold-feature'; options: ScaffoldFeatureOptions }>;
 
 export class CliUsageError extends Error {
   constructor(message: string) {
@@ -41,6 +43,7 @@ export class CliUsageError extends Error {
 }
 
 export type BackendkitCliDependencies = Readonly<{
+  scaffoldFeature(options: ScaffoldFeatureOptions): Promise<void>;
   runProfile(profile: VerificationProfileId): Promise<void>;
   beginTask(planPath: string): Promise<void>;
   preflightTask(taskId: string, action: TaskAction): Promise<void>;
@@ -96,6 +99,8 @@ export function parseBackendkitCommand(args: ReadonlyArray<string>): BackendkitC
     case 'doctor':
       if (args.length === 1) return { kind: 'doctor' };
       throw new CliUsageError('Usage: backendkit doctor');
+    case 'scaffold':
+      return parseScaffold(args);
     default:
       throw new CliUsageError(`Unknown command '${args[0]}'`);
   }
@@ -126,6 +131,7 @@ export function backendkitHelp(): string {
     '  backendkit risk classify [--plan <path>]',
     '  backendkit knowledge check',
     '  backendkit doctor',
+    '  backendkit scaffold feature <name> [--tier simple|clean] [--with-queue] [--dry-run] [--force]',
     '  backendkit --help',
     '',
     'Profiles:',
@@ -146,6 +152,9 @@ export async function runBackendkitCli(
     switch (command.kind) {
       case 'help':
         dependencies.stdout.write(backendkitHelp());
+        break;
+      case 'scaffold-feature':
+        await dependencies.scaffoldFeature(command.options);
         break;
       case 'verify':
         await dependencies.runProfile(command.profile);
@@ -398,4 +407,91 @@ function assertOnlyOptions(
     }
     seen.add(option);
   }
+}
+
+function parseScaffold(args: ReadonlyArray<string>): BackendkitCommand {
+  if (args.length < 2 || args[1] === '--help' || args[1] === '-h') {
+    throw new CliUsageError(
+      'Usage: backendkit scaffold feature <name> [--tier simple|clean] [--with-queue] [--dry-run] [--force]',
+    );
+  }
+
+  if (args[1] === 'feature') {
+    return parseScaffoldFeature(args.slice(2));
+  }
+
+  throw new CliUsageError(
+    `Unknown scaffold subcommand '${args[1]}'. Usage: backendkit scaffold feature <name> [options]`,
+  );
+}
+
+function parseScaffoldFeature(args: ReadonlyArray<string>): BackendkitCommand {
+  let name: string | undefined;
+  let tier: 'simple' | 'clean' = 'simple';
+  let withQueue = false;
+  let dryRun = false;
+  let force = false;
+
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+
+    if (arg === '--help' || arg === '-h') {
+      throw new CliUsageError(
+        'Usage: backendkit scaffold feature <name> [--tier simple|clean] [--with-queue] [--dry-run] [--force]',
+      );
+    }
+
+    if (arg === '--name') {
+      const value = args[i + 1];
+      if (!value || value.startsWith('--')) {
+        throw new CliUsageError('Missing value for --name');
+      }
+      name = value;
+      i += 1;
+      continue;
+    }
+
+    if (arg === '--tier') {
+      const value = args[i + 1];
+      if (value !== 'simple' && value !== 'clean') {
+        throw new CliUsageError('--tier must be one of: simple, clean');
+      }
+      tier = value;
+      i += 1;
+      continue;
+    }
+
+    if (arg === '--with-queue') {
+      withQueue = true;
+      continue;
+    }
+
+    if (arg === '--dry-run' || arg === '-n') {
+      dryRun = true;
+      continue;
+    }
+
+    if (arg === '--force') {
+      force = true;
+      continue;
+    }
+
+    if (!arg.startsWith('--') && !name) {
+      name = arg;
+      continue;
+    }
+
+    throw new CliUsageError(`Unknown argument '${arg}'`);
+  }
+
+  if (!name) {
+    throw new CliUsageError(
+      'Usage: backendkit scaffold feature <name> [--tier simple|clean] [--with-queue] [--dry-run] [--force]',
+    );
+  }
+
+  return {
+    kind: 'scaffold-feature',
+    options: { name, tier, withQueue, dryRun, force },
+  };
 }
