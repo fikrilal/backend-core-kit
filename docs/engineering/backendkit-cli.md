@@ -35,6 +35,7 @@ npm run backendkit -- risk classify --plan docs/exec-plans/active/<plan>.md
 npm run backendkit -- knowledge check
 npm run backendkit -- doctor
 npm run backendkit -- scaffold feature <name> [--tier simple|clean] [--with-queue] [--dry-run] [--force]
+npm run backendkit -- remove feature <name> [--dry-run] [--yes] [--force-core] [--force]
 ```
 
 ## Profiles
@@ -308,6 +309,38 @@ another local stack owns those ports, the Compose-only `POSTGRES_HOST_PORT`,
 variables may select alternate host ports. Supply matching `DATABASE_URL`,
 `REDIS_URL`, and `STORAGE_S3_ENDPOINT` values to the runtime profile. These
 host-port controls are development harness settings, not application config.
+
+## Feature Lifecycle (Scaffold and Removal)
+
+Feature lifecycle commands manage vertical-slice scaffolds and teardowns
+under `libs/features/`:
+
+### Scaffold Feature
+
+```bash
+npm run backendkit -- scaffold feature <name> [--tier simple|clean] [--with-queue] [--dry-run] [--force]
+```
+
+- `--tier simple|clean`: Scaffold architectural tier (default `simple`).
+- `--with-queue`: Generates BullMQ queue job definitions and a producer skeleton for the feature.
+- `--dry-run`: Previews files to generate without disk modification.
+- `--force`: Overwrites existing feature files if they already exist.
+- npm shortcut: `npm run scaffold:feature -- <name> [options]`
+
+### Remove Feature
+
+```bash
+npm run backendkit -- remove feature <name> [--dry-run] [--yes] [--force-core] [--force]
+```
+
+- Discovers and deletes feature directories under `libs/features/<name>` and test files under `test/<name>.e2e-spec.ts`.
+- Automatically unwires module imports and decorator entries from `apps/api/src/app.module.ts` and `apps/worker/src/worker.module.ts`.
+- Automatically prunes feature keys from duplication and architecture-smell baselines.
+- Protected core features (`auth`, `users`, `admin`) are blocked from removal unless `--force-core` is supplied.
+- Preflight dirty check ensures uncommitted changes in target files prevent accidental data loss unless `--force` is supplied.
+- Interactive confirmation is required unless `--yes` is supplied (in non-interactive environments, `--yes` is mandatory). Declining the prompt, or closing it without an answer, aborts with a non-zero exit code and no changes.
+- `--dry-run` previews all deletions and modifications without modifying the filesystem.
+- npm shortcut: `npm run remove:feature -- <name> [options]`
 
 ## Compatibility
 

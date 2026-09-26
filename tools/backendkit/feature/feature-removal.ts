@@ -16,6 +16,7 @@ export const PROTECTED_CORE_FEATURES: ReadonlySet<string> = new Set(['auth', 'us
 export type RemoveFeatureOptions = Readonly<{
   name: string;
   dryRun?: boolean;
+  yes?: boolean;
   forceCore?: boolean;
   force?: boolean;
 }>;

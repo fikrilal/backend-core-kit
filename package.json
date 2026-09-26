@@ -57,7 +57,8 @@
     "prisma:migrate:status": "prisma migrate status",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "scaffold:feature": "npm run backendkit -- scaffold feature"
+    "scaffold:feature": "npm run backendkit -- scaffold feature",
+    "remove:feature": "npm run backendkit -- remove feature"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1062.0",

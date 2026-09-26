@@ -6,6 +6,7 @@ import {
 import type { TextOutput } from './verification/run-profile';
 import type { PublicationAction } from './handoff/handoff-approval';
 import type { ScaffoldFeatureOptions } from './feature/feature-scaffold';
+import type { RemoveFeatureOptions } from './feature/feature-removal';
 
 export type BackendkitCommand =
   | Readonly<{ kind: 'help' }>
@@ -33,7 +34,8 @@ export type BackendkitCommand =
   | Readonly<{ kind: 'risk-classify'; planPath?: string }>
   | Readonly<{ kind: 'knowledge-check' }>
   | Readonly<{ kind: 'doctor' }>
-  | Readonly<{ kind: 'scaffold-feature'; options: ScaffoldFeatureOptions }>;
+  | Readonly<{ kind: 'scaffold-feature'; options: ScaffoldFeatureOptions }>
+  | Readonly<{ kind: 'remove-feature'; options: RemoveFeatureOptions }>;
 
 export class CliUsageError extends Error {
   constructor(message: string) {
@@ -44,6 +46,7 @@ export class CliUsageError extends Error {
 
 export type BackendkitCliDependencies = Readonly<{
   scaffoldFeature(options: ScaffoldFeatureOptions): Promise<void>;
+  removeFeature(options: RemoveFeatureOptions): Promise<void>;
   runProfile(profile: VerificationProfileId): Promise<void>;
   beginTask(planPath: string): Promise<void>;
   preflightTask(taskId: string, action: TaskAction): Promise<void>;
@@ -101,6 +104,8 @@ export function parseBackendkitCommand(args: ReadonlyArray<string>): BackendkitC
       throw new CliUsageError('Usage: backendkit doctor');
     case 'scaffold':
       return parseScaffold(args);
+    case 'remove':
+      return parseRemove(args);
     default:
       throw new CliUsageError(`Unknown command '${args[0]}'`);
   }
@@ -132,6 +137,7 @@ export function backendkitHelp(): string {
     '  backendkit knowledge check',
     '  backendkit doctor',
     '  backendkit scaffold feature <name> [--tier simple|clean] [--with-queue] [--dry-run] [--force]',
+    '  backendkit remove feature <name> [--dry-run] [--yes] [--force-core] [--force]',
     '  backendkit --help',
     '',
     'Profiles:',
@@ -155,6 +161,9 @@ export async function runBackendkitCli(
         break;
       case 'scaffold-feature':
         await dependencies.scaffoldFeature(command.options);
+        break;
+      case 'remove-feature':
+        await dependencies.removeFeature(command.options);
         break;
       case 'verify':
         await dependencies.runProfile(command.profile);
@@ -502,5 +511,83 @@ function parseScaffoldFeature(args: ReadonlyArray<string>): BackendkitCommand {
   return {
     kind: 'scaffold-feature',
     options: { name, tier, withQueue, dryRun, force },
+  };
+}
+
+function parseRemove(args: ReadonlyArray<string>): BackendkitCommand {
+  if (args.length < 2 || args[1] !== 'feature') {
+    throw new CliUsageError(
+      'Usage: backendkit remove feature <name> [--dry-run] [--yes] [--force-core] [--force]',
+    );
+  }
+
+  let name: string | undefined;
+  let dryRun = false;
+  let yes = false;
+  let forceCore = false;
+  let force = false;
+
+  for (let i = 2; i < args.length; i += 1) {
+    const arg = args[i];
+
+    if (arg === '--help' || arg === '-h') {
+      throw new CliUsageError(
+        'Usage: backendkit remove feature <name> [--dry-run] [--yes] [--force-core] [--force]',
+      );
+    }
+
+    if (arg === '--name') {
+      if (name) {
+        throw new CliUsageError('Feature name is already specified');
+      }
+      const value = args[i + 1];
+      if (!value || value.startsWith('-')) {
+        throw new CliUsageError('Missing value for --name');
+      }
+      name = value;
+      i += 1;
+      continue;
+    }
+
+    if (arg === '--dry-run' || arg === '-n') {
+      dryRun = true;
+      continue;
+    }
+
+    if (arg === '--yes' || arg === '-y') {
+      yes = true;
+      continue;
+    }
+
+    if (arg === '--force-core') {
+      forceCore = true;
+      continue;
+    }
+
+    if (arg === '--force') {
+      force = true;
+      continue;
+    }
+
+    if (!arg.startsWith('-')) {
+      if (name) {
+        throw new CliUsageError(`Unexpected extra argument '${arg}'`);
+      }
+      name = arg;
+      continue;
+    }
+
+    throw new CliUsageError(`Unknown argument '${arg}'`);
+  }
+
+  if (!name) {
+    throw new CliUsageError(
+      'Usage: backendkit remove feature <name> [--dry-run] [--yes] [--force-core] [--force]',
+    );
+  }
+
+  return {
+    kind: 'remove-feature',
+    options: { name, dryRun, yes, forceCore, force },
   };
 }
