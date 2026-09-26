@@ -59,6 +59,7 @@ model User {
   externalIdentities ExternalIdentity[]
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
+  merchantApplication MerchantApplication?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -282,4 +283,54 @@ model UserAccountDeletionAudit {
   @@index([targetUserId, createdAt])
   @@index([actorUserId, createdAt])
   @@index([traceId])
+}
+
+// Merchant onboarding (educational case study): one terminal application per user.
+// The raw settlement account number is intentionally not persisted; only its last
+// four digits are stored. Reference catalogs are code-owned feature constants.
+model MerchantApplication {
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  legalName           String
+  businessTypeId      String
+  registrationNumber  String? @unique
+  industryId          String
+  monthlySalesRangeId String
+  contactEmail        String
+  contactPhone        String
+
+  settlementBankId       String
+  accountHolderName      String
+  settlementHolderTypeId String
+  settlementOwnerRowId   String? @db.Uuid
+  accountNumberLast4     String
+  payoutScheduleId       String
+
+  termsVersion String
+  submittedAt  DateTime
+
+  owners MerchantOwner[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MerchantOwner {
+  id            String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId String @db.Uuid
+  application   MerchantApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  clientRowId          String @db.Uuid
+  fullName             String
+  roleId               String
+  ownershipBasisPoints Int?
+  email                String
+  isPrimaryContact     Boolean
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([applicationId, clientRowId])
 }

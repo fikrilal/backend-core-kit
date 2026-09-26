@@ -22,6 +22,7 @@ export function buildOpenApiDocument(app: NestFastifyApplication): OpenAPIObject
     .addTag('Auth', 'Authentication and session endpoints.')
     .addTag('Users', 'User profile endpoints.')
     .addTag('Admin', 'Administrative endpoints (RBAC-protected).')
+    .addTag('MerchantOnboarding', 'Merchant onboarding case study endpoints.')
     .build();
 
   return SwaggerModule.createDocument(app, config, {
