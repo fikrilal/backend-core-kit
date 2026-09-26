@@ -31,6 +31,19 @@ import { BillingModule } from '../../../libs/features/billing/infra/billing.modu
       const symbols = findFeatureImportedSymbols(source, 'order-history');
       expect(symbols).toEqual([]);
     });
+
+    it('does not match sibling feature imports (e.g. billing vs billing-v2)', () => {
+      const source = `
+import { BillingModule } from '../../../libs/features/billing/billing.module';
+import { BillingV2Module } from '../../../libs/features/billing-v2/billing-v2.module';
+import { OrderHistoryModule } from '../../../libs/features/order-history/order-history.module';
+`;
+      const symbolsBilling = findFeatureImportedSymbols(source, 'billing');
+      expect(symbolsBilling).toEqual(['BillingModule']);
+
+      const symbolsOrder = findFeatureImportedSymbols(source, 'order');
+      expect(symbolsOrder).toEqual([]);
+    });
   });
 
   describe('unwireModuleSource', () => {
@@ -185,6 +198,119 @@ export class AppModule {}
       expect(result.content).not.toContain('FooModule');
       expect(result.content).not.toContain('BarModule');
       expect(result.content).toContain('BazModule');
+    });
+
+    it('correctly unwires when decorator property contains nested arrays', () => {
+      const source = `import { Module } from '@nestjs/common';
+import { BillingModule } from './billing.module';
+
+@Module({
+  providers: [
+    {
+      provide: 'CONFIG',
+      useFactory: () => ({}),
+      inject: [OtherService],
+    },
+    BillingModule,
+  ],
+})
+export class AppModule {}
+`;
+      const result = unwireModuleSource(source, 'BillingModule');
+      expect(result.changed).toBe(true);
+      expect(result.content).not.toContain('BillingModule');
+      expect(result.content).toContain('inject: [OtherService]');
+      expect(result.content).toContain("provide: 'CONFIG'");
+    });
+
+    it('does not touch file or report changed=true when file has 3+ blank lines and symbol is absent', () => {
+      const source = `import { OtherModule } from './other';
+
+
+@Module({
+  imports: [
+    OtherModule,
+  ],
+})
+
+
+export class AppModule {}
+`;
+      const result = unwireModuleSource(source, 'BillingModule');
+      expect(result.changed).toBe(false);
+      expect(result.content).toBe(source);
+    });
+
+    it('preserves CRLF line endings in multiline import rewrite', () => {
+      const source = `import {\r\n  Foo,\r\n  BarModule,\r\n} from './foo';\r\n@Module({ imports: [BarModule] })\r\nexport class AppModule {}\r\n`;
+      const result = unwireModuleSource(source, 'BarModule');
+      expect(result.changed).toBe(true);
+      expect(result.content).toContain('\r\n');
+      expect(result.content).not.toContain('BarModule');
+      expect(result.content).toContain('Foo');
+    });
+
+    it('unwires symbol in second property (mirroring worker.module.ts imports followed by providers)', () => {
+      const source = `import { Module } from '@nestjs/common';
+import { QueueModule } from '../../../libs/platform/queue/queue.module';
+import { EmailsWorker } from './jobs/emails.worker';
+
+@Module({
+  imports: [
+    QueueModule,
+  ],
+  providers: [
+    EmailsWorker,
+  ],
+})
+export class WorkerModule {}
+`;
+      const result = unwireModuleSource(source, 'EmailsWorker');
+      expect(result.changed).toBe(true);
+      expect(result.unwiredIdentifiers).toContain('EmailsWorker');
+      expect(result.content).not.toContain('EmailsWorker');
+      expect(result.content).toContain('QueueModule');
+      expect(result.content).toContain('providers: [');
+    });
+
+    it('unwires same identifier across multiple decorator properties (e.g. imports and exports)', () => {
+      const source = `import { Module } from '@nestjs/common';
+import { SharedModule } from './shared.module';
+
+@Module({
+  imports: [
+    SharedModule,
+    OtherModule,
+  ],
+  exports: [
+    SharedModule,
+  ],
+})
+export class AppModule {}
+`;
+      const result = unwireModuleSource(source, 'SharedModule');
+      expect(result.changed).toBe(true);
+      expect(result.unwiredIdentifiers).toContain('SharedModule');
+      expect(result.content).not.toContain('SharedModule');
+      expect(result.content).toContain('OtherModule');
+    });
+
+    it('handles escaped backslashes in string literals without truncating closing bracket', () => {
+      const source = `import { Module } from '@nestjs/common';
+import { TargetModule } from './target';
+
+@Module({
+  providers: [
+    { provide: 'WIN_PATH', useValue: 'C:\\\\' },
+    TargetModule,
+  ],
+})
+export class AppModule {}
+`;
+      const result = unwireModuleSource(source, 'TargetModule');
+      expect(result.changed).toBe(true);
+      expect(result.content).not.toContain('TargetModule');
+      expect(result.content).toContain("'C:\\\\'");
     });
   });
 });

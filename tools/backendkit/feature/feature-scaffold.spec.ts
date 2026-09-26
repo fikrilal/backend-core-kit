@@ -17,9 +17,16 @@ describe('feature-scaffold', () => {
     });
 
     it('throws on empty or non-alphanumeric input', () => {
-      expect(() => normalizeFeatureName('')).toThrow(/Invalid feature name/);
-      expect(() => normalizeFeatureName('---')).toThrow(/Invalid feature name/);
-      expect(() => normalizeFeatureName('   ')).toThrow(/Invalid feature name/);
+      expect(() => normalizeFeatureName('')).toThrow(/Feature name must start with a letter/);
+      expect(() => normalizeFeatureName('---')).toThrow(/Feature name must start with a letter/);
+      expect(() => normalizeFeatureName('   ')).toThrow(/Feature name must start with a letter/);
+    });
+
+    it('throws on digit-leading input', () => {
+      expect(() => normalizeFeatureName('2fa')).toThrow(/Feature name must start with a letter/);
+      expect(() => normalizeFeatureName('123-feature')).toThrow(
+        /Feature name must start with a letter/,
+      );
     });
   });
 

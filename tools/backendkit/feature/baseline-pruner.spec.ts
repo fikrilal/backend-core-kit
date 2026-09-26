@@ -59,6 +59,32 @@ describe('baseline-pruner', () => {
         changed: false,
       });
     });
+
+    it('does not prune sibling features (e.g. order vs order-history or billing vs billing-v2)', () => {
+      const raw = JSON.stringify(
+        {
+          version: 1,
+          generatedAt: '2026-03-02T07:17:15.246Z',
+          keys: [
+            'layer-crossing|libs/features/order/order.service.ts|10|Direct infra import',
+            'layer-crossing|libs/features/order-history/order-history.service.ts|15|Direct infra import',
+            'test-violation|test/order-history.e2e-spec.ts|5|Missing setup',
+          ],
+        },
+        null,
+        2,
+      );
+
+      const result = pruneSmellBaselineSource(raw, 'order');
+      expect(result.changed).toBe(true);
+      expect(result.prunedCount).toBe(1);
+
+      const parsed = JSON.parse(result.content);
+      expect(parsed.keys).toEqual([
+        'layer-crossing|libs/features/order-history/order-history.service.ts|15|Direct infra import',
+        'test-violation|test/order-history.e2e-spec.ts|5|Missing setup',
+      ]);
+    });
   });
 
   describe('pruneDuplicationAllowlistSource', () => {
@@ -167,6 +193,31 @@ describe('baseline-pruner', () => {
         prunedFilesCount: 0,
         changed: false,
       });
+    });
+
+    it('does not prune sibling feature files (e.g. order vs order-history)', () => {
+      const raw = JSON.stringify(
+        {
+          version: 1,
+          reviewedAcceptable: [
+            {
+              category: 'shared_dto',
+              files: [
+                'libs/features/order-history/dto/a.dto.ts',
+                'libs/features/order-history/dto/b.dto.ts',
+              ],
+              reason: 'Similar fields',
+            },
+          ],
+        },
+        null,
+        2,
+      );
+
+      const result = pruneDuplicationAllowlistSource(raw, 'order');
+      expect(result.changed).toBe(false);
+      expect(result.prunedEntriesCount).toBe(0);
+      expect(result.content).toBe(raw);
     });
   });
 });

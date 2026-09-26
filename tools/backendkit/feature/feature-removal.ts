@@ -16,7 +16,6 @@ export const PROTECTED_CORE_FEATURES: ReadonlySet<string> = new Set(['auth', 'us
 export type RemoveFeatureOptions = Readonly<{
   name: string;
   dryRun?: boolean;
-  yes?: boolean;
   forceCore?: boolean;
   force?: boolean;
 }>;
@@ -58,8 +57,9 @@ export const defaultGitStatusChecker: GitStatusChecker = async (paths, rootDir) 
       .split('\n')
       .filter((line) => line.trim().length > 0);
     return lines.map((line) => line.slice(3).trim());
-  } catch {
-    return [];
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Git status check failed: ${message}`, { cause: err });
   }
 };
 
@@ -122,7 +122,7 @@ export async function discoverDeletablePaths(
         entry === `${featureKebab}.e2e-spec.ts` ||
         entry === `${featureKebab}.int-spec.ts` ||
         entry === featureKebab ||
-        (entry.startsWith(`${featureKebab}-`) &&
+        (entry.startsWith(`${featureKebab}.`) &&
           (entry.endsWith('.int-spec.ts') || entry.endsWith('.e2e-spec.ts')))
       ) {
         deletable.push(join('test', entry));
@@ -132,18 +132,39 @@ export async function discoverDeletablePaths(
     // If test directory does not exist or cannot be read, ignore
   }
 
-  // 3. Worker jobs: apps/worker/src/jobs/<name>*.worker.ts
+  // 3. Worker jobs: apps/worker/src/jobs/<name>*.worker.ts or jobs importing libs/features/<name>/
   const jobsDir = resolve(rootDir, 'apps', 'worker', 'src', 'jobs');
   try {
     const entries = await readdir(jobsDir);
     for (const entry of entries) {
-      if (
+      const isExactOrDotMatch =
         entry === `${featureKebab}.worker.ts` ||
         entry === `${featureKebab}.worker.spec.ts` ||
-        (entry.startsWith(`${featureKebab}-`) &&
-          (entry.endsWith('.worker.ts') || entry.endsWith('.worker.spec.ts')))
-      ) {
+        entry === featureKebab ||
+        (entry.startsWith(`${featureKebab}.`) &&
+          (entry.endsWith('.worker.ts') || entry.endsWith('.worker.spec.ts')));
+
+      if (isExactOrDotMatch) {
         deletable.push(join('apps', 'worker', 'src', 'jobs', entry));
+        continue;
+      }
+
+      // Also match feature-prefixed worker jobs (e.g. users-account-deletion.worker.ts)
+      // provided they actually import from libs/features/<name>/ to avoid deleting sibling features
+      const isHyphenatedWorker =
+        entry.startsWith(`${featureKebab}-`) &&
+        (entry.endsWith('.worker.ts') || entry.endsWith('.worker.spec.ts'));
+
+      if (isHyphenatedWorker) {
+        try {
+          const jobPath = resolve(jobsDir, entry);
+          const content = await readFile(jobPath, 'utf8');
+          if (findFeatureImportedSymbols(content, featureKebab).length > 0) {
+            deletable.push(join('apps', 'worker', 'src', 'jobs', entry));
+          }
+        } catch {
+          // Ignore read errors
+        }
       }
     }
   } catch {
@@ -279,16 +300,14 @@ export async function runFeatureRemoval(
     };
   }
 
-  // 3. Check for dirty wiring files before making non-dry-run changes
+  // 3. Check for dirty files before making non-dry-run changes
   if (!dryRun && !force) {
-    const wiringFiles = modifiedPaths.filter(
-      (p) => p.includes('app.module.ts') || p.includes('worker.module.ts'),
-    );
-    if (wiringFiles.length > 0) {
-      const dirty = await gitStatusChecker(wiringFiles, rootDir);
+    const pathsToCheck = Array.from(new Set([...modifiedPaths, ...deletedPaths]));
+    if (pathsToCheck.length > 0) {
+      const dirty = await gitStatusChecker(pathsToCheck, rootDir);
       if (dirty.length > 0) {
         throw new Error(
-          `Refusing to modify wiring files because they have uncommitted modifications:\n  - ${dirty.join('\n  - ')}\nUse --force to proceed anyway.`,
+          `Refusing to remove feature because target paths have uncommitted modifications:\n  - ${dirty.join('\n  - ')}\nUse --force to proceed anyway.`,
         );
       }
     }

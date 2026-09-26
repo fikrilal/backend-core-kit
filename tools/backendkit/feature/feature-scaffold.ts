@@ -43,8 +43,10 @@ export function normalizeFeatureName(raw: string): string {
     .replace(/^-|-$/g, '')
     .toLowerCase();
 
-  if (normalized.length === 0) {
-    throw new Error(`Invalid feature name: "${raw}"`);
+  if (normalized.length === 0 || !/^[a-z]/.test(normalized)) {
+    throw new Error(
+      `Feature name must start with a letter and be kebab-case (e.g. "billing" or "order-history"), got "${raw}"`,
+    );
   }
 
   return normalized;

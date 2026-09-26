@@ -8,17 +8,17 @@ export type BaselinePruneResult = Readonly<{
   modifiedFiles: ReadonlyArray<string>;
 }>;
 
-function matchesFeaturePath(pathOrKey: string, featureName: string): boolean {
-  const patterns = [
-    `libs/features/${featureName}/`,
-    `libs/features/${featureName}:`,
-    `test/${featureName}.`,
-    `test/${featureName}/`,
-    `test/${featureName}-`,
-    `apps/worker/src/jobs/${featureName}.`,
-    `apps/worker/src/jobs/${featureName}-`,
-  ];
-  return patterns.some((pattern) => pathOrKey.includes(pattern));
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function matchesFeaturePath(pathOrKey: string, featureName: string): boolean {
+  const escaped = escapeRegex(featureName);
+  // Enforce segment boundaries so "billing" does not match "billing-v2" or "order" match "order-history"
+  const featureRegex = new RegExp(
+    `(?:libs/features/${escaped}[/:]|test/${escaped}[./]|test/${escaped}-(?:persistence|worker|jobs|e2e|int)\\.|apps/worker/src/jobs/${escaped}[./])`,
+  );
+  return featureRegex.test(pathOrKey);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

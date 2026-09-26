@@ -1,6 +1,3 @@
-import { readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -12,13 +9,15 @@ export type UnwireResult = Readonly<{
 }>;
 
 /**
- * Extracts identifiers imported from paths matching the feature name.
+ * Extracts identifiers imported from paths matching the feature name with strict segment boundaries.
  * e.g., import { OrderHistoryModule } from '.../libs/features/order-history/...'
  */
 export function findFeatureImportedSymbols(source: string, featureKebab: string): string[] {
   const symbols = new Set<string>();
+  const escaped = escapeRegex(featureKebab);
+  // Enforce segment boundaries so "billing" does not match "billing-v2"
   const featurePattern = new RegExp(
-    `(?:libs/features/${escapeRegex(featureKebab)}|jobs/${escapeRegex(featureKebab)})`,
+    `(?:libs/features/${escaped}/|jobs/${escaped}(?:\\.worker|\\.job|/|$))`,
   );
 
   const importRegex = /import\s*(?:type\s*)?\{([\s\S]*?)\}\s*from\s*['"]([^'"]+)['"];?/g;
@@ -40,11 +39,15 @@ export function findFeatureImportedSymbols(source: string, featureKebab: string)
   return Array.from(symbols);
 }
 
-function unwireImports(source: string, identifier: string): { content: string; changed: boolean } {
+function unwireImports(
+  source: string,
+  identifier: string,
+  eol: string,
+): { content: string; changed: boolean } {
   let changed = false;
   const escaped = escapeRegex(identifier);
   const importRegex = new RegExp(
-    `([ \\t]*import\\s*(?:type\\s*)?\\{)([\\s\\S]*?)(\\}\\s*from\\s*['"][^'"]+['"];?[ \\t]*\\r?\\n?)`,
+    `([ \\t]*import\\s*(?:type\\s*)?\\{)([\\s\\S]*?)(\\}\\s*from\\s*['"][^'"]+['"];?[ \\t]*(?:\\r?\\n)?)`,
     'g',
   );
 
@@ -69,8 +72,8 @@ function unwireImports(source: string, identifier: string): { content: string; c
       }
 
       if (isMultiline) {
-        const lines = remainingTokens.map((t) => `  ${t},`).join('\n');
-        return `${prefix}\n${lines}\n${suffix.replace(/^\s*/, '')}`;
+        const lines = remainingTokens.map((t) => `  ${t},`).join(eol);
+        return `${prefix}${eol}${lines}${eol}${suffix.replace(/^\s*/, '')}`;
       }
 
       return `${prefix} ${remainingTokens.join(', ')} ${suffix.replace(/^\s*/, '')}`;
@@ -87,7 +90,7 @@ function unwireArrayElements(
   const escaped = escapeRegex(identifier);
 
   // 1. Line-based removal if identifier is on its own line:
-  const lineRegex = new RegExp(`^[ \\t]*${escaped},?[ \\t]*(?://.*)?\\r?\\n`, 'm');
+  const lineRegex = new RegExp(`^[ \\t]*${escaped},?[ \\t]*(?://.*)?(?:\\r?\\n|$)`, 'm');
   if (lineRegex.test(arrayBody)) {
     return {
       content: arrayBody.replace(lineRegex, ''),
@@ -118,6 +121,83 @@ function unwireArrayElements(
   return { content: updated, changed: true };
 }
 
+/**
+ * Finds the index of the matching closing bracket ']' accounting for nested brackets,
+ * string literals (with toggle-based escape handling), and comments.
+ */
+function findMatchingClosingBracket(source: string, openBracketIndex: number): number {
+  let depth = 1;
+  let inString: string | null = null;
+  let escaped = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let i = openBracketIndex + 1; i < source.length; i += 1) {
+    const char = source[i];
+    const prevChar = source[i - 1];
+
+    if (inLineComment) {
+      if (char === '\n') {
+        inLineComment = false;
+      }
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (char === '/' && prevChar === '*') {
+        inBlockComment = false;
+      }
+      continue;
+    }
+
+    if (inString !== null) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (char === inString) {
+        inString = null;
+      }
+      continue;
+    }
+
+    // Check for comment starts
+    if (char === '/' && source[i + 1] === '/') {
+      inLineComment = true;
+      i += 1;
+      continue;
+    }
+    if (char === '/' && source[i + 1] === '*') {
+      inBlockComment = true;
+      i += 1;
+      continue;
+    }
+
+    // Check for string starts
+    if (char === "'" || char === '"' || char === '`') {
+      inString = char;
+      escaped = false;
+      continue;
+    }
+
+    // Check bracket depth
+    if (char === '[') {
+      depth += 1;
+    } else if (char === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        return i;
+      }
+    }
+  }
+
+  return -1;
+}
+
 function unwireDecoratorArrays(
   source: string,
   identifier: string,
@@ -125,27 +205,41 @@ function unwireDecoratorArrays(
   let changed = false;
   const escaped = escapeRegex(identifier);
 
-  // Check if identifier is even present in the source before scanning
+  // Quick exit if identifier is not in source
   if (!new RegExp(`\\b${escaped}\\b`).test(source)) {
     return { content: source, changed: false };
   }
 
-  // Target common NestJS module arrays: imports, providers, controllers, exports
-  const arrayPropertyRegex = /(imports|providers|controllers|exports)(\s*:\s*\[)([\s\S]*?)(\])/g;
+  // Non-global regex because we slice currentContent at offset and scan sequentially
+  const propRegex = /(?:imports|providers|controllers|exports)\s*:\s*\[/;
+  let currentContent = source;
+  let offset = 0;
+  let match: RegExpExecArray | null;
 
-  const newContent = source.replace(
-    arrayPropertyRegex,
-    (fullMatch, propName: string, prefix: string, arrayBody: string, suffix: string) => {
-      const res = unwireArrayElements(arrayBody, identifier);
-      if (res.changed) {
-        changed = true;
-        return `${propName}${prefix}${res.content}${suffix}`;
-      }
-      return fullMatch;
-    },
-  );
+  while ((match = propRegex.exec(currentContent.slice(offset))) !== null) {
+    const propertyMatchStart = offset + match.index;
+    const openBracketIndex = propertyMatchStart + match[0].length - 1;
+    const closeBracketIndex = findMatchingClosingBracket(currentContent, openBracketIndex);
 
-  return { content: newContent, changed };
+    if (closeBracketIndex === -1) {
+      break;
+    }
+
+    const arrayBody = currentContent.slice(openBracketIndex + 1, closeBracketIndex);
+    const res = unwireArrayElements(arrayBody, identifier);
+
+    if (res.changed) {
+      changed = true;
+      const before = currentContent.slice(0, openBracketIndex + 1);
+      const after = currentContent.slice(closeBracketIndex);
+      currentContent = before + res.content + after;
+      offset = openBracketIndex + 1 + res.content.length + 1;
+    } else {
+      offset = closeBracketIndex + 1;
+    }
+  }
+
+  return { content: currentContent, changed };
 }
 
 /**
@@ -156,6 +250,7 @@ export function unwireModuleSource(
   identifiers: string | ReadonlyArray<string>,
 ): UnwireResult {
   const identList = Array.isArray(identifiers) ? identifiers : [identifiers];
+  const eol = source.includes('\r\n') ? '\r\n' : '\n';
   let currentContent = source;
   const unwiredSet = new Set<string>();
 
@@ -163,7 +258,7 @@ export function unwireModuleSource(
     if (!ident || ident.trim().length === 0) continue;
     const trimmed = ident.trim();
 
-    const importRes = unwireImports(currentContent, trimmed);
+    const importRes = unwireImports(currentContent, trimmed, eol);
     if (importRes.changed) {
       currentContent = importRes.content;
       unwiredSet.add(trimmed);
@@ -176,85 +271,21 @@ export function unwireModuleSource(
     }
   }
 
+  // If nothing was unwired, do not modify or touch whitespace
+  if (unwiredSet.size === 0) {
+    return {
+      content: source,
+      changed: false,
+      unwiredIdentifiers: [],
+    };
+  }
+
   // Clean up any excessive blank lines introduced by line removal
   const cleanedContent = currentContent.replace(/\n{3,}/g, '\n\n');
-  const wasChanged = unwiredSet.size > 0 || cleanedContent !== source;
 
   return {
     content: cleanedContent,
-    changed: wasChanged,
+    changed: true,
     unwiredIdentifiers: Array.from(unwiredSet),
-  };
-}
-
-/**
- * Unwires feature references from a specific module file on disk.
- */
-export async function unwireModuleFile(
-  filePath: string,
-  identifiers: string | ReadonlyArray<string>,
-  options?: { dryRun?: boolean },
-): Promise<UnwireResult> {
-  let raw: string;
-  try {
-    raw = await readFile(filePath, 'utf8');
-  } catch {
-    return { content: '', changed: false, unwiredIdentifiers: [] };
-  }
-
-  const result = unwireModuleSource(raw, identifiers);
-  if (result.changed && !options?.dryRun) {
-    await writeFile(filePath, result.content, 'utf8');
-  }
-
-  return result;
-}
-
-/**
- * Unwires feature modules and workers from standard entry points:
- * - apps/api/src/app.module.ts
- * - apps/worker/src/worker.module.ts
- */
-export async function unwireFeatureFromApps(
-  rootDir: string,
-  featureKebab: string,
-  additionalSymbols: ReadonlyArray<string> = [],
-  options?: { dryRun?: boolean },
-): Promise<
-  Readonly<{ modifiedFiles: ReadonlyArray<string>; unwiredSymbols: ReadonlyArray<string> }>
-> {
-  const modifiedFiles: string[] = [];
-  const unwiredSymbols = new Set<string>();
-
-  const targetFiles = [
-    resolve(rootDir, 'apps', 'api', 'src', 'app.module.ts'),
-    resolve(rootDir, 'apps', 'worker', 'src', 'worker.module.ts'),
-  ];
-
-  for (const file of targetFiles) {
-    let source: string;
-    try {
-      source = await readFile(file, 'utf8');
-    } catch {
-      continue;
-    }
-
-    const detectedSymbols = findFeatureImportedSymbols(source, featureKebab);
-    const symbolsToUnwire = Array.from(new Set([...detectedSymbols, ...additionalSymbols]));
-
-    if (symbolsToUnwire.length === 0) continue;
-
-    const res = await unwireModuleFile(file, symbolsToUnwire, options);
-    if (res.changed) {
-      modifiedFiles.push(file);
-      for (const s of res.unwiredIdentifiers) {
-        unwiredSymbols.add(s);
-      }
-    }
-  }
-
-  return {
-    modifiedFiles,
-    unwiredSymbols: Array.from(unwiredSymbols),
   };
 }

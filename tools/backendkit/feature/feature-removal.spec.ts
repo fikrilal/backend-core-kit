@@ -2,6 +2,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  defaultGitStatusChecker,
   discoverDeletablePaths,
   planModifications,
   runFeatureRemoval,
@@ -13,6 +14,15 @@ describe('feature-removal', () => {
     it('accepts valid kebab-case name', () => {
       const res = validateFeatureRemovalPreflight('order-history');
       expect(res).toEqual({ kebab: 'order-history', pascal: 'OrderHistory' });
+    });
+
+    it('rejects digit-leading kebab-case names', () => {
+      expect(() => validateFeatureRemovalPreflight('2fa')).toThrow(
+        'Feature name must be kebab-case',
+      );
+      expect(() => validateFeatureRemovalPreflight('123-feature')).toThrow(
+        'Feature name must be kebab-case',
+      );
     });
 
     it('rejects invalid kebab-case names', () => {
@@ -47,6 +57,19 @@ describe('feature-removal', () => {
     });
   });
 
+  describe('defaultGitStatusChecker', () => {
+    it('returns empty array when paths array is empty', async () => {
+      const res = await defaultGitStatusChecker([], process.cwd());
+      expect(res).toEqual([]);
+    });
+
+    it('fails closed and throws on git failure', async () => {
+      await expect(
+        defaultGitStatusChecker(['some/path'], '/non-existent-directory-xyz-123'),
+      ).rejects.toThrow('Git status check failed:');
+    });
+  });
+
   describe('file discovery & execution in isolated directory', () => {
     let tempDir: string;
 
@@ -60,15 +83,26 @@ describe('feature-removal', () => {
         'export class BillingModule {}',
       );
 
+      await mkdir(join(tempDir, 'libs', 'features', 'billing-v2'), { recursive: true });
+      await writeFile(
+        join(tempDir, 'libs', 'features', 'billing-v2', 'billing-v2.module.ts'),
+        'export class BillingV2Module {}',
+      );
+
       await mkdir(join(tempDir, 'test'), { recursive: true });
       await writeFile(join(tempDir, 'test', 'billing.e2e-spec.ts'), '// e2e test');
       await writeFile(join(tempDir, 'test', 'billing.int-spec.ts'), '// int test');
+      await writeFile(join(tempDir, 'test', 'billing-email.e2e-spec.ts'), '// sibling test');
       await writeFile(join(tempDir, 'test', 'other.e2e-spec.ts'), '// other test');
 
       await mkdir(join(tempDir, 'apps', 'worker', 'src', 'jobs'), { recursive: true });
       await writeFile(
         join(tempDir, 'apps', 'worker', 'src', 'jobs', 'billing.worker.ts'),
         '// worker',
+      );
+      await writeFile(
+        join(tempDir, 'apps', 'worker', 'src', 'jobs', 'billing-v2.worker.ts'),
+        '// sibling worker',
       );
 
       await mkdir(join(tempDir, 'apps', 'api', 'src'), { recursive: true });
@@ -125,7 +159,7 @@ export class WorkerModule {}
       await rm(tempDir, { recursive: true, force: true });
     });
 
-    it('discoverDeletablePaths finds all related feature paths and ignores others', async () => {
+    it('discoverDeletablePaths finds all related feature paths and ignores others including sibling prefixes', async () => {
       const paths = await discoverDeletablePaths(tempDir, 'billing');
       expect(paths).toEqual([
         join('apps', 'worker', 'src', 'jobs', 'billing.worker.ts'),
@@ -133,6 +167,24 @@ export class WorkerModule {}
         join('test', 'billing.e2e-spec.ts'),
         join('test', 'billing.int-spec.ts'),
       ]);
+      expect(paths).not.toContain(join('test', 'billing-email.e2e-spec.ts'));
+      expect(paths).not.toContain(join('apps', 'worker', 'src', 'jobs', 'billing-v2.worker.ts'));
+      expect(paths).not.toContain(join('libs', 'features', 'billing-v2'));
+    });
+
+    it('discoverDeletablePaths matches worker jobs by feature imports even with hyphenated names', async () => {
+      await writeFile(
+        join(tempDir, 'apps', 'worker', 'src', 'jobs', 'billing-extra.worker.ts'),
+        `import { BillingModule } from '../../../../libs/features/billing/billing.module';\nexport class BillingExtraWorker {}`,
+      );
+      await writeFile(
+        join(tempDir, 'apps', 'worker', 'src', 'jobs', 'billing-v2.worker.ts'),
+        `import { BillingV2Module } from '../../../../libs/features/billing-v2/billing-v2.module';\nexport class BillingV2Worker {}`,
+      );
+
+      const paths = await discoverDeletablePaths(tempDir, 'billing');
+      expect(paths).toContain(join('apps', 'worker', 'src', 'jobs', 'billing-extra.worker.ts'));
+      expect(paths).not.toContain(join('apps', 'worker', 'src', 'jobs', 'billing-v2.worker.ts'));
     });
 
     it('planModifications detects all modifications without mutating disk', async () => {
@@ -187,8 +239,43 @@ export class WorkerModule {}
           fakeGitChecker,
         ),
       ).rejects.toThrow(
-        'Refusing to modify wiring files because they have uncommitted modifications',
+        'Refusing to remove feature because target paths have uncommitted modifications',
       );
+    });
+
+    it('runFeatureRemoval rejects if feature files are reported dirty and force=false', async () => {
+      const fakeGitChecker = async (paths: ReadonlyArray<string>) => {
+        if (paths.includes(join('libs', 'features', 'billing'))) {
+          return ['libs/features/billing/dirty.ts'];
+        }
+        return [];
+      };
+
+      await expect(
+        runFeatureRemoval(
+          { name: 'billing', dryRun: false, force: false },
+          tempDir,
+          undefined,
+          fakeGitChecker,
+        ),
+      ).rejects.toThrow(
+        'Refusing to remove feature because target paths have uncommitted modifications',
+      );
+    });
+
+    it('runFeatureRemoval fails closed if git checker throws', async () => {
+      const brokenGitChecker = async () => {
+        throw new Error('Git command failed');
+      };
+
+      await expect(
+        runFeatureRemoval(
+          { name: 'billing', dryRun: false, force: false },
+          tempDir,
+          undefined,
+          brokenGitChecker,
+        ),
+      ).rejects.toThrow('Git command failed');
     });
 
     it('runFeatureRemoval executes mutations cleanly when force=true or git is clean', async () => {
