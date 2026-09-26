@@ -34,6 +34,7 @@ npm run backendkit -- improve shadow --hypothesis <id>
 npm run backendkit -- risk classify --plan docs/exec-plans/active/<plan>.md
 npm run backendkit -- knowledge check
 npm run backendkit -- doctor
+npm run backendkit -- scaffold feature <name> [--tier simple|clean] [--with-queue] [--dry-run] [--force]
 ```
 
 ## Profiles
@@ -51,6 +52,8 @@ instead of copying their step lists.
 
 ## Ownership
 
+- `tools/backendkit/feature/` owns feature scaffolding, module unwiring, baseline
+  pruning, and feature teardown lifecycle orchestration.
 - `tools/backendkit/process-runner.ts` owns structured subprocess execution.
 - `tools/backendkit/verification/profile-registry.ts` owns profile composition.
 - `tools/backendkit/verification/run-profile.ts` owns fail-fast execution and

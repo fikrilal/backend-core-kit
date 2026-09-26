@@ -442,8 +442,11 @@ function parseScaffoldFeature(args: ReadonlyArray<string>): BackendkitCommand {
     }
 
     if (arg === '--name') {
+      if (name) {
+        throw new CliUsageError('Feature name is already specified');
+      }
       const value = args[i + 1];
-      if (!value || value.startsWith('--')) {
+      if (!value || value.startsWith('-')) {
         throw new CliUsageError('Missing value for --name');
       }
       name = value;
@@ -453,6 +456,9 @@ function parseScaffoldFeature(args: ReadonlyArray<string>): BackendkitCommand {
 
     if (arg === '--tier') {
       const value = args[i + 1];
+      if (!value || value.startsWith('-')) {
+        throw new CliUsageError('Missing value for --tier');
+      }
       if (value !== 'simple' && value !== 'clean') {
         throw new CliUsageError('--tier must be one of: simple, clean');
       }
@@ -476,7 +482,10 @@ function parseScaffoldFeature(args: ReadonlyArray<string>): BackendkitCommand {
       continue;
     }
 
-    if (!arg.startsWith('--') && !name) {
+    if (!arg.startsWith('-')) {
+      if (name) {
+        throw new CliUsageError(`Unexpected extra argument '${arg}'`);
+      }
       name = arg;
       continue;
     }

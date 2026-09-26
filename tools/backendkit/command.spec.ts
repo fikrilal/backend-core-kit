@@ -85,6 +85,23 @@ describe('backendkit command', () => {
     ).toEqual({ kind: 'handoff-dry-run', taskId: 'example-task', action: 'commit' });
     expect(
       parseBackendkitCommand([
+        'handoff',
+        'draft-pr',
+        '--task',
+        'example-task',
+        '--base',
+        'development',
+        '--title',
+        'Verified change',
+      ]),
+    ).toEqual({
+      kind: 'handoff-draft-pr',
+      taskId: 'example-task',
+      base: 'development',
+      title: 'Verified change',
+    });
+    expect(
+      parseBackendkitCommand([
         'scaffold',
         'feature',
         'orders',
@@ -126,6 +143,21 @@ describe('backendkit command', () => {
     expect(() =>
       parseBackendkitCommand(['scaffold', 'feature', '--tier', 'invalid', '--name', 'orders']),
     ).toThrow('--tier must be one of: simple, clean');
+    expect(() => parseBackendkitCommand(['scaffold', 'feature', '--tier'])).toThrow(
+      'Missing value for --tier',
+    );
+    expect(() => parseBackendkitCommand(['scaffold', 'feature', '--name'])).toThrow(
+      'Missing value for --name',
+    );
+    expect(() => parseBackendkitCommand(['scaffold', 'feature', '-x'])).toThrow(
+      "Unknown argument '-x'",
+    );
+    expect(() =>
+      parseBackendkitCommand(['scaffold', 'feature', 'orders', '--name', 'other']),
+    ).toThrow('Feature name is already specified');
+    expect(() =>
+      parseBackendkitCommand(['scaffold', 'feature', '--name', 'orders', 'extra']),
+    ).toThrow("Unexpected extra argument 'extra'");
     expect(() => parseBackendkitCommand(['scaffold', 'feature'])).toThrow(
       'Usage: backendkit scaffold feature <name>',
     );

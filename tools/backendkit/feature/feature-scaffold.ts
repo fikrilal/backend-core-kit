@@ -81,7 +81,7 @@ function buildQueueFiles(names: FeatureNames, options: { clean: boolean }): Scaf
   const jobsDir = options.clean ? join(base, 'infra', 'jobs') : join(base, 'jobs');
   const platformPrefix = options.clean ? '../../../../platform' : '../../../platform';
   const sharedPrefix = options.clean ? '../../../../shared' : '../../../shared';
-  const tokenImport = options.clean ? `../${names.kebab}.tokens` : `../${names.kebab}.tokens`;
+  const tokenImport = `../${names.kebab}.tokens`;
   const jobsClass = `${names.pascal}Jobs`;
   const queueNameConst = `${names.upperSnake}_QUEUE`;
   const queueJobConst = `${names.upperSnake}_SYNC_JOB`;

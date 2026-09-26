@@ -44,12 +44,12 @@ describe('feature-scaffold', () => {
       });
 
       const paths = files.map((f) => f.path);
-      expect(paths).toContain('libs/features/billing/billing.tokens.ts');
-      expect(paths).toContain('libs/features/billing/billing.dto.ts');
-      expect(paths).toContain('libs/features/billing/billing.controller.ts');
-      expect(paths).toContain('libs/features/billing/billing.service.ts');
-      expect(paths).toContain('libs/features/billing/billing.module.ts');
-      expect(paths).toContain('test/billing.e2e-spec.ts');
+      expect(paths).toContain(join('libs', 'features', 'billing', 'billing.tokens.ts'));
+      expect(paths).toContain(join('libs', 'features', 'billing', 'billing.dto.ts'));
+      expect(paths).toContain(join('libs', 'features', 'billing', 'billing.controller.ts'));
+      expect(paths).toContain(join('libs', 'features', 'billing', 'billing.service.ts'));
+      expect(paths).toContain(join('libs', 'features', 'billing', 'billing.module.ts'));
+      expect(paths).toContain(join('test', 'billing.e2e-spec.ts'));
       expect(paths.some((p) => p.includes('jobs'))).toBe(false);
     });
 
@@ -61,8 +61,8 @@ describe('feature-scaffold', () => {
       });
 
       const paths = files.map((f) => f.path);
-      expect(paths).toContain('libs/features/billing/jobs/billing.job.ts');
-      expect(paths).toContain('libs/features/billing/jobs/billing.jobs.ts');
+      expect(paths).toContain(join('libs', 'features', 'billing', 'jobs', 'billing.job.ts'));
+      expect(paths).toContain(join('libs', 'features', 'billing', 'jobs', 'billing.jobs.ts'));
     });
 
     it('builds clean architecture feature files when requested', () => {
@@ -73,17 +73,32 @@ describe('feature-scaffold', () => {
       });
 
       const paths = files.map((f) => f.path);
-      expect(paths).toContain('libs/features/payments/app/ports/payments.repository.ts');
-      expect(paths).toContain('libs/features/payments/app/payments.service.ts');
-      expect(paths).toContain('libs/features/payments/infra/payments.tokens.ts');
-      expect(paths).toContain('libs/features/payments/infra/http/dtos/payments.dto.ts');
-      expect(paths).toContain('libs/features/payments/infra/http/payments.controller.ts');
       expect(paths).toContain(
-        'libs/features/payments/infra/persistence/prisma-payments.repository.ts',
+        join('libs', 'features', 'payments', 'app', 'ports', 'payments.repository.ts'),
       );
-      expect(paths).toContain('libs/features/payments/infra/jobs/payments.job.ts');
-      expect(paths).toContain('libs/features/payments/infra/payments.module.ts');
-      expect(paths).toContain('test/payments.e2e-spec.ts');
+      expect(paths).toContain(join('libs', 'features', 'payments', 'app', 'payments.service.ts'));
+      expect(paths).toContain(join('libs', 'features', 'payments', 'infra', 'payments.tokens.ts'));
+      expect(paths).toContain(
+        join('libs', 'features', 'payments', 'infra', 'http', 'dtos', 'payments.dto.ts'),
+      );
+      expect(paths).toContain(
+        join('libs', 'features', 'payments', 'infra', 'http', 'payments.controller.ts'),
+      );
+      expect(paths).toContain(
+        join(
+          'libs',
+          'features',
+          'payments',
+          'infra',
+          'persistence',
+          'prisma-payments.repository.ts',
+        ),
+      );
+      expect(paths).toContain(
+        join('libs', 'features', 'payments', 'infra', 'jobs', 'payments.job.ts'),
+      );
+      expect(paths).toContain(join('libs', 'features', 'payments', 'infra', 'payments.module.ts'));
+      expect(paths).toContain(join('test', 'payments.e2e-spec.ts'));
     });
   });
 
