@@ -333,7 +333,7 @@ npm run backendkit -- scaffold feature <name> [--tier simple|clean] [--with-queu
 npm run backendkit -- remove feature <name> [--dry-run] [--yes] [--force-core] [--force]
 ```
 
-- Discovers and deletes feature directories under `libs/features/<name>` and test files under `test/<name>.e2e-spec.ts`.
+- Discovers and deletes feature directories under `libs/features/<name>`, feature-owned test specs under `test/` (exact names plus import-verified `<name>-*` specs), and import-verified worker jobs under `apps/worker/src/jobs/`.
 - Automatically unwires module imports and decorator entries from `apps/api/src/app.module.ts` and `apps/worker/src/worker.module.ts`.
 - Automatically prunes feature keys from duplication and architecture-smell baselines.
 - Protected core features (`auth`, `users`, `admin`) are blocked from removal unless `--force-core` is supplied.

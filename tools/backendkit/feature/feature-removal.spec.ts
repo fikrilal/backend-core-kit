@@ -92,6 +92,10 @@ describe('feature-removal', () => {
       await mkdir(join(tempDir, 'test'), { recursive: true });
       await writeFile(join(tempDir, 'test', 'billing.e2e-spec.ts'), '// e2e test');
       await writeFile(join(tempDir, 'test', 'billing.int-spec.ts'), '// int test');
+      await writeFile(
+        join(tempDir, 'test', 'billing-queue.int-spec.ts'),
+        "import { BillingModule } from '../libs/features/billing/billing.module';\nexport {};\n",
+      );
       await writeFile(join(tempDir, 'test', 'billing-email.e2e-spec.ts'), '// sibling test');
       await writeFile(join(tempDir, 'test', 'other.e2e-spec.ts'), '// other test');
 
@@ -99,6 +103,10 @@ describe('feature-removal', () => {
       await writeFile(
         join(tempDir, 'apps', 'worker', 'src', 'jobs', 'billing.worker.ts'),
         '// worker',
+      );
+      await writeFile(
+        join(tempDir, 'apps', 'worker', 'src', 'jobs', 'billing-account-deletion.worker.ts'),
+        "import { BillingModule } from '../../../../libs/features/billing/billing.module';\nexport class BillingAccountDeletionWorker {}\n",
       );
       await writeFile(
         join(tempDir, 'apps', 'worker', 'src', 'jobs', 'billing-v2.worker.ts'),
@@ -124,10 +132,12 @@ export class AppModule {}
         join(tempDir, 'apps', 'worker', 'src', 'worker.module.ts'),
         `import { Module } from '@nestjs/common';
 import { BillingWorker } from './jobs/billing.worker';
+import { BillingAccountDeletionWorker } from './jobs/billing-account-deletion.worker';
 
 @Module({
   providers: [
     BillingWorker,
+    BillingAccountDeletionWorker,
   ],
 })
 export class WorkerModule {}
@@ -162,8 +172,10 @@ export class WorkerModule {}
     it('discoverDeletablePaths finds all related feature paths and ignores others including sibling prefixes', async () => {
       const paths = await discoverDeletablePaths(tempDir, 'billing');
       expect(paths).toEqual([
+        join('apps', 'worker', 'src', 'jobs', 'billing-account-deletion.worker.ts'),
         join('apps', 'worker', 'src', 'jobs', 'billing.worker.ts'),
         join('libs', 'features', 'billing'),
+        join('test', 'billing-queue.int-spec.ts'),
         join('test', 'billing.e2e-spec.ts'),
         join('test', 'billing.int-spec.ts'),
       ]);
@@ -185,6 +197,22 @@ export class WorkerModule {}
       const paths = await discoverDeletablePaths(tempDir, 'billing');
       expect(paths).toContain(join('apps', 'worker', 'src', 'jobs', 'billing-extra.worker.ts'));
       expect(paths).not.toContain(join('apps', 'worker', 'src', 'jobs', 'billing-v2.worker.ts'));
+    });
+
+    it('discoverDeletablePaths matches hyphenated specs by feature imports', async () => {
+      await writeFile(
+        join(tempDir, 'test', 'billing-persistence.int-spec.ts'),
+        `import { BillingModule } from '../libs/features/billing/billing.module';`,
+      );
+      await writeFile(
+        join(tempDir, 'test', 'billing-v2.e2e-spec.ts'),
+        `import { BillingV2Module } from '../libs/features/billing-v2/billing-v2.module';`,
+      );
+
+      const paths = await discoverDeletablePaths(tempDir, 'billing');
+      expect(paths).toContain(join('test', 'billing-persistence.int-spec.ts'));
+      expect(paths).not.toContain(join('test', 'billing-v2.e2e-spec.ts'));
+      expect(paths).not.toContain(join('test', 'billing-email.e2e-spec.ts'));
     });
 
     it('planModifications detects all modifications without mutating disk', async () => {
@@ -212,7 +240,7 @@ export class WorkerModule {}
       });
 
       expect(report.dryRun).toBe(true);
-      expect(report.deletedPaths).toHaveLength(4);
+      expect(report.deletedPaths).toHaveLength(6);
       expect(report.modifiedPaths).toHaveLength(4);
       expect(report.prunedBaselineKeys).toBe(2);
       expect(output).toContain('Removal preview for feature "billing" [dry-run]:');
@@ -300,7 +328,16 @@ export class WorkerModule {}
         readFile(join(tempDir, 'test', 'billing.int-spec.ts'), 'utf8'),
       ).rejects.toThrow();
       await expect(
+        readFile(join(tempDir, 'test', 'billing-queue.int-spec.ts'), 'utf8'),
+      ).rejects.toThrow();
+      await expect(
         readFile(join(tempDir, 'apps', 'worker', 'src', 'jobs', 'billing.worker.ts'), 'utf8'),
+      ).rejects.toThrow();
+      await expect(
+        readFile(
+          join(tempDir, 'apps', 'worker', 'src', 'jobs', 'billing-account-deletion.worker.ts'),
+          'utf8',
+        ),
       ).rejects.toThrow();
       await expect(
         readFile(join(tempDir, 'libs', 'features', 'billing', 'billing.module.ts'), 'utf8'),
@@ -322,6 +359,7 @@ export class WorkerModule {}
         'utf8',
       );
       expect(workerSource).not.toContain('BillingWorker');
+      expect(workerSource).not.toContain('BillingAccountDeletionWorker');
 
       // 4. Baseline pruned
       const smellSource = await readFile(

@@ -99,6 +99,71 @@ async function pathExists(absPath: string): Promise<boolean> {
   }
 }
 
+async function discoverFeatureWorkerJobs(rootDir: string, featureKebab: string): Promise<string[]> {
+  const jobsDir = resolve(rootDir, 'apps', 'worker', 'src', 'jobs');
+  const owned: string[] = [];
+
+  try {
+    const entries = await readdir(jobsDir);
+    for (const entry of entries) {
+      const isExactOrDotMatch =
+        entry === `${featureKebab}.worker.ts` ||
+        entry === `${featureKebab}.worker.spec.ts` ||
+        entry === featureKebab ||
+        (entry.startsWith(`${featureKebab}.`) &&
+          (entry.endsWith('.worker.ts') || entry.endsWith('.worker.spec.ts')));
+
+      if (isExactOrDotMatch) {
+        owned.push(join('apps', 'worker', 'src', 'jobs', entry));
+        continue;
+      }
+
+      // Feature-prefixed worker jobs (e.g. users-account-deletion.worker.ts) belong
+      // to the feature only when they import libs/features/<name>/.
+      const isHyphenatedWorker =
+        entry.startsWith(`${featureKebab}-`) &&
+        (entry.endsWith('.worker.ts') || entry.endsWith('.worker.spec.ts'));
+
+      if (isHyphenatedWorker) {
+        try {
+          const content = await readFile(resolve(jobsDir, entry), 'utf8');
+          if (findFeatureImportedSymbols(content, featureKebab).length > 0) {
+            owned.push(join('apps', 'worker', 'src', 'jobs', entry));
+          }
+        } catch {
+          // Ignore read errors
+        }
+      }
+    }
+  } catch {
+    // If jobs directory does not exist or cannot be read, ignore
+  }
+
+  return owned;
+}
+
+async function collectFeatureWorkerSymbols(
+  rootDir: string,
+  featureKebab: string,
+): Promise<string[]> {
+  const symbols = new Set<string>();
+
+  for (const relPath of await discoverFeatureWorkerJobs(rootDir, featureKebab)) {
+    try {
+      const content = await readFile(resolve(rootDir, relPath), 'utf8');
+      for (const match of content.matchAll(
+        /export\s+(?:abstract\s+)?(?:class|(?:async\s+)?function|const|let|var)\s+([A-Za-z_$][\w$]*)/g,
+      )) {
+        symbols.add(match[1]);
+      }
+    } catch {
+      // Ignore unreadable worker files
+    }
+  }
+
+  return Array.from(symbols);
+}
+
 /**
  * Discovers paths targeted for deletion for the given feature.
  */
@@ -127,41 +192,21 @@ export async function discoverDeletablePaths(
           (entry.endsWith('.int-spec.ts') || entry.endsWith('.e2e-spec.ts')))
       ) {
         deletable.push(join('test', entry));
-      }
-    }
-  } catch {
-    // If test directory does not exist or cannot be read, ignore
-  }
-
-  // 3. Worker jobs: apps/worker/src/jobs/<name>*.worker.ts or jobs importing libs/features/<name>/
-  const jobsDir = resolve(rootDir, 'apps', 'worker', 'src', 'jobs');
-  try {
-    const entries = await readdir(jobsDir);
-    for (const entry of entries) {
-      const isExactOrDotMatch =
-        entry === `${featureKebab}.worker.ts` ||
-        entry === `${featureKebab}.worker.spec.ts` ||
-        entry === featureKebab ||
-        (entry.startsWith(`${featureKebab}.`) &&
-          (entry.endsWith('.worker.ts') || entry.endsWith('.worker.spec.ts')));
-
-      if (isExactOrDotMatch) {
-        deletable.push(join('apps', 'worker', 'src', 'jobs', entry));
         continue;
       }
 
-      // Also match feature-prefixed worker jobs (e.g. users-account-deletion.worker.ts)
-      // provided they actually import from libs/features/<name>/ to avoid deleting sibling features
-      const isHyphenatedWorker =
+      // Feature-prefixed specs (e.g. admin-last-admin.int-spec.ts) belong to the
+      // feature only when they import libs/features/<name>/, so sibling features
+      // sharing a name prefix are never claimed.
+      const isHyphenatedSpec =
         entry.startsWith(`${featureKebab}-`) &&
-        (entry.endsWith('.worker.ts') || entry.endsWith('.worker.spec.ts'));
+        (entry.endsWith('.int-spec.ts') || entry.endsWith('.e2e-spec.ts'));
 
-      if (isHyphenatedWorker) {
+      if (isHyphenatedSpec) {
         try {
-          const jobPath = resolve(jobsDir, entry);
-          const content = await readFile(jobPath, 'utf8');
+          const content = await readFile(resolve(testDir, entry), 'utf8');
           if (findFeatureImportedSymbols(content, featureKebab).length > 0) {
-            deletable.push(join('apps', 'worker', 'src', 'jobs', entry));
+            deletable.push(join('test', entry));
           }
         } catch {
           // Ignore read errors
@@ -169,8 +214,11 @@ export async function discoverDeletablePaths(
       }
     }
   } catch {
-    // If jobs directory does not exist or cannot be read, ignore
+    // If test directory does not exist or cannot be read, ignore
   }
+
+  // 3. Worker jobs owned by the feature (exact, dotted, or import-verified hyphenated)
+  deletable.push(...(await discoverFeatureWorkerJobs(rootDir, featureKebab)));
 
   return deletable.sort();
 }
@@ -212,9 +260,11 @@ export async function planModifications(
   try {
     const source = await readFile(workerModuleAbs, 'utf8');
     const importedSymbols = findFeatureImportedSymbols(source, featureKebab);
+    const workerSymbols = await collectFeatureWorkerSymbols(rootDir, featureKebab);
     const symbolsToUnwire = Array.from(
       new Set([
         ...importedSymbols,
+        ...workerSymbols,
         `${pascalName}Module`,
         `${pascalName}Worker`,
         `${pascalName}Jobs`,
