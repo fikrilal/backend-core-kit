@@ -57,7 +57,8 @@ export class IdempotencyInterceptor implements NestInterceptor<unknown, unknown>
               reply.header(k, v);
             }
           }
-          reply.status(record.status);
+          const replayStatus = record.status === 201 ? 200 : record.status;
+          reply.status(replayStatus);
           return of(record.hasBody ? record.body : undefined);
         };
 

@@ -234,7 +234,7 @@ describeMerchantOnboardingE2eSuite('Merchant Onboarding (e2e)', (harness) => {
       .set('Authorization', `Bearer ${accessToken}`)
       .set('Idempotency-Key', idempotencyKey)
       .send(payload)
-      .expect(201);
+      .expect(200);
 
     expect(replayed.headers['idempotency-replayed']).toBe('true');
     expect(replayed.body).toEqual(first.body);

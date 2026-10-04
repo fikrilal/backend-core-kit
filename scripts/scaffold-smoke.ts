@@ -125,9 +125,9 @@ async function main(): Promise<void> {
       `import { ${cleanModuleName} } from '../../../libs/features/${cleanFeatureName}/infra/${cleanFeatureName}.module';`,
     ].join('\n');
 
-    const arrayWiring = `MerchantOnboardingModule,\n    ${simpleModuleName},\n    ${cleanModuleName},`;
+    const arrayWiring = `AdminModule,\n    ${simpleModuleName},\n    ${cleanModuleName},`;
     let wiredAppModule = originalAppModule.replace('@Module({', `${importsToAdd}\n@Module({`);
-    wiredAppModule = wiredAppModule.replace('MerchantOnboardingModule,', arrayWiring);
+    wiredAppModule = wiredAppModule.replace('AdminModule,', arrayWiring);
     if (!wiredAppModule.includes(importsToAdd) || !wiredAppModule.includes(arrayWiring)) {
       throw new Error(
         'Failed to wire smoke feature modules into app.module.ts; wiring anchors may have changed',
