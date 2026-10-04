@@ -20,7 +20,7 @@ Use the smallest tier that fits:
 
 0. Scaffold the smallest useful slice (recommended)
 
-- Run `npm run scaffold:feature -- --name <feature-name>`.
+- Run `npm run backendkit -- scaffold feature <feature-name>` (or alias `npm run scaffold:feature <feature-name>`).
 - Use `--tier clean` only when the feature needs clean/hexagonal boundaries.
 - Optional: add queue skeleton with `--with-queue`.
 - Optional: preview without writing files via `--dry-run`.
@@ -28,10 +28,10 @@ Use the smallest tier that fits:
 Examples:
 
 ```bash
-npm run scaffold:feature -- --name user-preferences
-npm run scaffold:feature -- --name billing --tier clean
-npm run scaffold:feature -- --name user-preferences --with-queue
-npm run scaffold:feature -- --name reporting --dry-run
+npm run backendkit -- scaffold feature user-preferences
+npm run backendkit -- scaffold feature billing --tier clean
+npm run backendkit -- scaffold feature user-preferences --with-queue
+npm run backendkit -- scaffold feature reporting --dry-run
 ```
 
 The default scaffold creates a simple endpoint slice:

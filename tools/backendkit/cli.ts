@@ -1,9 +1,13 @@
+import { createInterface, type Interface } from 'node:readline';
 import { runBackendkitCli } from './command';
 import { CiClassificationService, writeCiClassification } from './ci/ci-classification';
 import { DiagnosticStore } from './evidence/diagnostics';
 import { HarnessDoctor } from './doctor/harness-doctor';
 import { EpisodeStore } from './evidence/episode';
 import { evidenceEligibility, readOperatingLedger } from './evidence/operating-ledger';
+import { runFeatureScaffold } from './feature/feature-scaffold';
+import { runFeatureRemoval } from './feature/feature-removal';
+import { confirmFeatureRemoval } from './feature/removal-confirmation';
 import { EventIntakeService, type EventIntakeResult } from './events/event-intake';
 import {
   HandoffService,
@@ -46,6 +50,43 @@ async function main(): Promise<void> {
   const ci = new CiClassificationService(root);
   const handoff = new HandoffService(root, { states });
   process.exitCode = await runBackendkitCli(process.argv.slice(2), {
+    scaffoldFeature: async (options) => {
+      await runFeatureScaffold(options, root, process.stdout);
+    },
+    removeFeature: async (options) => {
+      let rl: Interface | undefined;
+
+      const prompt = async (question: string): Promise<string> => {
+        rl ??= createInterface({ input: process.stdin, output: process.stdout });
+        const reader = rl;
+        return await new Promise<string>((resolve) => {
+          let settled = false;
+          const finish = (value: string): void => {
+            if (settled) return;
+            settled = true;
+            resolve(value);
+          };
+          reader.once('close', () => finish(''));
+          reader.question(question, finish);
+        });
+      };
+
+      try {
+        const decision = await confirmFeatureRemoval({
+          name: options.name,
+          dryRun: options.dryRun,
+          yes: options.yes,
+          interactive: process.stdin.isTTY === true,
+          prompt,
+        });
+        if (decision === 'aborted') {
+          throw new Error('Feature removal aborted by user. No changes were made.');
+        }
+        await runFeatureRemoval(options, root, process.stdout);
+      } finally {
+        rl?.close();
+      }
+    },
     runProfile: async (profile) => {
       await runVerificationProfile(profile);
     },

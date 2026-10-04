@@ -1,104 +1,40 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import type { TextOutput } from '../verification/run-profile';
 
-type ScaffoldTier = 'simple' | 'clean';
+export type ScaffoldTier = 'simple' | 'clean';
 
-type CliOptions = Readonly<{
+export type ScaffoldFeatureOptions = Readonly<{
   name: string;
-  tier: ScaffoldTier;
-  withQueue: boolean;
-  dryRun: boolean;
-  force: boolean;
+  tier?: ScaffoldTier;
+  withQueue?: boolean;
+  dryRun?: boolean;
+  force?: boolean;
 }>;
 
-type FeatureNames = Readonly<{
+export type FeatureNames = Readonly<{
   kebab: string;
   pascal: string;
   camel: string;
   upperSnake: string;
 }>;
 
-type ScaffoldFile = Readonly<{
+export type ScaffoldFile = Readonly<{
   path: string;
   content: string;
 }>;
 
-function usage(): string {
-  return [
-    'Usage: npm run scaffold:feature -- --name <feature-name> [--tier simple|clean] [--with-queue] [--dry-run] [--force]',
-    '',
-    'Options:',
-    '  --name <value>       Feature name (e.g. billing, user-preferences).',
-    '  --tier <value>       Scaffold tier: simple (default) or clean.',
-    '  --with-queue         Include queue job skeleton files.',
-    '  --dry-run            Print generated paths without writing files.',
-    '  --force              Overwrite existing files.',
-  ].join('\n');
-}
+export type ScaffoldFeatureResult = Readonly<{
+  featureName: string;
+  tier: ScaffoldTier;
+  withQueue: boolean;
+  dryRun: boolean;
+  files: ReadonlyArray<ScaffoldFile>;
+  modulePath: string;
+  nextSteps: ReadonlyArray<string>;
+}>;
 
-function parseTier(value: string): ScaffoldTier {
-  if (value === 'simple' || value === 'clean') return value;
-  throw new Error('--tier must be one of: simple, clean');
-}
-
-function parseArgs(argv: string[]): CliOptions {
-  let name: string | undefined;
-  let tier: ScaffoldTier = 'simple';
-  let withQueue = false;
-  let dryRun = false;
-  let force = false;
-
-  for (let i = 0; i < argv.length; i += 1) {
-    const arg = argv[i];
-
-    if (arg === '--name') {
-      const value = argv[i + 1];
-      if (!value || value.startsWith('--')) {
-        throw new Error('Missing value for --name');
-      }
-      name = value;
-      i += 1;
-      continue;
-    }
-
-    if (arg === '--tier') {
-      const value = argv[i + 1];
-      if (!value || value.startsWith('--')) {
-        throw new Error('Missing value for --tier');
-      }
-      tier = parseTier(value);
-      i += 1;
-      continue;
-    }
-
-    if (arg === '--with-queue') {
-      withQueue = true;
-      continue;
-    }
-
-    if (arg === '--dry-run') {
-      dryRun = true;
-      continue;
-    }
-
-    if (arg === '--force') {
-      force = true;
-      continue;
-    }
-
-    if (arg === '--help' || arg === '-h') {
-      throw new Error(usage());
-    }
-
-    throw new Error(`Unknown argument: ${arg}`);
-  }
-
-  if (!name) throw new Error('Missing required argument --name');
-
-  return { name, tier, withQueue, dryRun, force };
-}
-
-function normalizeFeatureName(raw: string): string {
+export function normalizeFeatureName(raw: string): string {
   const normalized = raw
     .trim()
     .replace(/[_\s]+/g, '-')
@@ -107,30 +43,32 @@ function normalizeFeatureName(raw: string): string {
     .replace(/^-|-$/g, '')
     .toLowerCase();
 
-  if (normalized.length === 0) {
-    throw new Error(`Invalid feature name: "${raw}"`);
+  if (normalized.length === 0 || !/^[a-z]/.test(normalized)) {
+    throw new Error(
+      `Feature name must start with a letter and be kebab-case (e.g. "billing" or "order-history"), got "${raw}"`,
+    );
   }
 
   return normalized;
 }
 
-function toPascalCase(kebab: string): string {
+export function toPascalCase(kebab: string): string {
   return kebab
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join('');
 }
 
-function toCamelCase(kebab: string): string {
+export function toCamelCase(kebab: string): string {
   const pascal = toPascalCase(kebab);
   return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }
 
-function toUpperSnake(kebab: string): string {
+export function toUpperSnake(kebab: string): string {
   return kebab.replace(/-/g, '_').toUpperCase();
 }
 
-function buildFeatureNames(inputName: string): FeatureNames {
+export function buildFeatureNames(inputName: string): FeatureNames {
   const kebab = normalizeFeatureName(inputName);
   return {
     kebab,
@@ -140,33 +78,12 @@ function buildFeatureNames(inputName: string): FeatureNames {
   };
 }
 
-function readIfExists(path: string): string | undefined {
-  try {
-    return readFileSync(path, 'utf8');
-  } catch {
-    return undefined;
-  }
-}
-
-function ensureDir(path: string): void {
-  mkdirSync(path, { recursive: true });
-}
-
-function writeScaffoldFile(path: string, content: string, force: boolean): void {
-  const existing = readIfExists(path);
-  if (existing !== undefined && !force) {
-    throw new Error(`File already exists: ${path} (pass --force to overwrite)`);
-  }
-  ensureDir(dirname(path));
-  writeFileSync(path, content, 'utf8');
-}
-
 function buildQueueFiles(names: FeatureNames, options: { clean: boolean }): ScaffoldFile[] {
   const base = join('libs', 'features', names.kebab);
   const jobsDir = options.clean ? join(base, 'infra', 'jobs') : join(base, 'jobs');
   const platformPrefix = options.clean ? '../../../../platform' : '../../../platform';
   const sharedPrefix = options.clean ? '../../../../shared' : '../../../shared';
-  const tokenImport = options.clean ? `../${names.kebab}.tokens` : `../${names.kebab}.tokens`;
+  const tokenImport = `../${names.kebab}.tokens`;
   const jobsClass = `${names.pascal}Jobs`;
   const queueNameConst = `${names.upperSnake}_QUEUE`;
   const queueJobConst = `${names.upperSnake}_SYNC_JOB`;
@@ -533,57 +450,80 @@ export class ${moduleClass} {}
   return files;
 }
 
-function buildFiles(options: Pick<CliOptions, 'name' | 'tier' | 'withQueue'>): ScaffoldFile[] {
+export function buildScaffoldFiles(options: {
+  name: string;
+  tier: ScaffoldTier;
+  withQueue: boolean;
+}): ScaffoldFile[] {
   const names = buildFeatureNames(options.name);
   if (options.tier === 'clean') return buildCleanFiles(names, options.withQueue);
   return buildSimpleFiles(names, options.withQueue);
 }
 
-function writeScaffoldFiles(
-  files: ScaffoldFile[],
-  options: Pick<CliOptions, 'dryRun' | 'force'>,
-): void {
+export async function runFeatureScaffold(
+  options: ScaffoldFeatureOptions,
+  rootDir: string = process.cwd(),
+  output?: TextOutput,
+): Promise<ScaffoldFeatureResult> {
+  const tier = options.tier ?? 'simple';
+  const withQueue = Boolean(options.withQueue);
+  const dryRun = Boolean(options.dryRun);
+  const force = Boolean(options.force);
+  const names = buildFeatureNames(options.name);
+
+  const files = buildScaffoldFiles({ name: names.kebab, tier, withQueue });
+
+  if (output) {
+    output.write(
+      `Scaffolding feature "${names.kebab}" (${tier})${withQueue ? ' with queue' : ''}${dryRun ? ' [dry-run]' : ''}\n`,
+    );
+  }
+
   for (const file of files) {
-    if (options.dryRun) {
-      process.stdout.write(`[dry-run] ${file.path}\n`);
+    const fullPath = resolve(rootDir, file.path);
+    if (dryRun) {
+      if (output) output.write(`[dry-run] ${file.path}\n`);
       continue;
     }
-    writeScaffoldFile(file.path, file.content, options.force);
-    process.stdout.write(`[created] ${file.path}\n`);
+
+    const fileExists = await readFile(fullPath)
+      .then(() => true)
+      .catch(() => false);
+
+    if (fileExists && !force) {
+      throw new Error(`File already exists: ${file.path} (pass --force to overwrite)`);
+    }
+
+    await mkdir(dirname(fullPath), { recursive: true });
+    await writeFile(fullPath, file.content, 'utf8');
+    if (output) output.write(`[created] ${file.path}\n`);
   }
-}
 
-function main(): void {
-  try {
-    const options = parseArgs(process.argv.slice(2));
-    const names = buildFeatureNames(options.name);
-    const files = buildFiles(options);
+  const modulePath =
+    tier === 'clean'
+      ? `libs/features/${names.kebab}/infra/${names.kebab}.module.ts`
+      : `libs/features/${names.kebab}/${names.kebab}.module.ts`;
 
-    process.stdout.write(
-      `Scaffolding feature "${names.kebab}" (${options.tier})${options.withQueue ? ' with queue' : ''}${options.dryRun ? ' [dry-run]' : ''}\n`,
-    );
+  const nextSteps = [
+    `add ${names.pascal}Module from ${modulePath} to apps/api/src/app.module.ts when exposing it`,
+    'replace TODO tests in generated spec files',
+  ];
 
-    writeScaffoldFiles(files, options);
-
-    if (options.dryRun) {
-      process.stdout.write('Dry-run completed. No files were written.\n');
+  if (output) {
+    if (dryRun) {
+      output.write('Dry-run completed. No files were written.\n');
     } else {
-      const modulePath =
-        options.tier === 'clean'
-          ? `libs/features/${names.kebab}/infra/${names.kebab}.module.ts`
-          : `libs/features/${names.kebab}/${names.kebab}.module.ts`;
-      process.stdout.write(
-        `Done. Next steps:\n- add ${names.pascal}Module from ${modulePath} to apps/api/src/app.module.ts when exposing it\n- replace TODO tests in generated spec files\n`,
-      );
+      output.write(`Done. Next steps:\n- ${nextSteps.join('\n- ')}\n`);
     }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`${message}\n`);
-    if (!message.includes('Usage:')) {
-      process.stderr.write(`${usage()}\n`);
-    }
-    process.exit(1);
   }
-}
 
-main();
+  return {
+    featureName: names.kebab,
+    tier,
+    withQueue,
+    dryRun,
+    files,
+    modulePath,
+    nextSteps,
+  };
+}

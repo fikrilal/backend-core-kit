@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { rm } from 'node:fs/promises';
+import { readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 type RunResult = Readonly<{
@@ -8,6 +8,22 @@ type RunResult = Readonly<{
   stdout: string;
   stderr: string;
 }>;
+
+function toPascalCase(kebab: string): string {
+  return kebab
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+}
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await stat(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function run(
   cmd: string,
@@ -75,6 +91,8 @@ async function main(): Promise<void> {
     resolve(process.cwd(), 'test', `${simpleFeatureName}.e2e-spec.ts`),
     resolve(process.cwd(), 'test', `${cleanFeatureName}.e2e-spec.ts`),
   ];
+  const appModulePath = resolve(process.cwd(), 'apps', 'api', 'src', 'app.module.ts');
+  const originalAppModule = await readFile(appModulePath, 'utf8');
 
   process.stdout.write(`[scaffold-smoke] simple=${simpleFeatureName} clean=${cleanFeatureName}\n`);
 
@@ -98,10 +116,68 @@ async function main(): Promise<void> {
       process.env,
       'scaffold clean feature',
     );
-    await runNpm(['run', 'lint'], process.env, 'lint');
-    await runNpm(['run', 'typecheck'], process.env, 'typecheck');
-    await runNpm(['run', 'deps:check'], process.env, 'deps:check');
+
+    const simpleModuleName = `${toPascalCase(simpleFeatureName)}Module`;
+    const cleanModuleName = `${toPascalCase(cleanFeatureName)}Module`;
+
+    const importsToAdd = [
+      `import { ${simpleModuleName} } from '../../../libs/features/${simpleFeatureName}/${simpleFeatureName}.module';`,
+      `import { ${cleanModuleName} } from '../../../libs/features/${cleanFeatureName}/infra/${cleanFeatureName}.module';`,
+    ].join('\n');
+
+    const arrayWiring = `AdminModule,\n    ${simpleModuleName},\n    ${cleanModuleName},`;
+    let wiredAppModule = originalAppModule.replace('@Module({', `${importsToAdd}\n@Module({`);
+    wiredAppModule = wiredAppModule.replace('AdminModule,', arrayWiring);
+    if (!wiredAppModule.includes(importsToAdd) || !wiredAppModule.includes(arrayWiring)) {
+      throw new Error(
+        'Failed to wire smoke feature modules into app.module.ts; wiring anchors may have changed',
+      );
+    }
+    await writeFile(appModulePath, wiredAppModule, 'utf8');
+
+    await runNpm(['run', 'lint'], process.env, 'lint (wired)');
+    await runNpm(['run', 'typecheck'], process.env, 'typecheck (wired)');
+    await runNpm(['run', 'deps:check'], process.env, 'deps:check (wired)');
+
+    await runNpm(
+      ['run', 'remove:feature', '--', simpleFeatureName, '--yes', '--force'],
+      process.env,
+      'remove simple feature',
+    );
+    await runNpm(
+      ['run', 'remove:feature', '--', cleanFeatureName, '--yes', '--force'],
+      process.env,
+      'remove clean feature',
+    );
+
+    for (const p of generatedPaths) {
+      if (await pathExists(p)) {
+        throw new Error(`Expected path to be deleted by feature removal: ${p}`);
+      }
+    }
+
+    const unwiredAppModule = await readFile(appModulePath, 'utf8');
+    if (
+      unwiredAppModule.includes(simpleModuleName) ||
+      unwiredAppModule.includes(cleanModuleName) ||
+      unwiredAppModule.includes(simpleFeatureName) ||
+      unwiredAppModule.includes(cleanFeatureName)
+    ) {
+      throw new Error('app.module.ts still contains references to removed feature modules');
+    }
+
+    await runNpm(['run', 'lint'], process.env, 'lint (unwired)');
+    await runNpm(['run', 'typecheck'], process.env, 'typecheck (unwired)');
+    await runNpm(['run', 'deps:check'], process.env, 'deps:check (unwired)');
   } finally {
+    try {
+      const current = await readFile(appModulePath, 'utf8');
+      if (current !== originalAppModule) {
+        await writeFile(appModulePath, originalAppModule, 'utf8');
+      }
+    } catch {
+      // ignore
+    }
     for (const path of generatedPaths) {
       await rm(path, { recursive: true, force: true });
     }

@@ -129,7 +129,7 @@ npm run audit:prod
 
 ### Scaffolding and gate honesty
 
-- `tools/scaffold-feature.ts`
+- `tools/backendkit/feature/feature-scaffold.ts`
 - `scripts/scaffold-smoke.ts`
 - `scripts/gates-honesty.ts`
 

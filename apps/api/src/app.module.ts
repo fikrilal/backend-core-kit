@@ -11,6 +11,7 @@ import { validateEnv } from '../../../libs/platform/config/env.validation';
 import { AuthModule } from '../../../libs/features/auth/auth.module';
 import { UsersModule } from '../../../libs/features/users/users.module';
 import { AdminModule } from '../../../libs/features/admin/admin.module';
+import { MerchantOnboardingModule } from '../../../libs/features/merchant-onboarding/merchant-onboarding.module';
 import { IdempotencyInterceptor } from '../../../libs/platform/http/idempotency/idempotency.interceptor';
 
 @Module({
@@ -23,6 +24,7 @@ import { IdempotencyInterceptor } from '../../../libs/platform/http/idempotency/
     AuthModule,
     UsersModule,
     AdminModule,
+    MerchantOnboardingModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },

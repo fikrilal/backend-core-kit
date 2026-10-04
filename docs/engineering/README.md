@@ -28,6 +28,8 @@ These documents are not “standards”. Standards live under `docs/standards/`.
 - Push
   - `docs/engineering/push/README.md`
   - `docs/engineering/push/fcm.md`
+- Merchant onboarding
+  - `docs/engineering/merchant-onboarding/implementation-handoff.md`
 - Agent workflow and harness
   - `docs/engineering/agent-pr-loop.md`
   - `docs/engineering/loop-engineering.md`

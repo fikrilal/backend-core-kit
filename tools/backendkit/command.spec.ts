@@ -100,12 +100,131 @@ describe('backendkit command', () => {
       base: 'development',
       title: 'Verified change',
     });
+    expect(
+      parseBackendkitCommand([
+        'scaffold',
+        'feature',
+        'orders',
+        '--tier',
+        'clean',
+        '--with-queue',
+        '--dry-run',
+      ]),
+    ).toEqual({
+      kind: 'scaffold-feature',
+      options: {
+        name: 'orders',
+        tier: 'clean',
+        withQueue: true,
+        dryRun: true,
+        force: false,
+      },
+    });
+    expect(parseBackendkitCommand(['scaffold', 'feature', '--name', 'orders', '--force'])).toEqual({
+      kind: 'scaffold-feature',
+      options: {
+        name: 'orders',
+        tier: 'simple',
+        withQueue: false,
+        dryRun: false,
+        force: true,
+      },
+    });
+    expect(parseBackendkitCommand(['remove', 'feature', 'billing'])).toEqual({
+      kind: 'remove-feature',
+      options: {
+        name: 'billing',
+        dryRun: false,
+        yes: false,
+        forceCore: false,
+        force: false,
+      },
+    });
+    expect(
+      parseBackendkitCommand([
+        'remove',
+        'feature',
+        '--name',
+        'orders',
+        '--dry-run',
+        '--yes',
+        '--force-core',
+        '--force',
+      ]),
+    ).toEqual({
+      kind: 'remove-feature',
+      options: {
+        name: 'orders',
+        dryRun: true,
+        yes: true,
+        forceCore: true,
+        force: true,
+      },
+    });
+    expect(parseBackendkitCommand(['remove', 'feature', 'billing', '-n', '-y'])).toEqual({
+      kind: 'remove-feature',
+      options: {
+        name: 'billing',
+        dryRun: true,
+        yes: true,
+        forceCore: false,
+        force: false,
+      },
+    });
   });
 
-  it('rejects unknown commands and profiles', () => {
+  it('rejects unknown commands, profiles, and invalid scaffold arguments', () => {
     expect(() => parseBackendkitCommand(['repair'])).toThrow("Unknown command 'repair'");
     expect(() => parseBackendkitCommand(['verify', '--profile', 'slow'])).toThrow(
       "Unknown verification profile 'slow'",
+    );
+    expect(() => parseBackendkitCommand(['scaffold', 'unknown'])).toThrow(
+      "Unknown scaffold subcommand 'unknown'",
+    );
+    expect(() =>
+      parseBackendkitCommand(['scaffold', 'feature', '--tier', 'invalid', '--name', 'orders']),
+    ).toThrow('--tier must be one of: simple, clean');
+    expect(() => parseBackendkitCommand(['scaffold', 'feature', '--tier'])).toThrow(
+      'Missing value for --tier',
+    );
+    expect(() => parseBackendkitCommand(['scaffold', 'feature', '--name'])).toThrow(
+      'Missing value for --name',
+    );
+    expect(() => parseBackendkitCommand(['scaffold', 'feature', '-x'])).toThrow(
+      "Unknown argument '-x'",
+    );
+    expect(() =>
+      parseBackendkitCommand(['scaffold', 'feature', 'orders', '--name', 'other']),
+    ).toThrow('Feature name is already specified');
+    expect(() =>
+      parseBackendkitCommand(['scaffold', 'feature', '--name', 'orders', 'extra']),
+    ).toThrow("Unexpected extra argument 'extra'");
+    expect(() => parseBackendkitCommand(['scaffold', 'feature'])).toThrow(
+      'Usage: backendkit scaffold feature <name>',
+    );
+    expect(() => parseBackendkitCommand(['remove'])).toThrow(
+      'Usage: backendkit remove feature <name> [--dry-run] [--yes] [--force-core] [--force]',
+    );
+    expect(() => parseBackendkitCommand(['remove', 'unknown'])).toThrow(
+      'Usage: backendkit remove feature <name> [--dry-run] [--yes] [--force-core] [--force]',
+    );
+    expect(() => parseBackendkitCommand(['remove', 'feature'])).toThrow(
+      'Usage: backendkit remove feature <name> [--dry-run] [--yes] [--force-core] [--force]',
+    );
+    expect(() => parseBackendkitCommand(['remove', 'feature', '--help'])).toThrow(
+      'Usage: backendkit remove feature <name> [--dry-run] [--yes] [--force-core] [--force]',
+    );
+    expect(() => parseBackendkitCommand(['remove', 'feature', '--name'])).toThrow(
+      'Missing value for --name',
+    );
+    expect(() =>
+      parseBackendkitCommand(['remove', 'feature', 'orders', '--name', 'other']),
+    ).toThrow('Feature name is already specified');
+    expect(() =>
+      parseBackendkitCommand(['remove', 'feature', '--name', 'orders', 'extra']),
+    ).toThrow("Unexpected extra argument 'extra'");
+    expect(() => parseBackendkitCommand(['remove', 'feature', '-x'])).toThrow(
+      "Unknown argument '-x'",
     );
   });
 
@@ -115,6 +234,8 @@ describe('backendkit command', () => {
     const stderr = new RecordingOutput();
 
     const exitCode = await runBackendkitCli(['verify', '--profile', 'full'], {
+      scaffoldFeature: async () => undefined,
+      removeFeature: async () => undefined,
       runProfile: async (profile) => {
         selected.push(profile);
       },
@@ -150,6 +271,8 @@ describe('backendkit command', () => {
     const stdout = new RecordingOutput();
     const stderr = new RecordingOutput();
     const dependencies = {
+      scaffoldFeature: async (): Promise<void> => undefined,
+      removeFeature: async (): Promise<void> => undefined,
       runProfile: async (): Promise<void> => undefined,
       beginTask: async (): Promise<void> => undefined,
       preflightTask: async (): Promise<void> => undefined,
@@ -202,5 +325,142 @@ describe('backendkit command', () => {
     expect(backendkitHelp()).toContain('evidence check');
     expect(backendkitHelp()).toContain('improve shadow');
     expect(backendkitHelp()).toContain('backendkit doctor');
+    expect(backendkitHelp()).toContain('backendkit scaffold feature');
+    expect(backendkitHelp()).toContain('backendkit remove feature');
+  });
+
+  it('runs scaffold feature and dispatches to handler', async () => {
+    const invoked: unknown[] = [];
+    const stdout = new RecordingOutput();
+    const stderr = new RecordingOutput();
+
+    const exitCode = await runBackendkitCli(
+      ['scaffold', 'feature', 'billing', '--tier', 'clean', '--with-queue', '--dry-run'],
+      {
+        scaffoldFeature: async (options) => {
+          invoked.push(options);
+        },
+        removeFeature: async () => undefined,
+        runProfile: async () => undefined,
+        beginTask: async () => undefined,
+        preflightTask: async () => undefined,
+        verifyTask: async () => undefined,
+        manageTaskWorkspace: async () => undefined,
+        runEventsOnce: async () => undefined,
+        runMaintenanceOnce: async () => undefined,
+        classifyCi: async () => undefined,
+        dryRunHandoff: async () => undefined,
+        commitHandoff: async () => undefined,
+        pushHandoff: async () => undefined,
+        draftPrHandoff: async () => undefined,
+        checkOracles: async () => undefined,
+        checkEvidence: async () => undefined,
+        checkImprovements: async () => undefined,
+        analyzeImprovements: async () => undefined,
+        shadowImprovement: async () => undefined,
+        classifyRisk: async () => undefined,
+        checkKnowledge: async () => undefined,
+        runDoctor: async () => undefined,
+        stdout,
+        stderr,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(invoked).toEqual([
+      {
+        name: 'billing',
+        tier: 'clean',
+        withQueue: true,
+        dryRun: true,
+        force: false,
+      },
+    ]);
+  });
+
+  it('runs remove feature and dispatches to handler', async () => {
+    const invoked: unknown[] = [];
+    const stdout = new RecordingOutput();
+    const stderr = new RecordingOutput();
+
+    const exitCode = await runBackendkitCli(
+      ['remove', 'feature', 'billing', '--dry-run', '--yes', '--force-core', '--force'],
+      {
+        scaffoldFeature: async () => undefined,
+        removeFeature: async (options) => {
+          invoked.push(options);
+        },
+        runProfile: async () => undefined,
+        beginTask: async () => undefined,
+        preflightTask: async () => undefined,
+        verifyTask: async () => undefined,
+        manageTaskWorkspace: async () => undefined,
+        runEventsOnce: async () => undefined,
+        runMaintenanceOnce: async () => undefined,
+        classifyCi: async () => undefined,
+        dryRunHandoff: async () => undefined,
+        commitHandoff: async () => undefined,
+        pushHandoff: async () => undefined,
+        draftPrHandoff: async () => undefined,
+        checkOracles: async () => undefined,
+        checkEvidence: async () => undefined,
+        checkImprovements: async () => undefined,
+        analyzeImprovements: async () => undefined,
+        shadowImprovement: async () => undefined,
+        classifyRisk: async () => undefined,
+        checkKnowledge: async () => undefined,
+        runDoctor: async () => undefined,
+        stdout,
+        stderr,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(invoked).toEqual([
+      {
+        name: 'billing',
+        dryRun: true,
+        yes: true,
+        forceCore: true,
+        force: true,
+      },
+    ]);
+  });
+
+  it('returns failure code when a removal handler aborts', async () => {
+    const stdout = new RecordingOutput();
+    const stderr = new RecordingOutput();
+
+    const exitCode = await runBackendkitCli(['remove', 'feature', 'billing'], {
+      scaffoldFeature: async () => undefined,
+      removeFeature: async () => {
+        throw new Error('Feature removal aborted by user. No changes were made.');
+      },
+      runProfile: async () => undefined,
+      beginTask: async () => undefined,
+      preflightTask: async () => undefined,
+      verifyTask: async () => undefined,
+      manageTaskWorkspace: async () => undefined,
+      runEventsOnce: async () => undefined,
+      runMaintenanceOnce: async () => undefined,
+      classifyCi: async () => undefined,
+      dryRunHandoff: async () => undefined,
+      commitHandoff: async () => undefined,
+      pushHandoff: async () => undefined,
+      draftPrHandoff: async () => undefined,
+      checkOracles: async () => undefined,
+      checkEvidence: async () => undefined,
+      checkImprovements: async () => undefined,
+      analyzeImprovements: async () => undefined,
+      shadowImprovement: async () => undefined,
+      classifyRisk: async () => undefined,
+      checkKnowledge: async () => undefined,
+      runDoctor: async () => undefined,
+      stdout,
+      stderr,
+    });
+
+    expect(exitCode).toBe(1);
+    expect(stderr.value).toContain('backendkit: Feature removal aborted by user.');
   });
 });
